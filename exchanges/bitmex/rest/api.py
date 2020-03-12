@@ -1,0 +1,2 @@
+class BitmexRestAPI(object):
+    pass
