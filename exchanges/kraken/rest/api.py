@@ -78,6 +78,13 @@ class KrakenRestAPI(BaseRestAPI):
 
 
     def _load_all_env_keys(self):
+        """ Loads all keys from env file into cls.env_keys_dq 
+
+        Notes:
+            In .env file, keys should contain :
+                API Key : <exchange-name> & "key"
+                API Secret : <exchange-name> & "secret" 
+        """
         try:
             env_list_of_tuples = []
             env_dict = list(dict(os.environ).items())
@@ -303,7 +310,7 @@ class KrakenRestAPI(BaseRestAPI):
 
 
     async def get_raw_ohlc(self, pair: list, timeframe: int, since: int=None, retries=0) -> dict:
-        """ Returns OHLC info
+        """ Returns raw OHLC data (not checked against our data models)
 
         Args:
             pair (list) : list containing single request pair 
@@ -343,15 +350,16 @@ class KrakenRestAPI(BaseRestAPI):
 
     
     async def get_raw_orderbook(self, pair: list, count: int=None, retries: int=0) -> dict:
-        """
+        """Return raw Orderbook data (not checked against our data models)
         Args:
-            pair = asset pair to get market depth for
-            count = maximum number of asks/bids (optional
+            pair (list) : asset pair to get market depth for
+            count (int) : maximum number of asks/bids (optional)
+            retries (int): number of request retry attempts
         
         Returns:
-            dict : {asks, bids}
-                asks/bids = pandas.DataFrame
-                columns : [price, volume, timestamp] 
+            dict : 
+                "ask"
+                "bids"
         """
 
         data = {"pair": pair, "count": count}
@@ -386,10 +394,9 @@ class KrakenRestAPI(BaseRestAPI):
             since (int): return trade data since given id (optional.  exclusive)
 
         Returns:
-            pd.DataFrame
-            index :
-            columns : ["price", "volume", "time", "side", "type", "misc"]
-
+            dict : keys
+                "data"
+                "last"
         """
 
         data = {"pair": pair, "since": since}
@@ -422,11 +429,9 @@ class KrakenRestAPI(BaseRestAPI):
             since (int): return spread data since given id (optional.  inclusive)
 
         Returns:
-            dict : {df, last}
-                df : pandas.DataFrame
-                index : 
-                columns : [time, bid, ask] 
-                last : id to be used as since when polling for new spread data
+            dict : keys 
+                "data"
+                "last"
         """
 
         data = {"pair": pair, "since": since}
@@ -464,7 +469,7 @@ class KrakenRestAPI(BaseRestAPI):
             retries (int):
 
         Returns:
-            dictionary
+            dictionary : format
             {<asset name> : <balance amount>}
         """
 

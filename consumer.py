@@ -1,4 +1,4 @@
-from data_producer.private_consumer import KrakenPrivateFeedConsumer
+from processor.private_consumer import KrakenPrivateFeedConsumer
 
 if __name__ == "__main__":
 

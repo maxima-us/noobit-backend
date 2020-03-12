@@ -12,6 +12,23 @@ from models.data_models.api import Ticker, Ohlc, Orderbook, Trades, Spread, Acco
 
 
 class BaseRestAPI(ABC):
+    """Abstract Baseclass for Rest APIs
+
+    Notes : 
+
+        Example Init for Kraken:
+            self.exchange = "Kraken"
+            self.base_url = mapping[self.exchange]["base_url"]
+            self.public_endpoint = mapping[self.exchange]["public_endpoint"]
+            self.private_endpoint = mapping[self.exchange]["private_endpoint"]
+            self.public_methods = mapping[self.exchange]["public_methods"]
+            self.private_methods = mapping[self.exchange]["private_methods"]
+            self.session = settings.SESSION
+            self.response = None
+            self._json_options = {}
+            self._load_all_env_keys()
+            self.normalize = self._load_normalize_map()
+    """
     
 
     def json_options(self, **kwargs):
@@ -41,6 +58,12 @@ class BaseRestAPI(ABC):
     @abstractmethod
     def _load_all_env_keys(self):
         '''load all API keys from env file into a deque
+        
+        Notes:
+        
+            In .env file, keys should contain :
+                API Key : <exchange-name> & "key"
+                API Secret : <exchange-name> & "secret" 
         '''
         raise NotImplementedError
 
@@ -101,7 +124,7 @@ class BaseRestAPI(ABC):
 
     @abstractmethod
     def _load_normalize_map(self):
-        '''instantiate instance variable self.pair_map as dict
+        '''instantiate instance variable self.pair_map as dict\t
         Has to map both pairs and assets/currencies
 
         keys : exchange format
@@ -291,10 +314,33 @@ class BaseRestAPI(ABC):
     
     @abstractmethod
     async def get_raw_ticker(self, *args, **kwargs) -> dict:
+        """Returns raw (not checked against our models) ticker data for given pairs
+
+        Args:
+            pair (list) : list of requested pairs
+                input format : ["XBT-USD", "ETH-USD"]
+                must be passed as list even if single pair
+            retries (int): number of request retry attempts
+    
+        Returns:
+            dict that must follow models.orm.Ticker data model
+        """
         raise NotImplementedError
 
 
-    async def get_ticker(self, pair: list, retries: int=0):
+    async def get_ticker(self, pair: list, retries: int=0) -> dict:
+        """Returns checked ticker data for given pairs
+
+        Args:
+            pair (list) : list of requested pairs
+                input format : ["XBT-USD", "ETH-USD"]
+                must be passed as list even if single pair
+            retries (int): number of request retry attempts
+    
+        Returns:
+            models.orm.Ticker.dict()
+        """
+
         data = await self.get_raw_ticker(pair, retries)
         try: 
             ticker = Ticker(data=data)
@@ -303,10 +349,30 @@ class BaseRestAPI(ABC):
             logging.warning("Please check that your get_raw_ticker method returns the correct type")
             logging.error(e)
 
+
+    async def get_ticker_as_pandas(self, pair: list, retries: int=0):
+        """Returns checked ticker data for given pairs as pandas df
+        """
+        pass
     
 
     @abstractmethod
-    async def get_raw_ohlc(self, *args, **kwargs) -> list:
+    async def get_raw_ohlc(self, *args, **kwargs) -> dict:
+        """ Returns OHLC info
+
+        Args:
+            pair (list) : list containing single request pair 
+            timeframe (int) : candle timeframe in minutes
+                possible values : 1 (default), 5, 15, 30, 60, 240, 1440, 10080, 21600
+            since : return committed OHLC data since given id (optional)
+            retries (int): number of request retry attempts
+
+
+        Returns:
+            dict 
+                "data" must follow models.data.Ohlc.data model
+                "last" must follow models.orm.Ohlc.last model
+        """
         raise NotImplementedError
 
 
@@ -318,6 +384,12 @@ class BaseRestAPI(ABC):
         except ValidationError as e:
             logging.warning("Please check that your get_raw_ohlc method returns the correct type")
             logging.error(e)
+
+
+    async def get_ohlc_as_pandas(self, pair: list, timeframe: int, since: int=None, retries: int=0):
+        """return as pandas df
+        """
+        pass
 
 
     @abstractmethod

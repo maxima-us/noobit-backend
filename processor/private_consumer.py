@@ -19,7 +19,7 @@ class KrakenPrivateFeedConsumer:
 
     def __init__(self, sub_map: dict=None):
         """
-        Sub Map keys are how we want to nae the channel, value is the channel/pattern to subscribe to 
+        Sub Map keys are how we want to name the channel, value is the channel/pattern to subscribe to 
         """
         self.redis = None
         if sub_map is None:
