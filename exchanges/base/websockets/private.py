@@ -1,3 +1,4 @@
+from models.data_models.api import OpenOrders
 import os
 import signal,sys,time                          
 import asyncio
@@ -12,15 +13,19 @@ import aioredis
 import ujson
 import stackprinter
 from collections import deque
+from pydantic import ValidationError
+
+from models.data_models.websockets import HeartBeat, SubscriptionStatus
+from models.data_models.websockets import HeartBeat
+from models.data_models.websockets import SystemStatus
+from models.data_models.websockets import OpenOrders, OwnTrades
 
 
-public_ws_url = "wss://ws.kraken.com"
-private_ws_url = "wss://ws-auth.kraken.com"
-
-HANDLED_SIGNALS = (
-    signal.SIGINT,  # Unix signal 2. Sent by Ctrl+C.
-    signal.SIGTERM,  # Unix signal 15. Sent by `kill <pid>`.
-)
+# needs to be named exactly as the channel name from the exchange 
+# TODO think about how this could work to orchestrate different exchanges
+data_models_map = {"openOrders": OpenOrders,
+                   "ownTrades": OwnTrades,
+                  }
 
 # ================================================================================
 # ================================================================================
@@ -116,14 +121,76 @@ class BasePrivateFeedReader(ABC):
         """
         try:
             msg = await self.ws.recv()
-            await self.msg_handler(msg, redis_pool)
+            self.msg_handler(msg, redis_pool)
         except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
+
+    
+    def publish_status(self, msg: str, redis_pool):
+        """message needs to be json loaded str, make sure we have the correct keys
+        """
+
+        channel = f"status:{self.exchange}"
+
+        try:
+            print(msg)
+            subscription_status = SubscriptionStatus(**msg)
+            redis_pool.publish(channel, ujson.dumps(subscription_status.dict()))
+
+        except ValidationError as e:
+            logging.error(e)
+
+
+    def publish_heartbeat(self, msg: str, redis_pool):
+        """message needs to be json loaded str, make sure we have the correct keys
+        """
+
+        channel = f"heartbeat:{self.exchange}"
+
+        try:
+            print(msg)
+            heartbeat = HeartBeat(**msg)
+            redis_pool.publish(channel, ujson.dumps(heartbeat.dict()))
+
+        except ValidationError as e:
+            logging.error(e)
+
+
+    def publish_systemstatus(self, msg: str, redis_pool):
+        """message needs to be json loadedy str, make sure we have the correct keys
+        """
+
+        channel = f"system:{self.exchange}"
+
+        try:
+            print(msg)
+            system_status = SystemStatus(**msg)
+            redis_pool.publish(channel, ujson.dumps(system_status.dict()))
+
+        except ValidationError as e:
+            logging.error(e)
+
+
+    def publish_data(self, data: dict, feed: str, redis_pool):
+        """message needs to be json loadedy str, make sure we have the correct keys
+        """
+
+        channel = f"data:{self.exchange}:{feed}"
+
+        try:
+            #!  how to we know which model we need to load ? should we use a mapping again ?
+            #!  we could try to look up <feed> key in a model mapping defined in data_models.websockets ?
+            ws_data = data_models_map[feed](data=data, channel_name=feed)
+            redis_pool.publish(channel, ujson.dumps(ws_data.dict()))
+
+        except ValidationError as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
 
 
     @abstractmethod
-    async def msg_handler(self, msg, redis_pool):
+    def msg_handler(self, msg, redis_pool):
         raise NotImplementedError
+
     
 
 

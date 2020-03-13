@@ -97,7 +97,6 @@ class FeedHandler(object):
             # if we don't sleep this blocks for some reason
             await asyncio.sleep(1)
             should_exit = await self.on_tick(counter)
-            print(f"main loop {counter}")
 
 
     def run(self):

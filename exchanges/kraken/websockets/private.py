@@ -44,6 +44,7 @@ class KrakenPrivateFeedReader(BasePrivateFeedReader):
                        ws_uri: str="wss://ws-auth.kraken.com",
                        ):
 
+        self.exchange = "kraken"
         self.ws_uri = ws_uri
         self.feeds = feeds
         self.api = rest_api_map["kraken"]()
@@ -78,22 +79,35 @@ class KrakenPrivateFeedReader(BasePrivateFeedReader):
         print(self.ws)
     
 
-    async def msg_handler(self, msg, redis_pool):
+    def msg_handler(self, msg, redis_pool):
 
-        if "subscription" in msg:
-            # msg = ujson.loads(msg)
-            redis_pool.publish("status", msg)
+        if "systemStatus" in msg:
+            msg = ujson.loads(msg)
+            # We need to replace keys so they correspond to our datamodel
+            msg["connection_id"] = msg.pop("connectionID")
+            self.publish_systemstatus(msg, redis_pool)
 
-        elif "event" in msg:
-            # msg = ujson.loads(msg)
-            redis_pool.publish("events", msg)
+        elif "subscription" in msg:
+            msg = ujson.loads(msg)
+            # We need to replace keys so they correspond to our datamodel
+            msg["channel_name"] = msg.pop("channelName")
+            #redis_pool.publish("status", msg)
+            self.publish_status(msg, redis_pool)
+            # call some method from base class instead, that method will then check the type
+
+        elif "heartbeat" in msg:
+            msg = ujson.loads(msg)
+            # redis_pool.publish("events", msg)
+            self.publish_heartbeat(msg, redis_pool)
         
         else : 
             msg = ujson.loads(msg)
             data = msg[0]
             feed = msg[1]
-            redis_pool.publish(f"data:{feed}", ujson.dumps(data))
+            # redis_pool.publish(f"data:{feed}", ujson.dumps(data))
+            self.publish_data(data, feed, redis_pool)
 
+    
 
 # ================================================================================
 # ==== Run file

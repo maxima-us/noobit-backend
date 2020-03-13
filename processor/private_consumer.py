@@ -23,11 +23,10 @@ class KrakenPrivateFeedConsumer:
         """
         self.redis = None
         if sub_map is None:
-            self.sub_map = {"events": "events", "status": "status", "data": "data:*"}
+            self.sub_map = {"events": "hearbeat:*", "status": "status:*", "data": "data:*", "system": "system:*"}
         else:
             self.sub_map = sub_map
         self.subd_channels = {}
-        self.aeiters_map = {}
         self.terminate = False
 
 
@@ -41,7 +40,6 @@ class KrakenPrivateFeedConsumer:
                 # subscribe/psub always return a list
                 self.subd_channels[key] = res[0]
                 assert isinstance(self.subd_channels[key], aioredis.Channel)
-                self.aeiters_map[key] = res[0].iter()
 
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
@@ -68,12 +66,11 @@ class KrakenPrivateFeedConsumer:
     async def on_tick(self, counter: int):
 
 
+        await self.consume_from_channel(self.subd_channels["status"])
         await self.consume_from_channel(self.subd_channels["events"])
         await self.consume_from_channel(self.subd_channels["data"])
-        print(f"on tick {counter}")
+        await self.consume_from_channel(self.subd_channels["system"])
 
-        print(self.terminate)
-        
         if self.terminate:
             return True
         return False
@@ -89,7 +86,6 @@ class KrakenPrivateFeedConsumer:
             counter = counter % 864000
             await asyncio.sleep(1)
             should_exit = await self.on_tick(counter)
-            print(f"main loop {counter}")
 
 
     async def serve(self):

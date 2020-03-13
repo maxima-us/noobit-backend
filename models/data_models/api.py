@@ -2,8 +2,8 @@ from typing import List, Any, Dict, Tuple, Optional, Union
 from typing_extensions import Literal
 from datetime import date
 from enum import Enum
-from pydantic import BaseModel
 from decimal import Decimal
+from pydantic import BaseModel
 
 
 
@@ -11,13 +11,13 @@ from decimal import Decimal
 # ====== DATA
 
 class Timestamp(BaseModel):
-    data = Decimal
+    data : Decimal
 
 class Price(BaseModel):
-    data = Decimal
+    data : Decimal
 
 class Volume(BaseModel):
-    data = Decimal
+    data : Decimal
 
 
 
