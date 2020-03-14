@@ -4,7 +4,7 @@
 
 **API Server** :   
 Based on Uvicorn and FastAPI  
-Accessible from the browser, based on OpenAPI (accessible at localhost:8000/docs)  
+OpenAPI interface accessible at localhost:8000/docs  
 Interfaces with sqlite db via Tortoise ORM  
 Listens to redis channels to automatically update db  
 
