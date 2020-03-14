@@ -6,7 +6,7 @@ from typing import List
 
 from server.views import APIRouter, Query, HTMLResponse, UJSONResponse
 from exchanges.kraken.utils.pairs import kraken_pairs
-from exchanges import rest_api_map
+from exchanges.mappings import rest_api_map
 
 
 router = APIRouter()

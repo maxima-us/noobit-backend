@@ -89,16 +89,21 @@ def print_version(ctx, param, value):
 # =========================================================================================
 # added import necessary for bot 
 
-import json
+
+import ujson
 import websockets
+import aioredis
 from server import settings                                    
 from server.startup.balance import startup_balances
 from server.shutdown.balance import shutdown_balances
 from server.startup.monit import startup_monit
 from server.monitor.heartbeat import Heartbeat
+from .redis_sub import FeedConsumer
 
 # this needs to be replaced
-from exchanges import rest_api_map
+from exchanges.mappings import rest_api_map
+
+
 
 def run(app, **kwargs):
 
@@ -162,6 +167,7 @@ class Server:
         self.open_websockets = {}
         self.private_ws = None
         self.public_ws = None
+        self.redis_sub = None
 
 
     #! this is the part we need to replace in backend.main
@@ -311,6 +317,9 @@ class Server:
         # con_status = await self.private_ws.connect_to_ws()
         # sub_status = await self.private_ws.subscribe()
 
+        self.redis_sub = FeedConsumer()
+        await self.redis_sub.subscribe()
+
 
         #! also check balances at shutdown
 
@@ -455,6 +464,12 @@ class Server:
         #                         second=dt.second,
         #                         microsecond=dt.microsecond
         #                         )
+        
+        #consume ws messages
+        await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["status"])
+        await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["events"])
+        await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["data"])
+        await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["system"])
         
 
         # Update the default headers, once per second.

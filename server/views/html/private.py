@@ -7,7 +7,7 @@ from typing import List
 import pandas as pd
 
 from server.views import APIRouter, Query, HTMLResponse, UJSONResponse
-from exchanges import rest_api_map
+from exchanges.mappings import rest_api_map
 
 router = APIRouter()
 

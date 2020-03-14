@@ -14,6 +14,10 @@ from models.data_models.api import TickerItem
 
 
 class SubscriptionStatus(BaseModel):
+    """
+    kraken : https://docs.kraken.com/websockets/#message-subscriptionStatus
+    """
+
     channel_id : Optional[int]=None
     error_msg : Optional[str]=None
     channel_name : str
@@ -25,6 +29,9 @@ class SubscriptionStatus(BaseModel):
 
 
 class SystemStatus(BaseModel):
+    """
+    kraken : https://docs.kraken.com/websockets/#message-systemStatus
+    """
     connection_id : int
     event : str
     status : str
@@ -39,7 +46,10 @@ class SystemStatus(BaseModel):
 
 
 class HeartBeat(BaseModel):
-
+    """
+    kraken : https://docs.kraken.com/websockets/#message-heartbeat
+    """
+    
     event: Literal["heartbeat"]
 
 
@@ -51,6 +61,9 @@ class HeartBeat(BaseModel):
 
 
 class OpenOrdersItem(TypedDict):
+    """
+    kraken : https://docs.kraken.com/websockets/#message-openOrders
+    """
 
     refid : str
     userref : str
@@ -73,6 +86,9 @@ class OpenOrdersItem(TypedDict):
 
 
 class OpenOrders(BaseModel):
+    """
+    kraken : https://docs.kraken.com/websockets/#message-openOrders
+    """
 
     data : List[Dict[str, OpenOrdersItem]]
     channel_name : str
@@ -80,6 +96,9 @@ class OpenOrders(BaseModel):
 
 
 class OwnTradesItem(TypedDict):
+    """
+    kraken : https://docs.kraken.com/websockets/#message-ownTrades
+    """
 
     ordertxid : str
     posttxid : str
@@ -94,6 +113,9 @@ class OwnTradesItem(TypedDict):
 
 
 class OwnTrades(BaseModel):
+    """
+    kraken : https://docs.kraken.com/websockets/#message-ownTrades
+    """
 
     data : List[Dict[str, OwnTradesItem]]
     channel_name : str

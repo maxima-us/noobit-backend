@@ -15,9 +15,7 @@ import stackprinter
 from collections import deque
 from pydantic import ValidationError
 
-from models.data_models.websockets import HeartBeat, SubscriptionStatus
-from models.data_models.websockets import HeartBeat
-from models.data_models.websockets import SystemStatus
+from models.data_models.websockets import HeartBeat, SubscriptionStatus, SystemStatus
 from models.data_models.websockets import OpenOrders, OwnTrades
 
 
@@ -62,52 +60,6 @@ class BasePrivateFeedReader(ABC):
     """
 
 
-    # ==> MAIN PROCESSOR HAS TO SERVE, EVENTUALLY HAS TO BE ABLE TO SERVE MULTIPLE FEEDREADERS
-
-    # async def serve(self, ping_interval: int=60, ping_timeout: int=30):
-
-    #     process_id = os.getpid()
-    #     print(f"Started process {process_id}")
-    #     self.install_signal_handlers()
-
-
-    #     self.redis = await aioredis.create_redis_pool('redis://localhost')
-    #     await self.subscribe(ping_interval, ping_timeout) 
-
-    #     while not self.terminate:
-    #         await self.process_feed()
-
-    #     print("Shutting down")
-    #     print("Closing redis")
-    #     self.redis.close()
-    #     await self.redis.wait_closed()
-    #     print("Closing websocket connection")
-    #     await self.ws.close()
-    #     print("Shutdown complete")
-
-
-    # ==> THIS IS PROBABLY TOO SPECIFIC TO EACH EXCHANGE
-
-    # async def subscribe(self, ping_interval: int, ping_timeout: int):
-
-    #     self.ws = await websockets.connect(uri=self.ws_uri,
-    #                                        ping_interval=ping_interval,
-    #                                        ping_timeout=ping_timeout
-    #                                        )
-
-    #     ws_token = await self.api.get_websocket_auth_token()
-
-
-    #     for feed in self.feeds:
-    #         try:
-    #             data = {"event": "subscribe", "subscription": {"name": feed, "token": ws_token['token']}}
-    #             payload = ujson.dumps(data) 
-    #             await self.ws.send(payload)
-    #             await asyncio.sleep(0.1)
-            
-    #         except Exception as e:
-    #             logging.error(stackprinter.format(e, style="darkbg2"))
-
     @abstractmethod
     async def subscribe(self, ping_interval: int, ping_timeout: int):
         raise NotImplementedError
@@ -125,6 +77,7 @@ class BasePrivateFeedReader(ABC):
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
 
+
     
     def publish_status(self, msg: str, redis_pool):
         """message needs to be json loaded str, make sure we have the correct keys
@@ -139,6 +92,7 @@ class BasePrivateFeedReader(ABC):
 
         except ValidationError as e:
             logging.error(e)
+
 
 
     def publish_heartbeat(self, msg: str, redis_pool):
@@ -156,6 +110,7 @@ class BasePrivateFeedReader(ABC):
             logging.error(e)
 
 
+
     def publish_systemstatus(self, msg: str, redis_pool):
         """message needs to be json loadedy str, make sure we have the correct keys
         """
@@ -169,6 +124,7 @@ class BasePrivateFeedReader(ABC):
 
         except ValidationError as e:
             logging.error(e)
+
 
 
     def publish_data(self, data: dict, feed: str, redis_pool):
@@ -187,8 +143,11 @@ class BasePrivateFeedReader(ABC):
             logging.error(stackprinter.format(e, style="darkbg2"))
 
 
+
     @abstractmethod
     def msg_handler(self, msg, redis_pool):
+        """sort messages that we receive from websocket and send them to appropriate redis chan
+        """
         raise NotImplementedError
 
     

@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import List
 
 from server.views import APIRouter, Query, UJSONResponse
-from exchanges import rest_api_map
+from exchanges.mappings import rest_api_map
 
 
 router = APIRouter()

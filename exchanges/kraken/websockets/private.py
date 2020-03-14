@@ -13,39 +13,14 @@ from exchanges.mappings import rest_api_map
 from exchanges.base.websockets.private import BasePrivateFeedReader
 
 
-public_ws_url = "wss://ws.kraken.com"
-private_ws_url = "wss://ws-auth.kraken.com"
-
-HANDLED_SIGNALS = (
-    signal.SIGINT,  # Unix signal 2. Sent by Ctrl+C.
-    signal.SIGTERM,  # Unix signal 15. Sent by `kill <pid>`.
-)
-
-# ================================================================================
-# ================================================================================
-# ================================================================================
-# ================================================================================
-# ================================================================================
-# terminate = False                            
-
-# def signal_handling(signum,frame):           
-#     global terminate                         
-#     terminate = True                         
-
-# signal.signal(signal.SIGINT,signal_handling) 
-
-
-
 
 class KrakenPrivateFeedReader(BasePrivateFeedReader):
 
 
-    def __init__(self, feeds: list=["openOrders", "ownTrades"], 
-                       ws_uri: str="wss://ws-auth.kraken.com",
-                       ):
+    def __init__(self, feeds: list=["openOrders", "ownTrades"]):
 
         self.exchange = "kraken"
-        self.ws_uri = ws_uri
+        self.ws_uri = "wss://ws-auth.kraken.com"
         self.feeds = feeds
         self.api = rest_api_map["kraken"]()
         self.api.session = httpx.AsyncClient()
@@ -75,11 +50,24 @@ class KrakenPrivateFeedReader(BasePrivateFeedReader):
             except Exception as e:
                 logging.error(stackprinter.format(e, style="darkbg2"))
 
-
-        print(self.ws)
     
 
     def msg_handler(self, msg, redis_pool):
+        """sort messages that we receive from websocket and send them to appropriate redis chan
+
+        Args:
+            msg (str): message received from websocket
+            redis_pool (object): instance returned from aioredis.create_redis_pool
+
+
+        Notes :
+
+            redis channels :
+                system:exchange = status of websocket connection
+                status:exchange = status of feed subscription
+                heartbeat:exchange = heartbeat received every X secs
+                data:exchange:feed = public or private data from ws
+        """
 
         if "systemStatus" in msg:
             msg = ujson.loads(msg)

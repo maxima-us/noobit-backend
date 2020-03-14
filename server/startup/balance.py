@@ -18,7 +18,7 @@ from models.orm_models.balance import Balance
 from models.orm_models.exchange import Exchange
 
 
-from exchanges import rest_api_map
+from exchanges.mappings import rest_api_map
 from exchanges.base.rest.api import BaseRestAPI
 
 # need to make this dynamic too

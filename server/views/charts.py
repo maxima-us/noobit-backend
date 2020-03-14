@@ -6,7 +6,7 @@ import pandas as pd
 from starlette.responses import HTMLResponse, JSONResponse
 
 from server.views import APIRouter, Request, WebSocket, Response, templates
-from exchanges import rest_api_map
+from exchanges.mappings import rest_api_map
 
 
 router = APIRouter()

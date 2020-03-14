@@ -10,7 +10,7 @@ from typing import List
 
 from server.views import APIRouter, Query, UJSONResponse
 from models.orm_models import Order, Trade
-from exchanges import rest_api_map
+from exchanges.mappings import rest_api_map
 
 
 router = APIRouter()

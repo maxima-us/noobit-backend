@@ -1,5 +1,5 @@
-from typing import List, Any, Dict, Tuple, Optional, Union
-from typing_extensions import Literal
+from typing import Any, Dict, List, Optional, Tuple, Union
+from typing_extensions import Literal, TypedDict
 from datetime import date
 from enum import Enum
 from decimal import Decimal
@@ -214,8 +214,10 @@ class TradeBalance(BaseModel):
 # ====== Account Balance
 
 
-class OpenOrdersItem(BaseModel):
+class OpenOrdersItem(TypedDict):
     """
+    Result: array of order info in open array with txid as the key
+        
         refid = Referral order transaction id that created this order
         userref = user reference id
         status = status of order:
@@ -257,7 +259,7 @@ class OpenOrdersItem(BaseModel):
     """
     refid: str
     userref: str
-    status: Union["pending", "open", "closed", "canceled", "expired"]
+    status: Literal["pending", "open", "closed", "canceled", "expired"]
     opentm: Decimal
     starttm: Decimal
     expiretm: Decimal
@@ -275,4 +277,4 @@ class OpenOrdersItem(BaseModel):
 
 class OpenOrders(BaseModel):
     # tortoise ORM can not json serialize Decimal
-    data: Dict[str, OpenOrdersItem]
+    data: List[Dict[str, OpenOrdersItem]]
