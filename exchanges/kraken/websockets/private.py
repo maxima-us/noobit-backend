@@ -26,6 +26,7 @@ class KrakenPrivateFeedReader(BasePrivateFeedReader):
         self.api.session = httpx.AsyncClient()
         self.ws = None
         self.terminate = False
+        self.feed_counters = {}
     
     
     async def subscribe(self, ping_interval: int, ping_timeout: int):

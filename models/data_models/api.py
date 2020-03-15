@@ -10,14 +10,6 @@ from pydantic import BaseModel
 # ========================================
 # ====== DATA
 
-class Timestamp(BaseModel):
-    data : Decimal
-
-class Price(BaseModel):
-    data : Decimal
-
-class Volume(BaseModel):
-    data : Decimal
 
 
 
@@ -26,8 +18,8 @@ class Volume(BaseModel):
 # ====== TICKER
 
 
-class TickerItem(BaseModel):
-    """Ticker Model
+class TickerItem(TypedDict):
+    """Ticker Data Model
     """
 
     ask: List[Decimal]
@@ -42,6 +34,13 @@ class TickerItem(BaseModel):
 
 
 class Ticker(BaseModel):
+    """Ticker Data Model
+
+    Args:
+        data (dict) : dictionary of format {pair:tickerinfo}
+            tickerinfo: TypedDict with keys:
+                ask, bid, open, high, low, close, volume, vwap, trades
+    """
     
     data: Dict[str, TickerItem]
 
@@ -55,30 +54,23 @@ class Ticker(BaseModel):
 # ====== OHLC
 
 
-class OhlcItem(BaseModel):
-    """
-    <time>, <open>, <high>, <low>, <close>, <vwap>, <volume>, <count>
-    """
-    time : Decimal
-    open: Decimal
-    high: Decimal
-    low: Decimal
-    close: Decimal
-    volume: Decimal 
-    vwap: Decimal = None
-    count: Decimal = None
+OhlcEntry = Tuple[Decimal, Decimal, Decimal, Decimal, Decimal, Optional[Decimal], Decimal, Optional[Decimal]]
 
 
 class Ohlc(BaseModel):
-    """
-    array of <time>, <open>, <high>, <low>, <close>, <vwap>, <volume>, <count>
-    vwap and count can be none
+    """OHLC Data Model
+
+    Args:
+        data (list) : array of <time>, <open>, <high>, <low>, <close>, <vwap>, <volume>, <count>
+            vwap and count are optional, can be none
+        last (Decimal) : id to be used as since when polling for new, committed OHLC data
     """
 
-    # data : List[OhlcItem]
-    # last : Decimal
+    data : List[OhlcEntry]
+    last : Decimal
 
-    data: List[Tuple[Decimal, Decimal, Decimal, Decimal, Decimal, Optional[Decimal], Decimal, Optional[Decimal]]] 
+    # data: List[Tuple[Decimal, Decimal, Decimal, Decimal, Decimal, Optional[Decimal], Decimal, Optional[Decimal]]] 
+    # last: Decimal
 
 
     class Config:
@@ -91,28 +83,21 @@ class Ohlc(BaseModel):
 # ====== Orderbook
 
 
-class OrderbookItem(BaseModel):
-    """
-    <price>, <volume>, <timestamp>
-    """
-    # data: Tuple[Price, Volume, Timestamp]
-    
-    # class Config:
-    #     arbitrary_types_allowed = True
-
-    price: Decimal
-    volume: Decimal
-    timestamp: Decimal
+OrderbookEntry = Tuple[Decimal, Decimal, Decimal]
 
 
 class Orderbook(BaseModel):
-    """
-    array of <price>, <volume>, <timestamp>
+    """OrderBook Data Model
+
+    Args:
+        asks (list) : array of <price>, <volume>, <timestamp>
+        bids (list) : array of <price>, <volume>, <timestamp>
     """
 
-    asks: List[Tuple[Decimal, Decimal, Decimal]]
-    bids: List[Tuple[Decimal, Decimal, Decimal]]
-    # bids: List[OrderbookItem]
+    # asks: List[Tuple[Decimal, Decimal, Decimal]]
+    # bids: List[Tuple[Decimal, Decimal, Decimal]]
+    asks: List[OrderbookEntry]
+    bids: List[OrderbookEntry]
 
     class Config:
         arbitrary_types_allowed = True
@@ -124,40 +109,22 @@ class Orderbook(BaseModel):
 # ====== Trades
 
 
-class TradesItem(BaseModel):
-    """
-    array of array entries
-    (<price>, <volume>, <time>, <buy/sell>, 
-    <market/limit>, <miscellaneous>)
-    """
-
-    price: Decimal
-    volume: Decimal
-    time: Decimal
-    side: str
-    type: str
-    misc: Any = None 
-
-
-class OrderSide(str, Enum):
-    buy: "b"
-    sell: "s"
-
-
-class OrderType(str, Enum):
-    market: "m"
-    limit: "l"
+# TradesEntry = Tuple[Decimal, Decimal, Decimal, str, str, Optional[Any]]
+TradesEntry = Tuple[Decimal, Decimal, Decimal, Literal["b", "s"], Literal["m", "l"], Optional[Any]]
 
 
 class Trades(BaseModel):
-    """
-    array of array entries
-    (<price>, <volume>, <time>, <buy/sell>, <market/limit>, <miscellaneous>)
+    """ Trades Data Model
+
+    Args:
+        data (list) : array of <price>, <volume>, <time>, <buy/sell>, <market/limit>, <miscellaneous>
+        last (Decimal) : id to be used as since when polling for new data
     """
 
-    # data = List[Tuple[Decimal, Decimal, Decimal, Literal["b", "s"], Literal["m", "l"], Optional[Any]]]
-    data = List[Tuple[Decimal, Decimal, Decimal, Any, Any, Optional[Any]]]
-    last = Decimal
+    # data = List[Tuple[Decimal, Decimal, Decimal, Literal["b", "s"], Literal["m", "l"]]]
+    # data = List[Tuple[Decimal, Decimal, Decimal, Any, Any, Optional[Any]]]
+    data : List[TradesEntry]
+    last : Decimal
 
     class Config:
         arbitrary_types_allowed = True
@@ -169,17 +136,17 @@ class Trades(BaseModel):
 # ====== Spread
 
 
-class SpreadItem(BaseModel):
-    """
-    array of array entries(<time>, <bid>, <ask>)
-    """
-    time: Decimal
-    bid: Decimal
-    ask: Decimal
+SpreadEntry = Tuple[Decimal, Decimal, Decimal]
 
 
 class Spread(BaseModel):
-    data: List[Tuple[Decimal, Decimal, Decimal]]
+    """Spread Data Model
+
+    Args:
+        data (list) : array of entries <time>, <bid>, <ask>
+        last (Decimal) : id to be used as since when polling for new data
+    """
+    data: List[SpreadEntry]
     last: Decimal
 
     class Config:
@@ -193,6 +160,12 @@ class Spread(BaseModel):
 
 
 class AccountBalance(BaseModel):
+    """Account Balance Data Model
+
+    Args:
+        data (dict) : format
+            <asset> : <balance>
+    """
     # tortoise ORM can not json serialize Decimal
     data: Dict[str, float]
 
@@ -203,9 +176,34 @@ class AccountBalance(BaseModel):
 # ====== Account Balance
 
 
+class TradeBalanceData(TypedDict):
+    equity_balance : float
+    trade_balance : float
+    positions_margin : float
+    positions_unrealized : float
+    positions_cost : float
+    positions_valuation : float
+    equity : float 
+    free_margin : float
+    margin_level : float
+
 class TradeBalance(BaseModel):
+    """Trade Balance Data Model
+
+    Args:
+        data (dict) : keys
+            equity_balance
+            trade_balance
+            positions_margin
+            positions_unrealized
+            positions_cost
+            positions_valuation
+            equity
+            free_margin
+            margin_level
+    """
     # tortoise ORM can not json serialize Decimal
-    data: Dict[str, float]
+    data: TradeBalanceData
 
 
 
@@ -268,13 +266,85 @@ class OpenOrdersItem(TypedDict):
     vol_exec: Decimal
     cost: Decimal
     fee: Decimal
-    price: Optional[Decimal]
-    stopprice: Optional[Decimal]
-    limitprice: Optional[Decimal]
-    misc: Any
+    price: Optional[Decimal]=None
+    stopprice: Optional[Decimal]=None
+    limitprice: Optional[Decimal]=None
+    misc: Optional[Any]=None
     oflags: Any
     trades: Any
 
 class OpenOrders(BaseModel):
     # tortoise ORM can not json serialize Decimal
-    data: List[Dict[str, OpenOrdersItem]]
+    data: Dict[str, OpenOrdersItem]
+
+
+
+class ClosedOrdersItem(TypedDict):
+    """
+    Result: array of order info in open array with txid as the key
+        
+        refid = Referral order transaction id that created this order
+        userref = user reference id
+        status = status of order:
+            pending = order pending book entry
+            open = open order
+            closed = closed order
+            canceled = order canceled
+            expired = order expired
+        opentm = unix timestamp of when order was placed
+        starttm = unix timestamp of order start time (or 0 if not set)
+        expiretm = unix timestamp of order end time (or 0 if not set)
+        descr = order description info
+            pair = asset pair
+            type = type of order (buy/sell)
+            ordertype = order type (See Add standard order)
+            price = primary price
+            price2 = secondary price
+            leverage = amount of leverage
+            order = order description
+            close = conditional close order description (if conditional close set)
+        vol = volume of order (base currency unless viqc set in oflags)
+        vol_exec = volume executed (base currency unless viqc set in oflags)
+        cost = total cost (quote currency unless unless viqc set in oflags)
+        fee = total fee (quote currency)
+        price = average price (quote currency unless viqc set in oflags)
+        stopprice = stop price (quote currency, for trailing stops)
+        limitprice = triggered limit price (quote currency, when limit based order type triggered)
+        misc = comma delimited list of miscellaneous info
+            stopped = triggered by stop price
+            touched = triggered by touch price
+            liquidated = liquidation
+            partial = partial fill
+        oflags = comma delimited list of order flags
+            viqc = volume in quote currency
+            fcib = prefer fee in base currency (default if selling)
+            fciq = prefer fee in quote currency (default if buying)
+            nompp = no market price protection
+        trades = array of trade ids related to order (if trades info requested and data available)
+
+        closetm = unix timestamp of when order was closed
+        reason = additional info on status (if any)
+    """
+    refid: str
+    userref: str
+    status: Literal["pending", "open", "closed", "canceled", "expired"]
+    opentm: Decimal
+    starttm: Decimal
+    expiretm: Decimal
+    descr: dict
+    vol: Decimal
+    vol_exec: Decimal
+    cost: Decimal
+    fee: Decimal
+    price: Optional[Decimal]=None
+    stopprice: Optional[Decimal]=None
+    limitprice: Optional[Decimal]=None
+    misc: Optional[Any]=None
+    oflags: Any
+    trades: Any
+    closetm: Decimal
+    reason: Optional[Any]=None
+
+class ClosedOrders(BaseModel):
+    # tortoise ORM can not json serialize Decimal
+    data: Dict[str, ClosedOrdersItem]

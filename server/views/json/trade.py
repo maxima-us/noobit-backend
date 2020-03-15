@@ -41,8 +41,8 @@ async def place_order(exchange: str,
 
     # no price = market order => we set order price to last close to calculate slippage later
     if not price:
-        price = await api.get_ticker([pair])
-        price = float(price.loc[pair.upper(), "close"][0])
+        price = await api.get_ticker_as_pandas([pair])
+        price = float(price[pair.upper(), "close"][0])
 
     response = await api.place_order(pair=[pair],
                                      side=side,
@@ -75,7 +75,7 @@ async def place_order(exchange: str,
         # then we should go check if our order has been added to krakens open orders
         # note : this is only valid if we place a limit order, otherwise check trade history
         if 'limit' in ordertype:
-            open_orders = await api.get_open_orders()
+            open_orders = await api.get_open_orders_as_pandas()
             try:
                 checked_status = open_orders.loc[exchange_order_id, "status"]
                 await Order.filter(exchange_order_id=exchange_order_id).update(status=checked_status)

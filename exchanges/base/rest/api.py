@@ -8,7 +8,7 @@ import stackprinter
 from pydantic import ValidationError
 import pandas as pd
 
-from models.data_models.api import Ticker, Ohlc, Orderbook, Trades, Spread, AccountBalance, TradeBalance, OpenOrders
+from models.data_models.api import Ticker, Ohlc, Orderbook, Trades, Spread, AccountBalance, TradeBalance, OpenOrders, ClosedOrders
 
 
 class BaseRestAPI(ABC):
@@ -328,8 +328,9 @@ class BaseRestAPI(ABC):
         raise NotImplementedError
 
 
+
     async def get_ticker(self, pair: list, retries: int=0) -> dict:
-        """Returns checked ticker data for given pairs
+        """Returns validated Ticker data (checked against data model)
 
         Args:
             pair (list) : list of requested pairs
@@ -338,7 +339,11 @@ class BaseRestAPI(ABC):
             retries (int): number of request retry attempts
     
         Returns:
-            models.orm.Ticker.dict()
+            dict with single key: 
+                data (dict): 
+                    key (str) : pair 
+                    value (list) : array of ask, bid, open, high, low, close, volume, vwap, trades
+                    w
         """
 
         data = await self.get_raw_ticker(pair, retries)
@@ -350,15 +355,20 @@ class BaseRestAPI(ABC):
             logging.error(e)
 
 
+
     async def get_ticker_as_pandas(self, pair: list, retries: int=0):
         """Returns checked ticker data for given pairs as pandas df
         """
-        pass
+        validated_response = await self.get_ticker(pair, retries)
+
+        df = pd.DataFrame.from_dict(validated_response["data"], orient="index") # ==> better to orient along index
+        return df
     
+
 
     @abstractmethod
     async def get_raw_ohlc(self, *args, **kwargs) -> dict:
-        """ Returns OHLC info
+        """ Returns raw Ohlc data (not yet validated against data model)
 
         Args:
             pair (list) : list containing single request pair 
@@ -369,14 +379,31 @@ class BaseRestAPI(ABC):
 
 
         Returns:
-            dict 
-                "data" must follow models.data.Ohlc.data model
-                "last" must follow models.orm.Ohlc.last model
+            dict (must conform with models.data_models.Ohlc):
+                data (list) : array of <time>, <open>, <high>, <low>, <close>, <vwap>, <volume>, <count>
+                    vwap and count are optional, can be none
+                last (Decimal) : id to be used as since when polling for new, committed OHLC data
         """
         raise NotImplementedError
 
 
+
     async def get_ohlc(self, pair: list, timeframe: int, since: int=None, retries: int=0):
+        """Returns validated Ohlc data (checked against data model)
+
+        Args:
+            pair (list) : asset pair to get market depth for
+            timeframe (int) : candle timeframe in minutes
+                possible values : 1 (default), 5, 15, 30, 60, 240, 1440, 10080, 21600
+            since : return committed OHLC data since given id (optional)
+            retries (int): number of request retry attempts
+        
+        Returns:
+            dict with only two keys: 
+                data (list) : array of <time>, <open>, <high>, <low>, <close>, <vwap>, <volume>, <count>
+                    vwap and count are optional, can be none
+                last (Decimal) : id to be used as since when polling for new, committed OHLC data
+        """
         response = await self.get_raw_ohlc(pair, timeframe, since, retries)
         try: 
             ohlc = Ohlc(data=response["data"], last=response["last"])
@@ -386,18 +413,37 @@ class BaseRestAPI(ABC):
             logging.error(e)
 
 
+
     async def get_ohlc_as_pandas(self, pair: list, timeframe: int, since: int=None, retries: int=0):
         """return as pandas df
         """
-        pass
+        validated_response = await self.get_ohlc(pair, retries)
+
+        cols = ["time", "open", "high", "low", "close", "vwap", "volume", "count"]
+        df = pd.DataFrame(data=validated_response["data"], columns=cols)
+        return {"data": df, "last": validated_response["last"]}
+
 
 
     @abstractmethod
     async def get_raw_orderbook(self, *args, **kwargs) -> dict:
         raise NotImplementedError
     
+
     
     async def get_orderbook(self, pair: list, count: int=None, retries: int=0):
+        """Return validated orderbook data (checked against data model)
+
+        Args:
+            pair (list) : asset pair to get market depth for
+            count (int) : maximum number of asks/bids (optional)
+            retries (int): number of request retry attempts
+        
+        Returns:
+            dict with only two keys: 
+                asks (list) : array of <price>, <volume>, <timestamp>
+                bids (list) : array of <price>, <volume>, <timestamp>
+        """
         response = await self.get_raw_orderbook(pair, count, retries)
         try: 
             ob = Orderbook(asks=response["asks"], bids=response["bids"])
@@ -405,14 +451,50 @@ class BaseRestAPI(ABC):
         except ValidationError as e:
             logging.warning("Please check that your get_raw_orderbook method returns the correct type")
             logging.error(e)
-
     
+    
+
+    async def get_orderbook_as_pandas(self, pair: list, count: int=None, retries: int=0):
+        """return as pandas df
+        """
+        validated_response = await self.get_orderbook(pair, count, retries)
+
+        cols = ["price", "volume", "timestamp"]
+        asks_df = pd.DataFrame(data=validated_response["asks"], columns=cols)
+        bids_df = pd.DataFrame(data=validated_response["bids"], columns=cols)
+        return {"asks": asks_df, "bids": bids_df}
+    
+
+
     @abstractmethod
     async def get_raw_trades(self, *arg, **kwargs) -> dict:
+        """ Returns raw Trades data (not yet validated against data model)
+        
+        Args:
+            pair (list): asset pair to get trade data for
+            since (int): return trade data since given id (optional.  exclusive)
+
+        Returns:
+            dict : two keys
+                data (list) : array of <price>, <volume>, <time>, <buy/sell>, <market/limit>, <miscellaneous>
+                last (int) : id to be used as since when polling for new data
+        """
         raise NotImplementedError
     
+
     
     async def get_trades(self, pair: list, since: int=None, retries: int=0):
+        """ Returns validated Trades data (checked against data model)
+        
+        Args:
+            pair (list): asset pair to get trade data for
+            since (int): return trade data since given id (optional.  exclusive)
+
+        Returns:
+            dict : two keys
+                data (list) : array of <price>, <volume>, <time>, <buy/sell>, <market/limit>, <miscellaneous>
+                last (Decimal) : id to be used as since when polling for new data
+        """
         response = await self.get_raw_trades(pair, since, retries)
         try: 
             trades = Trades(data=response["data"], last=response["last"])
@@ -422,13 +504,43 @@ class BaseRestAPI(ABC):
             logging.error(stackprinter.format(e, style="darkbg2"))
 
 
+
+    async def get_trades_as_pandas(self, pair: list, since: int=None, retries: int=0):
+        """ Returns validated Trades data (checked against data model)
+        
+        Args:
+            pair (list): asset pair to get trade data for
+            since (int): return trade data since given id (optional.  exclusive)
+
+        Returns:
+            dict : two keys
+                data (pd.DataFrame) : columns <price>, <volume>, <time>, <buy/sell>, <market/limit>, <miscellaneous>
+                last (Decimal) : id to be used as since when polling for new data
+        """
+        validated_response = await self.get_trades(pair, since, retries)
+
+        cols = ["price", "volume", "time", "side", "type", "misc"]
+        df = pd.DataFrame(data=validated_response["data"], columns=cols)
+        return {"data": df, "last": validated_response["last"]}
+
+
+
     @abstractmethod
     async def get_raw_spread(self, *args, **kwargs) -> dict:
         raise NotImplementedError
     
 
     async def get_spread(self, pair: list, since: int=None, retries: int=0):
-        """Get spread
+        """ Returns validated Spread data (checked against data model)
+        
+        Args:
+            pair (list): asset pair to get trade data for
+            since (int): return trade data since given id (optional.  exclusive)
+
+        Returns:
+            dict : two keys
+                data (list) : array of <time>, <bid>, <ask> 
+                last (Decimal) : id to be used as since when polling for new data
         """
         response = await self.get_raw_spread(pair, since, retries)
         try: 
@@ -437,6 +549,18 @@ class BaseRestAPI(ABC):
         except ValidationError as e:
             logging.warning("Please check that your get_raw_orderbook method returns the correct type")
             logging.error(e)
+
+    
+    async def get_spread_as_pandas(self, pair: list, since: int=None, retries: int=0):
+        """Return validates Spread Data as a pandas dataframe
+        """
+
+        validated_response = await self.get_spread(pair, since, retries)
+
+        cols = ["time", "bid", "ask"]
+        df = pd.DataFrame(data=validated_response["data"], columns=cols)
+        return {"data": df, "last": validated_response["last"]}
+
 
 
 
@@ -451,7 +575,14 @@ class BaseRestAPI(ABC):
     
     
     async def get_account_balance(self, retries: int=0):
-        """Get account balance
+        """Get validated account balance data (checked against data model)
+
+        Args:
+            retries (int)
+
+        Returns:
+            dictionary : format
+                <asset name> : <balance amount>
         """
         response = await self.get_raw_account_balance(retries)
         try: 
@@ -460,15 +591,69 @@ class BaseRestAPI(ABC):
         except ValidationError as e:
             logging.warning("Please check that your get_raw_orderbook method returns the correct type")
             logging.error(e)
-    
-    
-    @abstractmethod
-    async def get_raw_trade_balance(self, *args, **kwargs) -> pd.DataFrame:
+
+        
+    async def get_account_balance_as_pandas(self, retries: int=0):
         raise NotImplementedError
     
+
+
+    @abstractmethod
+    async def get_raw_trade_balance(self, *args, **kwargs) -> dict:
+        """Get trade balance data (not validated against data model)
+
+        Args:
+            asset_class (str): asset class (optional):
+                currency (default)
+            asset (str): base asset used to determine balance (default = ZUSD)
+
+        Returns:
+            dict
+
+        Notes: 
+            Response returns a dict with following keys: 
+            eb = equivalent balance (combined balance of all currencies)
+            tb = trade balance (combined balance of all equity currencies)
+            m = margin amount of open positions
+            n = unrealized net profit/loss of open positions
+            c = cost basis of open positions
+            v = current floating valuation of open positions
+            e = equity = trade balance + unrealized net profit/loss
+            mf = free margin = equity - initial margin (maximum margin available to open new positions)
+            ml = margin level = (equity / initial margin) * 100
+
+        Note:
+            I dont't really understand what is meant by asset_class input in the API Docs
+        """
+        raise NotImplementedError
     
+
+
     async def get_trade_balance(self, asset_class: str=None, asset: str=None, retries: int=0):
-        """Get trade balance
+        """Get validated trade balance data (checked against data model)
+
+        Args:
+            asset_class (str): asset class (optional):
+                currency (default)
+            asset (str): base asset used to determine balance (default = ZUSD)
+
+        Returns:
+            dict
+
+        Notes: 
+            Response returns a dict with following keys: 
+            eb = equivalent balance (combined balance of all currencies)
+            tb = trade balance (combined balance of all equity currencies)
+            m = margin amount of open positions
+            n = unrealized net profit/loss of open positions
+            c = cost basis of open positions
+            v = current floating valuation of open positions
+            e = equity = trade balance + unrealized net profit/loss
+            mf = free margin = equity - initial margin (maximum margin available to open new positions)
+            ml = margin level = (equity / initial margin) * 100
+
+        Note:
+            I dont't really understand what is meant by asset_class input in the API Docs
         """
         response = await self.get_raw_trade_balance(asset_class, asset, retries)
         try: 
@@ -480,11 +665,12 @@ class BaseRestAPI(ABC):
     
     
     @abstractmethod
-    async def get_raw_open_orders(self, *args, **kwargs) -> pd.DataFrame:
+    async def get_raw_open_orders(self, *args, **kwargs) -> dict:
         raise NotImplementedError
-    
-    async def get_open_orders(self, userref: int=None, trades: bool=True, retries: int=0) -> pd.DataFrame:
-        """Get trade balance
+
+
+    async def get_open_orders(self, userref: int=None, trades: bool=True, retries: int=0) -> dict:
+        """Get open orders
         """
         response = await self.get_raw_open_orders(userref, trades, retries)
         try: 
@@ -493,10 +679,40 @@ class BaseRestAPI(ABC):
         except ValidationError as e:
             logging.warning("Please check that your get_raw_orderbook method returns the correct type")
             logging.error(e)
-    
+
+
+    async def get_open_orders_as_pandas(self, userref: int=None, trades:bool=True, retries: int=0):
+        validated_response = await self.get_open_orders(userref, trades, retries)
+        df = pd.DataFrame.from_dict(validated_response["data"], orient="index") # ==> better to orient along index
+        return df
+
+
     @abstractmethod
-    async def get_closed_orders(self, **kwargs) -> pd.DataFrame:
+    async def get_raw_closed_orders(self, *args, **kwargs) -> dict:
         raise NotImplementedError
+
+    
+    async def get_closed_orders(self, offset: int=0, trades: bool=False, userref: int=None, 
+                                start: int=None, end: int=None, closetime: str="both", retries: int=0) -> dict:
+        """Returns validated closed orders data (checked against data model)
+        """
+
+        response = await self.get_raw_closed_orders(offset, trades, userref, start, end, closetime, retries)
+        try: 
+            closed_orders = ClosedOrders(data=response)
+            return closed_orders.dict()
+        except ValidationError as e:
+            logging.warning("Please check that your get_raw_orderbook method returns the correct type")
+            logging.error(e)
+
+
+    async def get_closed_orders_as_pandas(self, offset: int=0, trades: bool=False, userref: int=None, 
+                                start: int=None, end: int=None, closetime: str="both", retries: int=0) -> pd.DataFrame:
+
+        validated_response = await self.get_closed_orders(offset, trades, userref, start, end, closetime, retries)
+        df = pd.DataFrame.from_dict(validated_response["data"], orient="index")
+        return df
+
 
 
     @abstractmethod

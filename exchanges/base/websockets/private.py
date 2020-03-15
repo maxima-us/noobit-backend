@@ -57,6 +57,7 @@ class BasePrivateFeedReader(ABC):
             self.open_ws = None
             self.redis = None
             self.terminate = False
+            self.feed_counters = {}
     """
 
 
@@ -102,7 +103,6 @@ class BasePrivateFeedReader(ABC):
         channel = f"heartbeat:{self.exchange}"
 
         try:
-            print(msg)
             heartbeat = HeartBeat(**msg)
             redis_pool.publish(channel, ujson.dumps(heartbeat.dict()))
 
@@ -134,13 +134,29 @@ class BasePrivateFeedReader(ABC):
         channel = f"data:{self.exchange}:{feed}"
 
         try:
-            #!  how to we know which model we need to load ? should we use a mapping again ?
-            #!  we could try to look up <feed> key in a model mapping defined in data_models.websockets ?
             ws_data = data_models_map[feed](data=data, channel_name=feed)
-            redis_pool.publish(channel, ujson.dumps(ws_data.dict()))
-
-        except ValidationError as e:
+        except ValidationError as e :
             logging.error(stackprinter.format(e, style="darkbg2"))
+        
+        try:
+            self.feed_counters[channel] += 1
+            update_chan = f"data:update:{self.exchange}:{feed}"
+            redis_pool.publish(update_chan, ujson.dumps(ws_data.dict()))
+        except KeyError :
+            self.feed_counters[channel] = 0
+            snapshot_chan = f"data:snapshot:{self.exchange}:{feed}"
+            redis_pool.publish(snapshot_chan, ujson.dumps(ws_data.dict()))
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
+
+        # try:
+        #     #!  how to we know which model we need to load ? should we use a mapping again ?
+        #     #!  we could try to look up <feed> key in a model mapping defined in data_models.websockets ?
+        #     ws_data = data_models_map[feed](data=data, channel_name=feed)
+        #     redis_pool.publish(channel, ujson.dumps(ws_data.dict()))
+
+        # except ValidationError as e:
+        #     logging.error(stackprinter.format(e, style="darkbg2"))
 
 
 

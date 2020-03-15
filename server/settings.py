@@ -50,5 +50,5 @@ CONSUMER = None
 SESSION = None
 
 # App root path
-HOME = os.environ["APP_PATH"]
-ROOT = f"{HOME}/server"
+# HOME = os.environ["APP_PATH"]
+# ROOT = f"{HOME}/server"

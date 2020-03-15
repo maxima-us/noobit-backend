@@ -466,11 +466,13 @@ class Server:
         #                         )
         
         #consume ws messages
-        await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["status"])
-        await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["events"])
-        await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["data"])
-        await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["system"])
-        
+        # await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["status"])
+        # await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["events"])
+        # await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["data"])
+        # await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["system"])
+        trades_update = await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["kraken_orders"])
+        if trades_update:
+            print(trades_update)
 
         # Update the default headers, once per second.
         if counter % (1/tick_interval) == 0:

@@ -309,6 +309,7 @@ class KrakenRestAPI(BaseRestAPI):
         return remap_response
 
 
+
     async def get_raw_ohlc(self, pair: list, timeframe: int, since: int=None, retries=0) -> dict:
         """ Returns raw OHLC data (not checked against our data models)
 
@@ -321,7 +322,7 @@ class KrakenRestAPI(BaseRestAPI):
 
 
         Returns:
-            dict 
+            dict : 2 keys
                 "data" must follow data_models.Ohlc.data model
                 "last" must follow data_models.Ohlc.last model
         """
@@ -348,6 +349,7 @@ class KrakenRestAPI(BaseRestAPI):
 
         return {"data": data, "last": last}
 
+
     
     async def get_raw_orderbook(self, pair: list, count: int=None, retries: int=0) -> dict:
         """Return raw Orderbook data (not checked against our data models)
@@ -357,9 +359,9 @@ class KrakenRestAPI(BaseRestAPI):
             retries (int): number of request retry attempts
         
         Returns:
-            dict : 
-                "ask"
-                "bids"
+            dict : 2 keys 
+                "ask": array of <price>, <volume>, <timestamp>
+                "bids": array of <price>, <volume>, <timestamp>
         """
 
         data = {"pair": pair, "count": count}
@@ -394,9 +396,9 @@ class KrakenRestAPI(BaseRestAPI):
             since (int): return trade data since given id (optional.  exclusive)
 
         Returns:
-            dict : keys
-                "data"
-                "last"
+            dict : 2 keys
+                data : array of <price>, <volume>, <timestamp>
+                last : array of <price>, <volume>, <timestamp>
         """
 
         data = {"pair": pair, "since": since}
@@ -430,8 +432,8 @@ class KrakenRestAPI(BaseRestAPI):
 
         Returns:
             dict : keys 
-                "data"
-                "last"
+                data (list) : array of entries <time>, <bid>, <ask>
+                last (Decimal) : id to be used as since when polling for new data
         """
 
         data = {"pair": pair, "since": since}
@@ -463,14 +465,14 @@ class KrakenRestAPI(BaseRestAPI):
 
 
     async def get_raw_account_balance(self, retries: int=0) -> dict:
-        """Get account balance (holdings)
+        """Get raw account balance (not validated against data model)
 
         Args:
-            retries (int):
+            retries (int)
 
         Returns:
             dictionary : format
-            {<asset name> : <balance amount>}
+                <asset name> : <balance amount>
         """
 
         response = await self.query_private(method="account_balance", retries=retries)
@@ -483,7 +485,7 @@ class KrakenRestAPI(BaseRestAPI):
         
 
     async def get_raw_trade_balance(self, asset_class: str=None, asset: str=None, retries: int=0) -> pd.DataFrame:
-        """Get trade balance (fiat equivalent)
+        """Get trade balance data (not validated against data model)
 
         Args:
             asset_class (str): asset class (optional):
@@ -514,6 +516,12 @@ class KrakenRestAPI(BaseRestAPI):
                                             data=data,
                                             retries=retries 
                                             )
+        
+        #   for model validation we need "ml" key to have a value
+        #   response dict might not contain "ml" key if no positions are open
+        if not response.get("ml"):
+            response["ml"] = 0
+        
         remap = {"eb": "equity_balance",
                  "tb": "trade_balance",
                  "m": "positions_margin",
@@ -523,7 +531,7 @@ class KrakenRestAPI(BaseRestAPI):
                  "e": "equity",
                  "mf": "free_margin",
                  "ml": "margin_level"
-        }
+                }
 
         return {remap[k]:v for k,v in response.items()}
 
@@ -593,11 +601,12 @@ class KrakenRestAPI(BaseRestAPI):
                                             retries=retries
                                             )
         
-        df = pd.DataFrame.from_dict(response["open"], orient="index") # ==> better to orient along index
-        return df
+        # df = pd.DataFrame.from_dict(response["open"], orient="index") # ==> better to orient along index
+        # return df
+        return response["open"]
 
 
-    async def get_closed_orders(self, offset: int=0, trades: bool=False, userref: int=None, start: int=None, end: int=None, closetime: str="both", retries: int=0) -> pd.DataFrame:
+    async def get_raw_closed_orders(self, offset: int=0, trades: bool=False, userref: int=None, start: int=None, end: int=None, closetime: str="both", retries: int=0) -> pd.DataFrame:
         """Get closed orders
 
         Args:
@@ -670,9 +679,9 @@ class KrakenRestAPI(BaseRestAPI):
                                             retries=retries
                                             )
 
-        df = pd.DataFrame.from_dict(response["closed"], orient="index") # ==> better to orient along index 
-        return df
-
+        # df = pd.DataFrame.from_dict(response["closed"], orient="index") # ==> better to orient along index 
+        # return df
+        return response["closed"]
 
     async def get_user_trades_history(self, trade_type: str="all", trades: bool=False, start: int=None, end: int=None, retries: int=0) -> pd.DataFrame:
         """Get the user's historical trades

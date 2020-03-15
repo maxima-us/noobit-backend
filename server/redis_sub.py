@@ -17,7 +17,7 @@ class FeedConsumer:
         """
         self.redis = None
         if sub_map is None:
-            self.sub_map = {"events": "heartbeat:*", "status": "status:*", "data": "data:*", "system": "system:*"}
+            self.sub_map = {"events": "heartbeat:*", "status": "status:*", "kraken_orders": "data:update:kraken:ownTrades", "system": "system:*"}
         else:
             self.sub_map = sub_map
         self.subd_channels = {}
@@ -49,8 +49,8 @@ class FeedConsumer:
             # print(f"consume from channel : {channel.name}")
             # print(f"        is active : {channel.is_active}")
             try:
-                msg = await asyncio.wait_for(channel.get(), timeout=0.05)
-                print(msg)
+                msg = await asyncio.wait_for(channel.get(), timeout=0.1)
+                return msg
             except :
                 pass
         except Exception as e:
