@@ -1,9 +1,10 @@
-from server import settings
 import json
 import logging
 from decimal import Decimal 
 from typing import List
 
+import stackprinter
+from server import settings
 from server.views import APIRouter, Query, UJSONResponse
 from exchanges.mappings import rest_api_map
 
@@ -21,7 +22,7 @@ router = APIRouter()
 async def get_account_balance(exchange: str):
     api = rest_api_map[exchange]()
     response = await api.get_account_balance()
-    return response 
+    return response["data"]
 
 
 @router.get('/trade_balance/{exchange}', response_class=UJSONResponse)
@@ -31,7 +32,7 @@ async def get_trade_balance(exchange: str,
                             ):
     api = rest_api_map[exchange]()
     response = await api.get_trade_balance(asset=asset, retries=retries)
-    return response 
+    return response["data"]
 
 
 @router.get('/open_orders/{exchange}', response_class=UJSONResponse)
@@ -41,8 +42,7 @@ async def get_open_orders(exchange: str,
                           ):
     api = rest_api_map[exchange]()
     response = await api.get_open_orders(trades=trades, retries=retries)
-    table_json = response.to_json(orient="table")
-    return table_json
+    return response["data"]
 
 
 @router.get('/closed_orders/{exchange}', response_class=UJSONResponse)
@@ -55,12 +55,11 @@ async def get_closed_orders(exchange:str,
                             ):
     api = rest_api_map[exchange]()
     response = await api.get_closed_orders(trades=trades, start=start, end=end, closetime=closetime, retries=retries)
-    table_json = response.to_json(orient="table")
-    return table_json
+    return response["data"]
 
 
-@router.get('/trades_history/{exchange}', response_class=UJSONResponse)
-async def get_user_trades_history(exchange: str, 
+@router.get('/trades/{exchange}', response_class=UJSONResponse)
+async def get_user_trades(exchange: str, 
                                   trade_type: str = Query(None, title="Type of trade"),
                                   trades: bool = Query(None, title="Wether to include trades in output"),
                                   start: int = Query(None, title="Start Unix Timestamp"),
@@ -68,14 +67,13 @@ async def get_user_trades_history(exchange: str,
                                   retries: int = Query(None, title="Number of times to retry the request if it fails")
                                   ):
     api = rest_api_map[exchange]()
-    response = await api.get_user_trades_history(trade_type=trade_type,
+    response = await api.get_user_trades(trade_type=trade_type,
                                                  trades=trades,
                                                  start=start,
                                                  end=end,
                                                  retries=retries
                                                 )
-    table_json = response.to_json(orient="table")
-    return table_json
+    return response["data"]
 
 
 @router.get('/open_positions/{exchange}', response_class=UJSONResponse)
@@ -86,8 +84,7 @@ async def get_positions(exchange: str,
                         ):
     api = rest_api_map[exchange]()
     response = await api.get_open_positions(txid=txid, show_pnl=show_pnl, retries=retries)
-    table_json = response.to_json(orient="table") 
-    return table_json
+    return response["data"]
 
 
 @router.get('/ledger/{exchange}', response_class=UJSONResponse)

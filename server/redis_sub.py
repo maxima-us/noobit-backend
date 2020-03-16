@@ -17,7 +17,7 @@ class FeedConsumer:
         """
         self.redis = None
         if sub_map is None:
-            self.sub_map = {"events": "heartbeat:*", "status": "status:*", "kraken_orders": "data:update:kraken:ownTrades", "system": "system:*"}
+            self.sub_map = {"events": "heartbeat:*", "status": "status:*", "kraken_orders": "data:update:kraken:*", "system": "system:*"}
         else:
             self.sub_map = sub_map
         self.subd_channels = {}
