@@ -1,7 +1,8 @@
 import asyncio
 from decimal import Decimal
+from typing import Optional, Union
 from models.data_models.api import (AccountBalance, Ohlc, OpenOrders, ClosedOrders, Orderbook, Spread, Ticker,
-    TradeBalance, Trades)
+                                    TradeBalance, Trades, UserTrades, OpenPositions)
 from pydantic import ValidationError
 import time
 import pytest
@@ -204,7 +205,7 @@ async def test_get_trade_balance(api):
     assert isinstance(balance_in_usd, dict)
     assert isinstance(balance_in_eur, dict)
 
-    keys = ["equity_balance", "trade_balance", "positions_margin", "positions_cost", "positions_unrealized",
+    keys = ["equivalent_balance", "trade_balance", "positions_margin", "positions_cost", "positions_unrealized",
             "positions_valuation", "equity", "free_margin", "margin_level"]
 
     try:
@@ -224,8 +225,8 @@ async def test_get_trade_balance(api):
 @pytest.mark.asyncio
 async def test_get_open_orders(api):
     #! problems with handling args
-
     resp = await api.get_open_orders()
+
     assert isinstance(resp["data"], dict)
 
     try:
@@ -239,6 +240,11 @@ async def test_get_open_orders(api):
 @pytest.mark.asyncio
 async def test_get_open_orders_as_pandas(api):
     resp = await api.get_open_orders_as_pandas()
+
+    #we might not have any open orders
+    if resp.empty:
+        return
+    
     assert isinstance(resp, pd.DataFrame)
 
     cols = ["refid", "userref", "status", "opentm", "starttm", "expiretm", "descr", 
@@ -252,8 +258,8 @@ async def test_get_open_orders_as_pandas(api):
 @pytest.mark.asyncio
 async def test_get_closed_orders(api):
     #! problems with handling args
-
     resp = await api.get_closed_orders(offset=0)
+
     assert isinstance(resp["data"], dict)
     try:
         closed_orders = ClosedOrders(data=resp["data"])
@@ -262,10 +268,13 @@ async def test_get_closed_orders(api):
         raise e
 
 
-
 @pytest.mark.asyncio
 async def test_get_closed_orders_as_pandas(api):
     resp = await api.get_closed_orders_as_pandas(offset=0)
+
+    if resp.empty:
+        return
+
     assert isinstance(resp, pd.DataFrame)
 
     cols = ["refid", "userref", "status", "opentm", "starttm", "expiretm", "descr", 
@@ -277,9 +286,19 @@ async def test_get_closed_orders_as_pandas(api):
 
 
 @pytest.mark.asyncio
-async def tet_get_user_trades_history(api):
-    resp = await api.get_user_trades_history()
+async def test_get_user_trades(api):
+    resp = await api.get_user_trades()
+    assert isinstance(resp["data"], dict)
+    try:
+        user_trades = UserTrades(data=resp["data"])
+    except Exception as e:
+        logging.error(e)
+        raise e    
 
+
+@pytest.mark.asyncio
+async def test_get_user_trades_as_pandas(api):
+    resp = await api.get_user_trades_as_pandas()
     assert isinstance(resp, pd.DataFrame)
 
     cols = ["pair", "time", "type", "ordertype", "price",
@@ -291,10 +310,22 @@ async def tet_get_user_trades_history(api):
 
 
 @pytest.mark.asyncio
-async def tt_get_open_positions(api):
-    #! test will fail if we have no open positions as it returns an empty df
+async def test_get_open_positions(api):
+
     resp = await api.get_open_positions()
 
+    assert isinstance(resp, dict)
+    try:
+        open_positions = OpenPositions(data=resp)
+    except Exception as e:
+        logging.error(e)
+        logging.error(resp)
+        raise e
+
+
+@pytest.mark.asyncio
+async def test_get_open_positions_as_pandas(api):
+    resp = await api.get_open_positions_as_pandas()
     assert isinstance(resp, pd.DataFrame)
 
     if resp.empty:

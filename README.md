@@ -47,3 +47,12 @@ To start websocket feed handler (publish all incoming websocket data to appropri
 python start_feedhandler.py
 ```
 
+
+## To Do
+
+- data validation + testing for placing & closing orders
+- implement cancel all orders / positions methods
+- write fastapi tests
+
+
+

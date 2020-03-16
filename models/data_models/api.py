@@ -209,7 +209,7 @@ class TradeBalance(BaseModel):
 
 
 # ========================================
-# ====== Account Balance
+# ====== Orders
 
 
 class OpenOrdersItem(TypedDict):
@@ -274,6 +274,51 @@ class OpenOrdersItem(TypedDict):
     trades: Any
 
 class OpenOrders(BaseModel):
+    """Open Orders data model
+
+    Args :
+
+        data : dict of order info in open array with txid as the key
+        
+        refid = Referral order transaction id that created this order
+        userref = user reference id
+        status = status of order:
+            pending = order pending book entry
+            open = open order
+            closed = closed order
+            canceled = order canceled
+            expired = order expired
+        opentm = unix timestamp of when order was placed
+        starttm = unix timestamp of order start time (or 0 if not set)
+        expiretm = unix timestamp of order end time (or 0 if not set)
+        descr = order description info
+            pair = asset pair
+            type = type of order (buy/sell)
+            ordertype = order type (See Add standard order)
+            price = primary price
+            price2 = secondary price
+            leverage = amount of leverage
+            order = order description
+            close = conditional close order description (if conditional close set)
+        vol = volume of order (base currency unless viqc set in oflags)
+        vol_exec = volume executed (base currency unless viqc set in oflags)
+        cost = total cost (quote currency unless unless viqc set in oflags)
+        fee = total fee (quote currency)
+        price = average price (quote currency unless viqc set in oflags)
+        stopprice = stop price (quote currency, for trailing stops)
+        limitprice = triggered limit price (quote currency, when limit based order type triggered)
+        misc = comma delimited list of miscellaneous info
+            stopped = triggered by stop price
+            touched = triggered by touch price
+            liquidated = liquidation
+            partial = partial fill
+        oflags = comma delimited list of order flags
+            viqc = volume in quote currency
+            fcib = prefer fee in base currency (default if selling)
+            fciq = prefer fee in quote currency (default if buying)
+            nompp = no market price protection
+        trades = array of trade ids related to order (if trades info requested and data available)
+    """
     # tortoise ORM can not json serialize Decimal
     data: Dict[str, OpenOrdersItem]
 
@@ -348,3 +393,107 @@ class ClosedOrdersItem(TypedDict):
 class ClosedOrders(BaseModel):
     # tortoise ORM can not json serialize Decimal
     data: Dict[str, ClosedOrdersItem]
+
+
+
+
+# ========================================
+# ==== Trades
+
+
+class UserTradesEntry(TypedDict):
+    """User Trades Data Model
+    """
+    ordertxid: str
+    pair: str
+    time: Decimal
+    type: Literal["b", "s"]
+    ordertype: Literal["m", "l"]
+    price: Decimal
+    cost: Decimal
+    fee: Decimal
+    margin: Optional[Decimal]=None
+    misc: Optional[Any]=None
+    
+    
+    
+class UserTrades(BaseModel):
+    """User Trades Data Model
+
+    Args:
+        data (dict): array of trade info with txid as the key
+            tradeinfo :
+            ordertxid = order responsible for execution of trade
+            pair = asset pair
+            time = unix timestamp of trade
+            type = type of order (buy/sell)
+            ordertype = order type
+            price = average price order was executed at (quote currency)
+            cost = total cost of order (quote currency)
+            fee = total fee (quote currency)
+            vol = volume (base currency)
+            margin = initial margin (quote currency)
+            misc = comma delimited list of miscellaneous info
+                closing = trade closes all or part of a position
+    """
+    data: Dict[str, UserTradesEntry]
+
+
+# ========================================
+# ==== Positions
+
+class OpenPositionsEntry(TypedDict):
+    ordertxid: str
+    pair: str
+    time: Decimal
+    side: Literal["b", "s"]
+    ordertype: Literal["l", "m"]
+    cost: Decimal
+    fee: Decimal
+    vol: Decimal
+    vol_closed: Decimal
+    margin: Decimal
+    value: Decimal
+    net: Optional[Decimal]=None
+    misc: Optional[Any]=None
+    oflags: Optional[Any]=None
+
+
+class OpenPositions(BaseModel):
+    """Open Positions Data Model
+
+    <position_txid> = open position info
+        ordertxid = order responsible for execution of trade
+        pair = asset pair
+        time = unix timestamp of trade
+        type = type of order used to open position (buy/sell)
+        ordertype = order type used to open position
+        cost = opening cost of position (quote currency unless viqc set in oflags)
+        fee = opening fee of position (quote currency)
+        vol = position volume (base currency unless viqc set in oflags)
+        vol_closed = position volume closed (base currency unless viqc set in oflags)
+        margin = initial margin (quote currency)
+        value = current value of remaining position (if docalcs requested.  quote currency)
+        net = unrealized profit/loss of remaining position (if docalcs requested.  quote currency, quote currency scale)
+        misc = comma delimited list of miscellaneous info
+        oflags = comma delimited list of order flags
+            viqc = volume in quote currency
+
+    """
+    data: Dict[str, OpenPositionsEntry]
+
+
+
+
+# ========================================
+# ==== Placed Order
+
+
+class PlacedOrder(BaseModel):
+    """
+    descr = order description info
+        order = order description
+        close = conditional close order description (if conditional close set)
+    txid = array of transaction ids for order (if order was added successfully)
+    """
+    

@@ -390,7 +390,7 @@ class KrakenRestAPI(BaseRestAPI):
 
 
     async def get_raw_trades(self, pair: list, since: int=None, retries: int=0) -> dict:
-        """
+        """Get raw trades data (not validated against data model)
         Args:
             pair (list): asset pair to get trade data for
             since (int): return trade data since given id (optional.  exclusive)
@@ -424,7 +424,7 @@ class KrakenRestAPI(BaseRestAPI):
 
 
     async def get_raw_spread(self, pair: list, since: int=None, retries: int=0) -> dict:
-        """
+        """ Get raw spread data (not validated against data model)
         Args:
             retries (int): 
             pair (list): asset pair to get spread data for
@@ -485,7 +485,7 @@ class KrakenRestAPI(BaseRestAPI):
         
 
     async def get_raw_trade_balance(self, asset_class: str=None, asset: str=None, retries: int=0) -> pd.DataFrame:
-        """Get trade balance data (not validated against data model)
+        """Get raw trade balance data (not validated against data model)
 
         Args:
             asset_class (str): asset class (optional):
@@ -522,7 +522,7 @@ class KrakenRestAPI(BaseRestAPI):
         if not response.get("ml"):
             response["ml"] = 0
         
-        remap = {"eb": "equity_balance",
+        remap = {"eb": "equivalent_balance",
                  "tb": "trade_balance",
                  "m": "positions_margin",
                  "n": "positions_unrealized",
@@ -537,16 +537,17 @@ class KrakenRestAPI(BaseRestAPI):
 
 
     async def get_raw_open_orders(self, userref: int=None, trades: bool=True, retries: int=0) -> pd.DataFrame:
-        """Get open orders
+        """Get raw ropen orders (not validated against data model)
 
         Args:
             trades (bool): whether or not to include trades in output (optional.  default = false)
             userref (int): restrict results to given user reference id (optional)
+            retries
 
         Returns:
-            pandas.DataFrame
-            index :
-            columns : 
+
+            data : dict of order info in open array with txid as the key
+
             refid = Referral order transaction id that created this order
             userref = user reference id
             status = status of order:
@@ -621,9 +622,9 @@ class KrakenRestAPI(BaseRestAPI):
                 both (default)
 
         Returns:
-            pandas.DataFrame
-            index : 
-            columns : 
+            
+            data : dict of order info in closed array with txid as the key
+            
             refid = Referral order transaction id that created this order
             userref = user reference id
             status = status of order:
@@ -683,7 +684,7 @@ class KrakenRestAPI(BaseRestAPI):
         # return df
         return response["closed"]
 
-    async def get_user_trades_history(self, trade_type: str="all", trades: bool=False, start: int=None, end: int=None, retries: int=0) -> pd.DataFrame:
+    async def get_raw_user_trades(self, trade_type: str="all", trades: bool=False, start: int=None, end: int=None, retries: int=0) -> pd.DataFrame:
         """Get the user's historical trades
 
         Args:
@@ -725,11 +726,12 @@ class KrakenRestAPI(BaseRestAPI):
                                             retries=retries
                                             )
         
-        df = pd.DataFrame.from_dict(response["trades"], orient="index")
-        return df       # we don't want to return "count" value as we can get it from df
+        # df = pd.DataFrame.from_dict(response["trades"], orient="index")
+        # return df       # we don't want to return "count" value as we can get it from df
+        return response["trades"]
 
 
-    async def get_open_positions(self, txid: list=[], show_pnl=True, retries: int=0) -> pd.DataFrame:
+    async def get_raw_open_positions(self, txid: list=[], show_pnl=True, retries: int=0) -> pd.DataFrame:
         """Get info on open positions
 
         Args:
@@ -764,8 +766,9 @@ class KrakenRestAPI(BaseRestAPI):
                                             retries=retries
                                             )
 
-        df = pd.DataFrame.from_dict(response, orient="index")
-        return df
+        # df = pd.DataFrame.from_dict(response, orient="index")
+        # return df
+        return response
 
 
 

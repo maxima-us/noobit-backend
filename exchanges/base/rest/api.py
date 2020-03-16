@@ -8,7 +8,8 @@ import stackprinter
 from pydantic import ValidationError
 import pandas as pd
 
-from models.data_models.api import Ticker, Ohlc, Orderbook, Trades, Spread, AccountBalance, TradeBalance, OpenOrders, ClosedOrders
+from models.data_models.api import (Ticker, Ohlc, Orderbook, Trades, Spread, AccountBalance, 
+                                    TradeBalance, OpenOrders, ClosedOrders, UserTrades, OpenPositions)
 
 
 class BaseRestAPI(ABC):
@@ -92,7 +93,9 @@ class BaseRestAPI(ABC):
 
     def _nonce(self):
         """ Nonce counter.
-        :returns: an always-increasing unsigned integer (up to 64 bits wide)
+        
+        Returns:
+            an always-increasing unsigned integer (up to 64 bits wide)
         """
         return int(1000*time.time())
 
@@ -500,7 +503,7 @@ class BaseRestAPI(ABC):
             trades = Trades(data=response["data"], last=response["last"])
             return trades.dict()
         except ValidationError as e:
-            logging.warning("Please check that your get_raw_orderbook method returns the correct type")
+            logging.warning("Please check that get_raw_trades method returns the correct type")
             logging.error(stackprinter.format(e, style="darkbg2"))
 
 
@@ -527,6 +530,18 @@ class BaseRestAPI(ABC):
 
     @abstractmethod
     async def get_raw_spread(self, *args, **kwargs) -> dict:
+        """ Returns raw Spread data (not yet validated against data model)
+        
+        Args:
+            pair (list): asset pair to get trade data for
+            since (int): return data since given id (optional.  exclusive)
+            retries(int)
+
+        Returns:
+            dict : two keys
+                data (list) : array of entries <time>, <bid>, <ask>
+                last (Decimal) : id to be used as since when polling for new data
+        """
         raise NotImplementedError
     
 
@@ -536,6 +551,7 @@ class BaseRestAPI(ABC):
         Args:
             pair (list): asset pair to get trade data for
             since (int): return trade data since given id (optional.  exclusive)
+            retries(int)
 
         Returns:
             dict : two keys
@@ -547,12 +563,22 @@ class BaseRestAPI(ABC):
             trades = Spread(data=response["data"], last=response["last"])
             return trades.dict()
         except ValidationError as e:
-            logging.warning("Please check that your get_raw_orderbook method returns the correct type")
+            logging.warning("Please check that get_raw_spread method returns the correct type")
             logging.error(e)
 
     
-    async def get_spread_as_pandas(self, pair: list, since: int=None, retries: int=0):
-        """Return validates Spread Data as a pandas dataframe
+    async def get_spread_as_pandas(self, pair: list, since: int=None, retries: int=0) -> pd.DataFrame:
+        """ Returns validated Spread data as pandas dataframe
+        
+        Args:
+            pair (list): asset pair to get trade data for
+            since (int): return trade data since given id (optional.  exclusive)
+            retries(int)
+
+        Returns:
+            dict : two keys
+                data (pd.DataFrame) : columns of <time>, <bid>, <ask>
+                last (Decimal) : id to be used as since when polling for new data
         """
 
         validated_response = await self.get_spread(pair, since, retries)
@@ -589,11 +615,13 @@ class BaseRestAPI(ABC):
             account_balance = AccountBalance(data=response)
             return account_balance.dict()
         except ValidationError as e:
-            logging.warning("Please check that your get_raw_orderbook method returns the correct type")
+            logging.warning("Please check that get_raw_account_balance method returns the correct type")
             logging.error(e)
 
         
     async def get_account_balance_as_pandas(self, retries: int=0):
+        """Probably useless
+        """
         raise NotImplementedError
     
 
@@ -608,19 +636,18 @@ class BaseRestAPI(ABC):
             asset (str): base asset used to determine balance (default = ZUSD)
 
         Returns:
-            dict
+            dict with following keys
 
-        Notes: 
-            Response returns a dict with following keys: 
-            eb = equivalent balance (combined balance of all currencies)
-            tb = trade balance (combined balance of all equity currencies)
-            m = margin amount of open positions
-            n = unrealized net profit/loss of open positions
-            c = cost basis of open positions
-            v = current floating valuation of open positions
-            e = equity = trade balance + unrealized net profit/loss
-            mf = free margin = equity - initial margin (maximum margin available to open new positions)
-            ml = margin level = (equity / initial margin) * 100
+                - equivalent_balance (combined balance of all currencies)
+                - trade_balance (combined balance of all equity currencies)
+                - positions_margin 
+                - positions_unrealized (net profit/loss of open positions)
+                - positions_cost basis
+                - positions_valuation
+                - equity (trade balance + unrealized net profit/loss)
+                - free_margin (equity - initial margin) 
+                    (maximum margin available to open new positions)
+                - margin_level ( equity*100 / initial margin )
 
         Note:
             I dont't really understand what is meant by asset_class input in the API Docs
@@ -630,7 +657,7 @@ class BaseRestAPI(ABC):
 
 
     async def get_trade_balance(self, asset_class: str=None, asset: str=None, retries: int=0):
-        """Get validated trade balance data (checked against data model)
+        """Get trade balance data (not validated against data model)
 
         Args:
             asset_class (str): asset class (optional):
@@ -638,19 +665,20 @@ class BaseRestAPI(ABC):
             asset (str): base asset used to determine balance (default = ZUSD)
 
         Returns:
-            dict
+            dict : one key 
+            
+                data (dict) : with following keys:
 
-        Notes: 
-            Response returns a dict with following keys: 
-            eb = equivalent balance (combined balance of all currencies)
-            tb = trade balance (combined balance of all equity currencies)
-            m = margin amount of open positions
-            n = unrealized net profit/loss of open positions
-            c = cost basis of open positions
-            v = current floating valuation of open positions
-            e = equity = trade balance + unrealized net profit/loss
-            mf = free margin = equity - initial margin (maximum margin available to open new positions)
-            ml = margin level = (equity / initial margin) * 100
+                - equivalent_balance (combined balance of all currencies)
+                - trade_balance (combined balance of all equity currencies)
+                - positions_margin 
+                - positions_unrealized (net profit/loss of open positions)
+                - positions_cost basis
+                - positions_valuation
+                - equity (trade balance + unrealized net profit/loss)
+                - free_margin (equity - initial margin) 
+                    (maximum margin available to open new positions)
+                - margin_level ( equity*100 / initial margin )
 
         Note:
             I dont't really understand what is meant by asset_class input in the API Docs
@@ -660,12 +688,36 @@ class BaseRestAPI(ABC):
             trade_balance = TradeBalance(data=response)
             return trade_balance.dict()
         except ValidationError as e:
-            logging.warning("Please check that your get_raw_orderbook method returns the correct type")
+            logging.warning("Please check that get_raw_trade_balance method returns the correct type")
             logging.error(e)
     
     
     @abstractmethod
     async def get_raw_open_orders(self, *args, **kwargs) -> dict:
+        """Get trade balance data (not validated against data model)
+
+        Args:
+            asset_class (str): asset class (optional):
+                currency (default)
+            asset (str): base asset used to determine balance (default = ZUSD)
+
+        Returns:
+            dict with following keys
+
+                - equivalent_balance (combined balance of all currencies)
+                - trade_balance (combined balance of all equity currencies)
+                - positions_margin 
+                - positions_unrealized (net profit/loss of open positions)
+                - positions_cost basis
+                - positions_valuation
+                - equity (trade balance + unrealized net profit/loss)
+                - free_margin (equity - initial margin) 
+                    (maximum margin available to open new positions)
+                - margin_level ( equity*100 / initial margin )
+
+        Note:
+            I dont't really understand what is meant by asset_class input in the API Docs
+        """
         raise NotImplementedError
 
 
@@ -677,7 +729,7 @@ class BaseRestAPI(ABC):
             open_orders = OpenOrders(data=response)
             return open_orders.dict()
         except ValidationError as e:
-            logging.warning("Please check that your get_raw_orderbook method returns the correct type")
+            logging.warning("Please check that get_raw_open_orders method returns the correct type")
             logging.error(e)
 
 
@@ -702,7 +754,7 @@ class BaseRestAPI(ABC):
             closed_orders = ClosedOrders(data=response)
             return closed_orders.dict()
         except ValidationError as e:
-            logging.warning("Please check that your get_raw_orderbook method returns the correct type")
+            logging.warning("Please check that get_raw_closed_orders method returns the correct type")
             logging.error(e)
 
 
@@ -716,13 +768,50 @@ class BaseRestAPI(ABC):
 
 
     @abstractmethod
-    async def get_user_trades_history(self, **kwargs) -> pd.DataFrame:
+    async def get_raw_user_trades(self, *args, **kwargs) -> pd.DataFrame:
         raise NotImplementedError
     
     
+    async def get_user_trades(self, trade_type: str="all", trades: bool=False, start: int=None, 
+                             end: int=None, retries: int=0) -> dict:
+        """Returns validated user trades data (checked against data model)
+        """
+        response = await self.get_raw_user_trades(trade_type, trades, start, end, retries)
+        try:
+            user_trades = UserTrades(data=response)
+            return user_trades.dict()
+        except ValidationError as e:
+            logging.warning("Please check that your raw method returns the correct type")
+            logging.error(e)
+
+
+    async def get_user_trades_as_pandas(self, trade_type: str="all", trades: bool=False, start: int=None, 
+                                        end: int=None, retries: int=0) -> pd.DataFrame:
+        validated_response = await self.get_user_trades(trade_type, trades, start, end, retries)
+        df = pd.DataFrame.from_dict(validated_response["data"], orient="index")
+        return df
+        
+
+
     @abstractmethod
-    async def get_open_positions(self, **kwargs) -> pd.DataFrame:
+    async def get_raw_open_positions(self, *args, **kwargs) -> dict:
         raise NotImplementedError
+
+
+    async def get_open_positions(self, txid: list=[], show_pnl=True, retries: int=0) -> dict:
+        response = await self.get_raw_open_positions(txid, show_pnl, retries)
+        try:
+            open_positions = OpenPositions(data=response)
+            return open_positions.dict()
+        except ValidationError as e:
+            logging.warning("Please check that your raw method returns the correct type")
+            logging.error(e)
+
+
+    async def get_open_positions_as_pandas(self, txid: list=[], show_pnl=True, retries: int=0) -> pd.DataFrame:
+        validated_response = await self.get_open_positions(txid, show_pnl, retries)
+        df = pd.DataFrame.from_dict(validated_response["data"], orient="index")
+        return df
     
     
     
