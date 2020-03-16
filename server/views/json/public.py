@@ -30,12 +30,10 @@ async def get_ticker(exchange: str,
                      ):
     api = rest_api_map[exchange]()
     response = await api.get_ticker(pair=pair)
-    # table_json = response.to_json(orient="table") 
-    # return table_json
-    return response
+    return response["data"]
     
 
-@router.get('/ohlc/{exchange}')
+@router.get('/ohlc/{exchange}', response_class=UJSONResponse)
 async def get_ohlc(exchange: str, 
                    pair: str = Query(..., title="Dash Separated Pair", maxlength=8),
                    timeframe: int = Query(..., title="OHLC Candle Interval in minutes"),
@@ -44,9 +42,7 @@ async def get_ohlc(exchange: str,
                    ):
     api = rest_api_map[exchange]()
     response = await api.get_ohlc(pair=[pair], timeframe=timeframe, since=since, retries=retries)
-    # table_json = response["df"].to_json(orient="table")
-    # return {"df": table_json, "last": response["last"]}
-    return response
+    return response["data"]
 
 
 @router.get('/orderbook/{exchange}')
@@ -71,9 +67,8 @@ async def get_trades(exchange: str,
                      ):
     api = rest_api_map[exchange]()
     response = await api.get_trades(pair=[pair], since=since, retries=retries)
-    # table_json = response["df"].to_json(orient="table")
-    # return {"df": table_json, "last": response["last"]}
-    return response
+    return response["data"]
+
 
 @router.get("/spread/{exchange}")
 async def get_spread(exchange: str, 
@@ -83,8 +78,6 @@ async def get_spread(exchange: str,
                      ):
     api = rest_api_map[exchange]()
     response = await api.get_spread(pair=[pair], since=since, retries=retries)
-    # table_json = response["df"].to_json(orient="table")
-    # return {"df": table_json, "last": response["last"]}
-    return response
+    return response["data"]
 
 
