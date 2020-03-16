@@ -56,9 +56,6 @@ HANDLED_SIGNALS = (
 import stackprinter
 stackprinter.set_excepthook(style='darkbg2') 
 
-from aiologger import Logger
-aiologger = Logger.with_default_handlers(name='aiologger')
-
 
 # =================== Set logger ======================= #
 
@@ -472,7 +469,7 @@ class Server:
         # await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["system"])
         trades_update = await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["kraken_orders"])
         if trades_update:
-            print(trades_update)
+            print(ujson.loads(trades_update))
 
         # Update the default headers, once per second.
         if counter % (1/tick_interval) == 0:

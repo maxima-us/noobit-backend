@@ -47,6 +47,13 @@ To start websocket feed handler (publish all incoming websocket data to appropri
 python start_feedhandler.py
 ```
 
+### Testing
+
+From within noobit-backend folder :
+```
+python -m pytest -vv
+```
+
 
 ## To Do
 
