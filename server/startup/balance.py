@@ -88,6 +88,7 @@ async def update_balance_holdings(balance: dict):
         # ==== UPDATE HOLDINGS ====
 
         resp = await api.get_account_balance()
+        resp = resp["data"]
         
         # if holdings column is empty
         if not balance["holdings"]:
@@ -128,8 +129,9 @@ async def update_balance_positions(balance: dict):
     
         # ==== UPDATE POSITIONS ====
 
-        req = await api.query_private(method="open_positions")
-        clean_dict = open_positions_aggregated_by_pair(req)
+        # req = await api.query_private(method="open_positions")
+        # clean_dict = open_positions_aggregated_by_pair(req)
+        open_positions = await api.get_open_positions()
         
         
         # if positions column is empty
@@ -138,21 +140,21 @@ async def update_balance_positions(balance: dict):
             logging.warning(f"{exchange_name.upper()} Positions missing")
 
             await Balance.filter(exchange_id=exchange_id).update(
-                positions=clean_dict
+                positions=open_positions
                 )
 
-            logging.warning(f"{exchange_name.upper()} Positions set to {clean_dict}")
+            logging.warning(f"{exchange_name.upper()} Positions set to {open_positions}")
         
         # if it isnt empty, audit it 
         else:
-            if balance["positions"] == clean_dict:
+            if balance["positions"] == open_positions:
                 logging.info(f"{exchange_name.upper()} Positions up to date")
             else:
                 logging.warning(f"{exchange_name.upper()} Positions not up to date")
                 await Balance.filter(exchange_id=exchange_id).update(
-                    positions=clean_dict
+                    positions=open_positions
                     )
-                logging.warning(f"{exchange_name.upper()} Positions updated to {clean_dict}")
+                logging.warning(f"{exchange_name.upper()} Positions updated to {open_positions}")
 
 
     except Exception as e:

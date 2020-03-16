@@ -607,8 +607,8 @@ class BaseRestAPI(ABC):
             retries (int)
 
         Returns:
-            dictionary : format
-                <asset name> : <balance amount>
+            dictionary : one key
+                data (dict) : dict of <asset name> : <balance amount>
         """
         response = await self.get_raw_account_balance(retries)
         try: 
@@ -657,7 +657,7 @@ class BaseRestAPI(ABC):
 
 
     async def get_trade_balance(self, asset_class: str=None, asset: str=None, retries: int=0):
-        """Get trade balance data (not validated against data model)
+        """Get trade Vbalance data (not validated against data model)
 
         Args:
             asset_class (str): asset class (optional):
@@ -799,6 +799,33 @@ class BaseRestAPI(ABC):
 
 
     async def get_open_positions(self, txid: list=[], show_pnl=True, retries: int=0) -> dict:
+        """Get validated open positions data (checked against data model)
+
+        Args:
+            txid (str) : transaction ids to restrict output to
+            show_pnl (bool): whether or not to include profit/loss calculations
+            retries (int)
+
+        Returns:
+            dict : single key <data> 
+                data (dict) : position_txid as key and pos_info dict as value
+                    pos_info:
+                    ordertxid = order responsible for execution of trade
+                    pair = asset pair
+                    time = unix timestamp of trade
+                    type = type of order used to open position (buy/sell)
+                    ordertype = order type used to open position
+                    cost = opening cost of position (quote currency unless viqc set in oflags)
+                    fee = opening fee of position (quote currency)
+                    vol = position volume (base currency unless viqc set in oflags)
+                    vol_closed = position volume closed (base currency unless viqc set in oflags)
+                    margin = initial margin (quote currency)
+                    value = current value of remaining position (if docalcs requested.  quote currency)
+                    net = unrealized profit/loss of remaining position (if docalcs requested.  quote currency, quote currency scale)
+                    misc = comma delimited list of miscellaneous info
+                    oflags = comma delimited list of order flags
+                        viqc = volume in quote currency
+        """
         response = await self.get_raw_open_positions(txid, show_pnl, retries)
         try:
             open_positions = OpenPositions(data=response)

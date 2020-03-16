@@ -421,7 +421,7 @@ class UserTrades(BaseModel):
     """User Trades Data Model
 
     Args:
-        data (dict): array of trade info with txid as the key
+        data (dict): txid as key and tradeinfo dict as value
             tradeinfo :
             ordertxid = order responsible for execution of trade
             pair = asset pair
@@ -462,22 +462,24 @@ class OpenPositionsEntry(TypedDict):
 class OpenPositions(BaseModel):
     """Open Positions Data Model
 
-    <position_txid> = open position info
-        ordertxid = order responsible for execution of trade
-        pair = asset pair
-        time = unix timestamp of trade
-        type = type of order used to open position (buy/sell)
-        ordertype = order type used to open position
-        cost = opening cost of position (quote currency unless viqc set in oflags)
-        fee = opening fee of position (quote currency)
-        vol = position volume (base currency unless viqc set in oflags)
-        vol_closed = position volume closed (base currency unless viqc set in oflags)
-        margin = initial margin (quote currency)
-        value = current value of remaining position (if docalcs requested.  quote currency)
-        net = unrealized profit/loss of remaining position (if docalcs requested.  quote currency, quote currency scale)
-        misc = comma delimited list of miscellaneous info
-        oflags = comma delimited list of order flags
-            viqc = volume in quote currency
+    Args:
+        data (dict):  position_txid as key and pos_info dict as value
+            pos_info:
+            ordertxid = order responsible for execution of trade
+            pair = asset pair
+            time = unix timestamp of trade
+            type = type of order used to open position (buy/sell)
+            ordertype = order type used to open position
+            cost = opening cost of position (quote currency unless viqc set in oflags)
+            fee = opening fee of position (quote currency)
+            vol = position volume (base currency unless viqc set in oflags)
+            vol_closed = position volume closed (base currency unless viqc set in oflags)
+            margin = initial margin (quote currency)
+            value = current value of remaining position (if docalcs requested.  quote currency)
+            net = unrealized profit/loss of remaining position (if docalcs requested.  quote currency, quote currency scale)
+            misc = comma delimited list of miscellaneous info
+            oflags = comma delimited list of order flags
+                viqc = volume in quote currency
 
     """
     data: Dict[str, OpenPositionsEntry]
