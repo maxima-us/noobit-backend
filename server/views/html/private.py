@@ -18,11 +18,13 @@ router = APIRouter()
 # ==== Private User Data
 
 
-@router.get('/account_balance/{exchange}', response_class=UJSONResponse)
+@router.get('/account_balance/{exchange}', response_class=HTMLResponse)
 async def get_account_balance(exchange: str):
     api = rest_api_map[exchange]()
     response = await api.get_account_balance()
-    return response 
+    data = response["data"]
+    df = pd.DataFrame.from_dict(data, orient="index")
+    return df.to_html()
 
 
 @router.get('/trade_balance/{exchange}', response_class=HTMLResponse)
@@ -31,9 +33,9 @@ async def get_trade_balance(exchange: str,
                             retries: int = Query(None, title="Number of times to retry the request if it fails")
                             ):
     api = rest_api_map[exchange]()
-    response = await api.get_trade_balance(asset=asset, retries=retries)
+    response = await api.get_trade_balance_as_pandas(asset=asset, retries=retries)
 
-    df = pd.DataFrame.from_dict(response, orient="index")
+    df = pd.DataFrame.from_dict(response)
     return df.to_html()
 
 
@@ -57,13 +59,13 @@ async def get_closed_orders(exchange:str,
                             retries: int = Query(None, title="Number of times to retry the request if it fails")
                             ):
     api = rest_api_map[exchange]()
-    response = await api.get_closed_orders(trades=trades, start=start, end=end, closetime=closetime, retries=retries)
+    response = await api.get_closed_orders_as_pandas(trades=trades, start=start, end=end, closetime=closetime, retries=retries)
     html_table = response.to_html()
     return html_table
 
 
-@router.get('/trades_history/{exchange}', response_class=HTMLResponse)
-async def get_user_trades_history(exchange: str, 
+@router.get('/trades/{exchange}', response_class=HTMLResponse)
+async def get_user_trade(exchange: str, 
                                   trade_type: str = Query(None, title="Type of trade"),
                                   trades: bool = Query(None, title="Wether to include trades in output"),
                                   start : int = Query(None, title="Start Unix Timestamp"),
@@ -71,7 +73,7 @@ async def get_user_trades_history(exchange: str,
                                   retries: int = Query(None, title="Number of times to retry the request if it fails")
                                   ):
     api = rest_api_map[exchange]()
-    response = await api.get_user_trades_history(trade_type=trade_type,
+    response = await api.get_user_trades_as_pandas(trade_type=trade_type,
                                                  trades=trades,
                                                  start=start,
                                                  end=end,
@@ -88,7 +90,7 @@ async def get_positions(exchange: str,
                         retries: int = Query(None, title="Number of times to retry the request if it fails")
                         ):
     api = rest_api_map[exchange]()
-    response = await api.get_open_positions(txid=txid, show_pnl=show_pnl, retries=retries)
+    response = await api.get_open_positions_as_pandas(txid=txid, show_pnl=show_pnl, retries=retries)
     html_table = response.to_html()
     return html_table
 

@@ -29,9 +29,9 @@ async def get_ticker(exchange: str,
                      pair: List[str] = Query(..., title="Dash Separated Pair", maxlength=8)
                      ):
     api = rest_api_map[exchange]()
-    response = await api.get_ticker(pair=pair)
+    response = await api.get_ticker_as_pandas(pair=pair)
     html_table = response.to_html()
-    return f"{html_table}"
+    return html_table
     
 
 @router.get('/ohlc/{exchange}', response_class=HTMLResponse)
@@ -42,10 +42,9 @@ async def get_ohlc(exchange: str,
                    retries: int = Query(None, title="Number of times to retry the request if it fails")
                    ):
     api = rest_api_map[exchange]()
-    response = await api.get_ohlc(pair=[pair], timeframe=timeframe, since=since, retries=retries)
-    html_table = response["df"].to_html()
-    return f"{html_table}<p><br></p>{response['last']}"
-
+    response = await api.get_ohlc_as_pandas(pair=[pair], timeframe=timeframe, since=since, retries=retries)
+    html_table = response["data"].to_html()
+    return f"{html_table}<br><p>last : {response['last']}</p>"
 
 @router.get('/orderbook/{exchange}', response_class=HTMLResponse)
 async def get_orderbook(exchange: str, 
@@ -54,10 +53,10 @@ async def get_orderbook(exchange: str,
                         retries: int = Query(None, title="Number of times to retry the request if it fails")
                         ):
     api = rest_api_map[exchange]()
-    response = await api.get_orderbook(pair=[pair], count=count, retries=retries)
+    response = await api.get_orderbook_as_pandas(pair=[pair], count=count, retries=retries)
     html_asks_table = response["asks"].to_html()
     html_bids_table = response["bids"].to_html()
-    return f"{html_asks_table}<p><br></p>{html_bids_table}"
+    return f"<table><tr><td><h3>asks</h3>{html_asks_table}</td><td><h3>bids</h3>{html_bids_table}</td></tr></table>"
 
 
 @router.get("/trades/{exchange}", response_class=HTMLResponse)
@@ -67,9 +66,9 @@ async def get_trades(exchange: str,
                      retries: int = Query(None, title="Number of times to retry the request if it fails")
                      ):
     api = rest_api_map[exchange]()
-    response = await api.get_trades(pair=[pair], since=since, retries=retries)
-    html_table = response["df"].to_html()
-    return f"{html_table}<p><br></p>{response['last']}"
+    response = await api.get_trades_as_pandas(pair=[pair], since=since, retries=retries)
+    html_table = response["data"].to_html()
+    return f"{html_table}<br><p>last : {response['last']}</p>"
 
 
 @router.get("/spread/{exchange}", response_class=HTMLResponse)
@@ -79,8 +78,8 @@ async def get_spread(exchange: str,
                      retries: int = Query(None, title="Number of times to retry the request if it fails")
                      ):
     api = rest_api_map[exchange]()
-    response = await api.get_spread(pair=[pair], since=since, retries=retries)
-    html_table = response["df"].to_html()
-    return f"{html_table}<p><br></p>{response['last']}"
+    response = await api.get_spread_as_pandas(pair=[pair], since=since, retries=retries)
+    html_table = response["data"].to_html()
+    return f"{html_table}<br><p>last : {response['last']}</p>"
 
 

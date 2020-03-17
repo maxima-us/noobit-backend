@@ -418,7 +418,13 @@ class BaseRestAPI(ABC):
 
 
     async def get_ohlc_as_pandas(self, pair: list, timeframe: int, since: int=None, retries: int=0):
-        """return as pandas df
+        """Get validated Ohlc data as pandas dataframe
+
+        Returns:
+            dict: two keys
+                data (pd.DataFrame)
+                last (int)
+
         """
         validated_response = await self.get_ohlc(pair, retries)
 
@@ -458,8 +464,14 @@ class BaseRestAPI(ABC):
     
 
     async def get_orderbook_as_pandas(self, pair: list, count: int=None, retries: int=0):
-        """return as pandas df
+        """Get validated orderbook data as pandas dataframe
+
+        Returns:
+            dict: 2 keys
+                asks (pd.DataFrame)
+                bids (pd.DataFrame)
         """
+        #   TODO : merge the two dataframes and return
         validated_response = await self.get_orderbook(pair, count, retries)
 
         cols = ["price", "volume", "timestamp"]
@@ -657,7 +669,7 @@ class BaseRestAPI(ABC):
 
 
     async def get_trade_balance(self, asset_class: str=None, asset: str=None, retries: int=0):
-        """Get trade Vbalance data (not validated against data model)
+        """Get trade balance data (not validated against data model)
 
         Args:
             asset_class (str): asset class (optional):
@@ -690,8 +702,15 @@ class BaseRestAPI(ABC):
         except ValidationError as e:
             logging.warning("Please check that get_raw_trade_balance method returns the correct type")
             logging.error(e)
-    
-    
+
+
+    async def get_trade_balance_as_pandas(self, asset_class: str=None, asset: str=None, retries: int=0):
+        validated_response = await self.get_trade_balance(asset_class, asset, retries)
+        df = pd.DataFrame.from_dict(validated_response["data"], orient="index") # ==> better to orient along index
+        return df
+
+
+
     @abstractmethod
     async def get_raw_open_orders(self, *args, **kwargs) -> dict:
         """Get trade balance data (not validated against data model)
