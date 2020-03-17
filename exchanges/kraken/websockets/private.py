@@ -91,7 +91,7 @@ class KrakenPrivateFeedReader(BasePrivateFeedReader):
         
         else : 
             msg = ujson.loads(msg)
-            data = msg[0]
+            data = msg[0][0]
             feed = msg[1]
             # redis_pool.publish(f"data:{feed}", ujson.dumps(data))
             self.publish_data(data, feed, redis_pool)

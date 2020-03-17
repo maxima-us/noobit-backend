@@ -21,6 +21,7 @@ class Order(models.Model):
     time_created = fields.BigIntField(default=datetime.datetime.utcnow().timestamp())                             #should be unix timestamp
     time_executed = fields.BigIntField(null=True)                   
 
+    pair = fields.CharField(max_length=10)
     volume = fields.FloatField()
     price = fields.FloatField(null=True)
     price2 = fields.FloatField(null=True)

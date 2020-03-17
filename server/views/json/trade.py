@@ -54,74 +54,74 @@ async def place_order(exchange: str,
                                      validate=validate
                                      )
 
+    return response
+    # if not validate:
+    #     exchange_order_id = response["txid"][0]
+    #     # we need to append "id" to field name with foreign key: 
+    #     # https://github.com/tortoise/tortoise-orm/issues/259
+    #     order = await Order.create(exchange_id_id=settings.EXCHANGE_IDS_FROM_NAME[exchange],
+    #                                exchange_order_id=exchange_order_id,
+    #                                order_type=ordertype,
+    #                                order_side=side,
+    #                                volume=volume,
+    #                                price=price,  
+    #                                price2=price2,
+    #                                leverage=leverage,
+    #                                start_time=start_time,
+    #                                expire_time=expire_time,
+    #                                unique_id=uuid.uuid4().hex
+    #                                )
 
-    if not validate:
-        exchange_order_id = response["txid"][0]
-        # we need to append "id" to field name with foreign key: 
-        # https://github.com/tortoise/tortoise-orm/issues/259
-        order = await Order.create(exchange_id_id=settings.EXCHANGE_IDS_FROM_NAME[exchange],
-                                   exchange_order_id=exchange_order_id,
-                                   order_type=ordertype,
-                                   order_side=side,
-                                   volume=volume,
-                                   price=price,  
-                                   price2=price2,
-                                   leverage=leverage,
-                                   start_time=start_time,
-                                   expire_time=expire_time,
-                                   unique_id=uuid.uuid4().hex
-                                   )
-
-        # then we should go check if our order has been added to krakens open orders
-        # note : this is only valid if we place a limit order, otherwise check trade history
-        if 'limit' in ordertype:
-            open_orders = await api.get_open_orders_as_pandas()
-            try:
-                checked_status = open_orders.loc[exchange_order_id, "status"]
-                await Order.filter(exchange_order_id=exchange_order_id).update(status=checked_status)
+    #     # then we should go check if our order has been added to krakens open orders
+    #     # note : this is only valid if we place a limit order, otherwise check trade history
+    #     if 'limit' in ordertype:
+    #         open_orders = await api.get_open_orders_as_pandas()
+    #         try:
+    #             checked_status = open_orders.loc[exchange_order_id, "status"]
+    #             await Order.filter(exchange_order_id=exchange_order_id).update(status=checked_status)
             
-            except Exception as e:
-                logging.error(stackprinter.format(e, style="darkbg2"))
+    #         except Exception as e:
+    #             logging.error(stackprinter.format(e, style="darkbg2"))
 
-            #TODO   how do we know when the order has been filled, so we can update the table later
-            #TODO   do we just check on each candle interval ? for example we would check 4h later if the order has been processed and at what time ?
+    #         #TODO   how do we know when the order has been filled, so we can update the table later
+    #         #TODO   do we just check on each candle interval ? for example we would check 4h later if the order has been processed and at what time ?
         
-        if 'market' in ordertype:
-            # kraken can be very slow to match orders
-            await asyncio.sleep(2)
-            trade_history = await api.get_user_trades_history()
+    #     if 'market' in ordertype:
+    #         # kraken can be very slow to match orders
+    #         await asyncio.sleep(2)
+    #         trade_history = await api.get_user_trades_history()
 
-            try:
-                checked_trade = trade_history[trade_history["ordertxid"] == exchange_order_id]
-                if not checked_trade.empty:
+    #         try:
+    #             checked_trade = trade_history[trade_history["ordertxid"] == exchange_order_id]
+    #             if not checked_trade.empty:
 
-                    await Order.filter(exchange_order_id=exchange_order_id).update(
-                                                                status="filled",
-                                                                time_executed=checked_trade["time"],
-                                                                )
+    #                 await Order.filter(exchange_order_id=exchange_order_id).update(
+    #                                                             status="filled",
+    #                                                             time_executed=checked_trade["time"],
+    #                                                             )
 
-                    # TODO  instead of querying db we could just return a repr when filtering above ?
-                    order_id_query = await Order.filter(exchange_order_id=exchange_order_id).values("order_id")
-                    order_id_value = order_id_query[0]["order_id"]
+    #                 # TODO  instead of querying db we could just return a repr when filtering above ?
+    #                 order_id_query = await Order.filter(exchange_order_id=exchange_order_id).values("order_id")
+    #                 order_id_value = order_id_query[0]["order_id"]
 
-                    exchange_trade_id_array = checked_trade.index.values.tolist()
-                    exchange_trade_id = exchange_trade_id_array[0]
+    #                 exchange_trade_id_array = checked_trade.index.values.tolist()
+    #                 exchange_trade_id = exchange_trade_id_array[0]
 
-                    slippage = abs(float(checked_trade["price"]) - price)
+    #                 slippage = abs(float(checked_trade["price"]) - price)
                     
-                    await Trade.create(exchange_trade_id=exchange_trade_id,
-                                       time_created=checked_trade["time"],
-                                       trade_side=side,
-                                       price=checked_trade["price"],                             
-                                       volume=volume,
-                                       fee=checked_trade["fee"], 
-                                       slippage=slippage,
-                                       order_id_id=order_id_value
-                                       )
-            except Exception as e:
-                logging.error(stackprinter.format(e, style="darkbg2"))
+    #                 await Trade.create(exchange_trade_id=exchange_trade_id,
+    #                                    time_created=checked_trade["time"],
+    #                                    trade_side=side,
+    #                                    price=checked_trade["price"],                             
+    #                                    volume=volume,
+    #                                    fee=checked_trade["fee"], 
+    #                                    slippage=slippage,
+    #                                    order_id_id=order_id_value
+    #                                    )
+    #         except Exception as e:
+    #             logging.error(stackprinter.format(e, style="darkbg2"))
 
-    return order
+    # return order
 
 
 @router.post('/cancel_order/{exchange}', response_class=UJSONResponse)

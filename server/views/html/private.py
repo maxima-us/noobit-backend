@@ -43,7 +43,7 @@ async def get_open_orders(exchange: str,
                           retries: int = Query(None, title="Number of times to retry the request if it fails")
                           ):
     api = rest_api_map[exchange]()
-    response = await api.get_open_orders(trades=trades, retries=retries)
+    response = await api.get_open_orders_as_pandas(trades=trades, retries=retries)
     html_table = response.to_html()
     return html_table
 

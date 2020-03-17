@@ -90,7 +90,7 @@ class OpenOrders(BaseModel):
     kraken : https://docs.kraken.com/websockets/#message-openOrders
     """
 
-    data : List[Dict[str, OpenOrdersItem]]
+    data : Dict[str, OpenOrdersItem]
     channel_name : str
 
 
@@ -117,7 +117,7 @@ class OwnTrades(BaseModel):
     kraken : https://docs.kraken.com/websockets/#message-ownTrades
     """
 
-    data : List[Dict[str, OwnTradesItem]]
+    data : Dict[str, OwnTradesItem]
     channel_name : str
 
 

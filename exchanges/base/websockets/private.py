@@ -141,11 +141,15 @@ class BasePrivateFeedReader(ABC):
         try:
             self.feed_counters[channel] += 1
             update_chan = f"data:update:{self.exchange}:{feed}"
-            redis_pool.publish(update_chan, ujson.dumps(ws_data.dict()))
+            data_to_publish = ws_data.dict()
+            data_to_publish = data_to_publish["data"]
+            redis_pool.publish(update_chan, ujson.dumps(data_to_publish))
         except KeyError :
             self.feed_counters[channel] = 0
             snapshot_chan = f"data:snapshot:{self.exchange}:{feed}"
-            redis_pool.publish(snapshot_chan, ujson.dumps(ws_data.dict()))
+            data_to_publish = ws_data.dict()
+            data_to_publish = data_to_publish["data"]
+            redis_pool.publish(snapshot_chan, ujson.dumps(data_to_publish))
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
 

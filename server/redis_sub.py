@@ -1,12 +1,18 @@
 import os
 import signal,sys,time                          
+import functools
 import asyncio
+import logging
+import uuid
+
+import ujson
 import uvloop
 import aioredis
-import logging
 import stackprinter
-import functools
-from contextlib import suppress
+
+from server import settings
+from models.orm_models import Order, Trade
+
 
 
 class FeedConsumer:
@@ -17,11 +23,18 @@ class FeedConsumer:
         """
         self.redis = None
         if sub_map is None:
-            self.sub_map = {"events": "heartbeat:*", "status": "status:*", "kraken_orders": "data:update:kraken:*", "system": "system:*"}
+            self.sub_map = {"events": "heartbeat:*", 
+                            "status": "status:*", 
+                            "order_snapshot": "data:snapshot:kraken:openOrders",
+                            "order_updates": "data:update:kraken:openOrders",
+                            "trade_snapshot": "data:snapshot:kraken:ownTrades",
+                            "trade_updates": "data:update:kraken:ownTrades",
+                            "system": "system:*"}
         else:
             self.sub_map = sub_map
         self.subd_channels = {}
         self.terminate = False
+
 
 
     async def subscribe(self):
@@ -43,6 +56,7 @@ class FeedConsumer:
         print(f"Consumer --- Got message : {msg}")
     
 
+
     async def consume_from_channel(self, channel: aioredis.Channel):
         
         try:
@@ -56,16 +70,113 @@ class FeedConsumer:
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2")) 
             
+
+
+    async def update_orders(self, exchange):
+
+        channel = self.subd_channels["order_updates"]
+        bytemsg = None
+        bytechan = None
+        
+        try:
+
+            try: 
+                bytechan, bytemsg = await asyncio.wait_for(channel.get(), timeout=0.1)
+            except:
+                pass
+
+            if bytemsg is None:
+                return
+                # raw message will be tuple of format :
+                #        (b'data:update:kraken:openOrders', 
+                #         b'{"data":[{"OURTBZ-BO9CD-MHTOA6":{"status":"canceled","cost":"0.00000",
+                #                                            "vol_exec":"0.00000000","fee":"0.00000",
+                #                                            "avg_price":"0.00000"}
+                #                    }
+                #                   ],
+                #           "channel_name":"openOrders"}')
+
+                #  or
+                #     (b'data:update:kraken:openOrders', 
+                #      b'{"data":[{"OUZTAZ-BO7AD-MDSOA6":{"avg_price":"0.00000","cost":"0.00000",
+                #                                         "descr":{"close":null,"leverage":null,
+                #                                                  "order":"buy 10.00000000 XBT\\/USD @ limit 10.00000",
+                #                                                   "ordertype":"limit","pair":"XBT\\/USD","price":"10.00000",
+                #                                                   "price2":"0.00000","type":"buy"},
+                #                                          "expiretm":null,"fee":"0.00000","limitprice":"0.00000","misc":"",
+                #                                          "oflags":"fciq","opentm":"1584396450.270295","refid":null,"starttm":null,
+                #                                          "status":"pending","stopprice":"0.00000","userref":0,
+                #                                          "vol":"10.00000000","vol_exec":"0.00000000"}
+                #                  }
+                #                 ],
+                #          "channel_name":"openOrders"}')
+
+                # or 
+                #      (b'data:update:kraken:openOrders', 
+                #       b'{"data":[{"OUZTAZ-BO7AD-MDSOA6":{"status":"open"}}],
+                #                 "channel_name":"openOrders"}')
+
+
+            msg = bytemsg.decode("utf-8")
+            new_order = ujson.loads(msg)
+            # logging.info(list(new_order.keys()))
+
+            for order_id, order_info in new_order.items():
+
+                if order_info["status"] == "pending":
+
+                    await Order.create(exchange_id_id=settings.EXCHANGE_IDS_FROM_NAME[exchange],
+                                            exchange_order_id=order_id,
+                                            order_type=order_info["descr"]["ordertype"],
+                                            order_side=order_info["descr"]["type"],
+                                            pair=order_info["descr"]["pair"].replace("/", "-"),
+                                            volume=order_info["vol"],
+                                            price=order_info["descr"]["price"],  
+                                            price2=order_info["descr"]["price2"],
+                                            leverage=order_info["descr"]["leverage"],
+                                            start_time=order_info["starttm"],
+                                            expire_time=order_info["expiretm"],
+                                            unique_id=uuid.uuid4().hex
+                                            )
+                    logging.info(f"Order : {order_id} is pending - db records created")
+
+                if order_info["status"] == "open":
+                    await Order.filter(exchange_order_id=order_id).update(status="open")
+                    logging.info(f"Order : {order_id} is open - db records updated")
+
+                if order_info["status"] == "canceled":
+                    await Order.filter(exchange_order_id=order_id).update(status="canceled")
+                    logging.info(f"Order : {order_id} is canceled - db records updated")
+
+
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
+
     
-    async def on_tick(self, counter: int):
 
+    async def update_trades(self, exchange):
 
-        await self.consume_from_channel(self.subd_channels["status"])
-        await self.consume_from_channel(self.subd_channels["events"])
-        await self.consume_from_channel(self.subd_channels["data"])
-        await self.consume_from_channel(self.subd_channels["system"])
+        channel = self.subd_channels["trade_updates"]
 
-        if self.terminate:
-            return True
-        return False
+        try:
+            try:
+                new_trades = await asyncio.wait_for(channel.get(), timeout=0.1)
+                if new_trades:
+                    logging.info(new_trades)
+            except:
+                pass
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
+    
+
+    # async def on_tick(self, counter: int):
+
+    #     await self.consume_from_channel(self.subd_channels["status"])
+    #     await self.consume_from_channel(self.subd_channels["events"])
+    #     await self.consume_from_channel(self.subd_channels["data"])
+    #     await self.consume_from_channel(self.subd_channels["system"])
+
+    #     if self.terminate:
+    #         return True
+    #     return False
 

@@ -129,9 +129,11 @@ async def update_balance_positions(balance: dict):
     
         # ==== UPDATE POSITIONS ====
 
-        # req = await api.query_private(method="open_positions")
-        # clean_dict = open_positions_aggregated_by_pair(req)
-        open_positions = await api.get_open_positions()
+        #   TODO fix this
+        req = await api.query_private(method="open_positions")
+        open_positions = open_positions_aggregated_by_pair(req)
+        # open_positions = await api.get_open_positions()
+        # open_positions = open_positions["data"]
         
         
         # if positions column is empty
