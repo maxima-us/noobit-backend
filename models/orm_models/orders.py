@@ -23,6 +23,7 @@ class Order(models.Model):
 
     pair = fields.CharField(max_length=10)
     volume = fields.FloatField()
+    filled = fields.FloatField()
     price = fields.FloatField(null=True)
     price2 = fields.FloatField(null=True)
     leverage = fields.SmallIntField(null=True) 

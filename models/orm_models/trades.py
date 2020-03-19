@@ -13,11 +13,13 @@ class Trade(models.Model):
     # ==== FROM GRYPHON
     trade_id = fields.IntField(pk=True, unique=True)
     unique_id = fields.UUIDField(unique=True, default=uuid.uuid4().hex)
+    exchange_id = fields.ForeignKeyField("models.Exchange")
     exchange_trade_id = fields.CharField(max_length=30, unique=True)
 
     time_created = fields.BigIntField(default=datetime.datetime.utcnow().timestamp())   
-    trade_side = fields.CharField(max_length=5)                          # should be unix timestamp
+    trade_side = fields.CharField(max_length=5)      
 
+    pair = fields.CharField(max_length=10)
     price = fields.FloatField()
     volume = fields.FloatField()
     fee = fields.FloatField()
