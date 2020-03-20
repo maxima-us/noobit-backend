@@ -8,6 +8,8 @@ jinja2
 python-multipart
 typesystem
 httpx
+httpx-oauth
+requests
 python-dotenv
 pandas
 redis
