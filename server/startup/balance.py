@@ -26,7 +26,7 @@ from exchanges.kraken.utils.clean_data import open_positions_aggregated_by_pair,
 
 # Check if there are empty balances in the database 
 # If empty we fetch the balance from API and write to the DB
-# If not empty we cache Balance value to settings
+# If not empty we cache CurrentBalance value to settings
 
 
 async def instantiate_exchange_table(exchanges: dict):
@@ -42,7 +42,7 @@ async def instantiate_exchange_table(exchanges: dict):
             name=exchange_name,
             exchange_id=exchange_id
         )
-        await Balance.create(
+        await CurrentBalance.create(
             exchange_id=exchange_id,
             holdings={},
             positions={}
@@ -58,14 +58,14 @@ async def instantiate_balance_table(exchange: int):
     input: exchange id (int)
     '''
     try:
-        await Balance.create(
+        await CurrentBalance.create(
             # we need to append "id" to field name with foreign key: 
             # https://github.com/tortoise/tortoise-orm/issues/259
             exchange_id=exchange["exchange_id"],
             holdings={},
             positions={}
         )
-        logging.warning(f"Instantiated Balance Table for exchange : {exchange['name'].upper()}")
+        logging.warning(f"Instantiated CurrentBalance Table for exchange : {exchange['name'].upper()}")
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))
 
@@ -95,7 +95,7 @@ async def update_balance_holdings(balance: dict):
 
             logging.warning(f"{exchange_name.upper()} Holdings missing")
 
-            await Balance.filter(exchange_id=exchange_id).update(
+            await CurrentBalance.filter(exchange_id=exchange_id).update(
                 holdings=resp
                 )
 
@@ -107,7 +107,7 @@ async def update_balance_holdings(balance: dict):
                 logging.info(f"{exchange_name.upper()} Holdings up to date")
             else:
                 logging.warning(f"{exchange_name.upper()} Holdings not up to date")
-                await Balance.filter(exchange_id=exchange_id).update(
+                await CurrentBalance.filter(exchange_id=exchange_id).update(
                     holdings=resp
                     )
                 logging.warning(f"{exchange_name.upper()} Holdings updated to {resp}")
@@ -141,7 +141,7 @@ async def update_balance_positions(balance: dict):
 
             logging.warning(f"{exchange_name.upper()} Positions missing")
 
-            await Balance.filter(exchange_id=exchange_id).update(
+            await CurrentBalance.filter(exchange_id=exchange_id).update(
                 positions=open_positions
                 )
 
@@ -153,7 +153,7 @@ async def update_balance_positions(balance: dict):
                 logging.info(f"{exchange_name.upper()} Positions up to date")
             else:
                 logging.warning(f"{exchange_name.upper()} Positions not up to date")
-                await Balance.filter(exchange_id=exchange_id).update(
+                await CurrentBalance.filter(exchange_id=exchange_id).update(
                     positions=open_positions
                     )
                 logging.warning(f"{exchange_name.upper()} Positions updated to {open_positions}")
@@ -165,12 +165,12 @@ async def update_balance_positions(balance: dict):
 
 async def startup_balances(redis_instance):
     try:
-        exch_balances = await Balance.all().values()
+        exch_balances = await CurrentBalance.all().values()
         # returns a list of dicts of the format {id: int , holdings:{}, exchange_id: int}
 
-        # if Balance table is empty:
+        # if CurrentBalance table is empty:
         if not exch_balances:
-            logging.warning(f"{exch_balances} Balance DBTable is empty")
+            logging.warning(f"{exch_balances} CurrentBalance DBTable is empty")
 
             try:
                 exchanges = await Exchange.all().values()
@@ -186,11 +186,11 @@ async def startup_balances(redis_instance):
             except Exception as e:
                 logging.error(stackprinter.format(e, style="darkbg2"))
 
-        # if Balance table is not empty:
+        # if CurrentBalance table is not empty:
         # this code will not execute if balance table is initially empty
         # since exch_value will be == []
         # we need to fetch the balance values from db again after they are updated :
-        exch_balances = await Balance.all().values()
+        exch_balances = await CurrentBalance.all().values()
        
         for balance in exch_balances:
             await update_balance_holdings(balance)
@@ -200,7 +200,7 @@ async def startup_balances(redis_instance):
         logging.error(stackprinter.format(e, style="darkbg2"))
     
 
-    raw_dictlist = await Balance.all().values()
+    raw_dictlist = await CurrentBalance.all().values()
     # returns list of dicts of format {id: int, holdings: dict, positions: dict, exchange_id: int}
 
     #iterate over raw dictlist, for each item pull out exchange_name from exchange id

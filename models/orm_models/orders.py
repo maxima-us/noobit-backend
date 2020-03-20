@@ -1,6 +1,7 @@
 import datetime
 import uuid
 from tortoise import fields, models
+from .strategy import Strategy
 
 #!  on startup we need to audit order table, to see if we are up to date
 #!  also log performance (meaning delta between initial func call and end)
@@ -30,9 +31,14 @@ class Order(models.Model):
 
     start_time = fields.BigIntField(null=True)
     expire_time = fields.BigIntField(null=True)
+    
+    strategy_id : fields.ForeignKeyRelation[Strategy] = fields.ForeignKeyField("models.Strategy", 
+                                                                         related_name="order",
+                                                                         to_field="strategy_id"
+                                                                         )
 
     # trades  = relatinship ... ??? how to handle in tortoise
-    trades = fields.ReverseRelation["models.Trade"]
+    trade = fields.ReverseRelation["models.Trade"]
 
 
     def __str__(self) -> str:

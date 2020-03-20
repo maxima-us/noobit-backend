@@ -3,12 +3,12 @@ import json
 import logging
 import stackprinter
 
-from models.orm_models.balance import Balance
+from models.orm_models.balance import CurrentBalance
 from server.startup.balance import update_balance_holdings, update_balance_positions
 
 async def shutdown_balances():
     try:
-        exch_balances = await Balance.all().values()
+        exch_balances = await CurrentBalance.all().values()
        
         for balance in exch_balances:
             await update_balance_holdings(balance)

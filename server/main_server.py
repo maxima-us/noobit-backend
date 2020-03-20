@@ -91,8 +91,8 @@ import ujson
 import websockets
 import aioredis
 from server import settings                                    
-from server.startup.balance import startup_balances
-from server.shutdown.balance import shutdown_balances
+from server.db_utils.balance import startup_balance, record_new_balance_update
+from server.db_utils.strategy import startup_strategy
 from server.startup.monit import startup_monit
 from server.monitor.heartbeat import Heartbeat
 from .redis_sub import FeedConsumer
@@ -165,6 +165,7 @@ class Server:
         self.private_ws = None
         self.public_ws = None
         self.redis_sub = None
+        self.aioredis_pool = None
 
 
     #! this is the part we need to replace in backend.main
@@ -296,15 +297,19 @@ class Server:
         # start monit daemon
         startup_monit()
 
-        #! change variables name to remain consistent across app
-        self.cache = settings.REDIS
+        # aioredis pool connection to use across entire server module
+        settings.AIOREDIS_POOL = await aioredis.create_redis_pool('redis://localhost')
+        self.aioredis_pool = settings.AIOREDIS_POOL
+
         # self.target_exchange = self.cache["target_exchange"]
         # self.target_api = rest_api_map[self.target_exchange]()
 
         self.heartbeat = Heartbeat(heartbeat_key="server", is_active=True)
 
 
-        await startup_balances(redis_instance=self.cache)
+        await startup_balance()
+        await record_new_balance_update(event="startup")
+        await startup_strategy()
         # self.open_websockets["private"] = await connect_private_websockets(api=self.target_api)
         # self.open_websockets["public"] = await connect_public_websockets(pairs=["XBT/USD"])
 
@@ -316,11 +321,12 @@ class Server:
 
         self.redis_sub = FeedConsumer()
         await self.redis_sub.subscribe()
-
-
         #! also check balances at shutdown
 
         self.started = True
+
+
+
 
 
     async def main_loop(self, tick_interval=settings.TICK_INTERVAL):
@@ -335,118 +341,6 @@ class Server:
             should_exit = await self.on_tick(counter, tick_interval)
 
 
-
-
-    # ================================================================================
-    # ======== TICK LOGIC THAT WE REMOVE TO PLACE IN ENGINE MODULE
-    # ================================================================================
-
-
-    # async def pre_algo_tick(self):
-    #     '''
-    #     Pre algo tick we should : \t
-    #     - check balances to be able to manage risk ==> from cache \t
-    #     - check open orders ==> from cache \t
-    #     - check profit so we can lock in some if we want ==> probably thru WS price updates \t
-    #     - send a bool to continue (or not) with on_algo_tick ? \t
-    #     - track open order status ==> which orders have been filled/how much ?
-    #     '''
-
-    #     logging.info("---- pre tick ----")
-        
-    #     # msgs = await self.open_websockets["public"].recv()
-
-
-    #     # try :
-    #     #     for feed in self.private_ws.feeds:
-    #     #         msgs = await self.private_ws.read_feed(feed)
-    #     #         events = await self.private_ws.read_feed("events")
-    #     #         logging.info(f"messages : {msgs}")
-    #     #         logging.info(f"events : {events}")
-
-    #     # except Exception as e:
-    #     #     logging.error(stackprinter.format(e, style="darkbg2"))
-
-    #     try:
-    #         #!  this is very slow somehow, figure out where bottleneck is
-    #         #!  we should probably rewrite the whole websocket file so that it is started
-    #         #!      as a separate process that sends all the data to redis 
-    #         #!      pre_algo then just reads data from redis
-    #         await self.private_ws.read_feed("openOrders")
-    #         # logging.info(msgs)
-    #         # await aiologger.info(f"messages: {msgs}")
-    #     except Exception as e:
-    #         logging.error(stackprinter.format(e, style="darkbg2"))
-
-    #     # TODO  Parse messages from ownTrades and openOrders
-    #     # TODO  Update trades and orders table accordingly
-    #     # TODO   
-
-
-    # async def on_algo_tick(self, hour, minute, second, microsecond):
-    #     '''
-    #     On algo tick we should: \t
-    #     - determine which strat is run \b \t
-    #     - determine what timeframe we want \b \t
-    #     - determine what datetimes will be our checkpoints \b \t
-    #     - at each checkpoint, fetch data \b \t
-    #     - at each checkpoint, run strat logic on the fetched data to see what we do \b \t
-    #     - make sure our orders were executed \t
-    #     - update database and cache if we did anything \t
-
-    #     also check out from gryphon: \t
-    #     - heartbeat (touch file on each tick) \t
-    #     - monit \t
-
-    #     !!! 
-    #     We should also implement sthg in case we want to adjust our orders dynamically
-    #     For example if we want to limit chase, or if we have a MM strategy
-    #     How would we keep adjusting our order continuously ?
-    #     For this our on_schedule fonction would need to talk to this loop, so that we know
-    #         we need to keep track of this order and execute some logic until it is filled
-
-    #     Concrete example : 
-    #     on a 4H EMA cross, our on_schedule func wants to buy 1 BTC, but limit chasing up the price
-    #     sends data to cache : buy 1 btc  
-    #     sends data to cache : execution_algo = limit_chase_up 
-    #     set execution to True
-    #     on each algo tick : check cache, if order is still there : execute given execution algo
-    #                                      if some of it was eaten : update cache and execute
-    #                                      if filled : delete cache data for given order
-    #                                                  set execution to False
-
-    #     ==> we will need to feed the execution algo with websocket orderbook data
-    #     ==> on schedule will basically just be the trigger to launch execution algo
-
-    #     '''
-
-
-    #     # Run strat function if we are at a checkpoint
-
-    #     allowed_units = ["hour", "minute"]
-    #     sub_tf_condition = (minute == 0 and second == 0 and microsecond<10**5) if self.strat_tf_unit == "hour" else (second == 0 and microsecond<10**5)
-
-    #     if self.strat_tf_unit in allowed_units:
-    #         try:
-    #             if eval(self.strat_tf_unit) % self.strat_tf_value == 0 and sub_tf_condition:
-    #                 try:
-    #                     # await asyncio.wait_for(self.strat.on_schedule(self.target_api), timeout=1)
-    #                     await self.strat.on_schedule(self.target_api)
-    #                 except Exception as e:
-    #                     logging.warning(f"Algo Tick function timed out :{str(e)}")
-    #                 logging.info(f"UTC-{hour}-{minute}-{second}-{microsecond} : algo running ")
-
-    #         except Exception as e:
-    #             logging.error(stackprinter.format(e, style="darkbg2"))
-    #     else:
-    #         logging.warning("Invalid Strategy Interval")
-    #         pass
-
-
-
-
-    # ================================================================================
-    # ================================================================================
 
         
     async def on_tick(self, counter, tick_interval) -> bool:
@@ -477,7 +371,7 @@ class Server:
 
         # Update the default headers, once per second.
         if counter % (1/tick_interval) == 0:
-            # logging.info(f"One second gone, tick interval is : {tick_interval}")                     #added
+            logging.info(f"One second gone, tick interval is : {tick_interval}")                     #added
             current_time = time.time()
             current_date = formatdate(current_time, usegmt=True).encode()
             self.server_state.default_headers = [
@@ -492,6 +386,17 @@ class Server:
 
             # heartbeat once per second
             self.heartbeat.beat()
+
+        # Write balance to db every minute
+        if counter % (60/tick_interval) == 0:
+            logging.info("1 minute gone")
+            await record_new_balance_update(event="periodic")
+        
+            holding = await self.aioredis_pool.get(f"balance:holdings:kraken")
+            logging.info(f"Holdings : {ujson.loads(holding)}")
+            account_value = await self.aioredis_pool.get(f"balance:account_value:kraken")
+            logging.info(f"Account value : {ujson.loads(account_value)}")
+
 
 
         # Determine if we should exit.
@@ -510,8 +415,8 @@ class Server:
             await ws.close()
 
         #! Check balances at shutdown
-        logger.info("Updating Balances")
-        await shutdown_balances()
+        # logger.info("Updating Balances")
+        # await shutdown_balances()
 
         # Stop accepting new connections.
         for socket in sockets or []:

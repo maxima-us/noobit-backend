@@ -8,3 +8,4 @@ from .exchange import Exchange
 from .balance import Balance
 from .orders import Order
 from .trades import Trade
+from .strategy import Strategy

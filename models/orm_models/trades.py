@@ -24,9 +24,11 @@ class Trade(models.Model):
     volume = fields.FloatField()
     fee = fields.FloatField()
     slippage = fields.FloatField()
+    leverage = fields.IntField(default=0)
+
 
     order_id : fields.ForeignKeyRelation[Order] = fields.ForeignKeyField("models.Order", 
-                                                                         related_name="trades",
+                                                                         related_name="trade",
                                                                          to_field="order_id"
                                                                          )
 
