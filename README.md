@@ -59,7 +59,9 @@ python -m pytest -vv
 
 - data validation + testing for placing & closing orders
 - implement cancel all orders / positions methods
-- write fastapi tests
+- public ws feed
+- command line 
+- trading engine
 
 
 
