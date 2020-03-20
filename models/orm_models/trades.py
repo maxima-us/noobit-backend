@@ -29,7 +29,8 @@ class Trade(models.Model):
 
     order_id : fields.ForeignKeyRelation[Order] = fields.ForeignKeyField("models.Order", 
                                                                          related_name="trade",
-                                                                         to_field="order_id"
+                                                                         to_field="order_id",
+                                                                         from_field="trade"
                                                                          )
 
     

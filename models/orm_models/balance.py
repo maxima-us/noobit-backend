@@ -24,7 +24,8 @@ class Balance(models.Model):
 
     exchange : fields.ForeignKeyRelation[Exchange] = fields.ForeignKeyField("models.Exchange", 
                                                                             related_name="balance",
-                                                                            to_field="name"
+                                                                            to_field="name", 
+                                                                            from_field="exchange"
                                                                             )
 
     def __str__(self) -> str:

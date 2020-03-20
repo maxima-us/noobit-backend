@@ -34,7 +34,8 @@ class Order(models.Model):
     
     strategy_id : fields.ForeignKeyRelation[Strategy] = fields.ForeignKeyField("models.Strategy", 
                                                                          related_name="order",
-                                                                         to_field="strategy_id"
+                                                                         to_field="strategy_id",
+                                                                         from_field="order"
                                                                          )
 
     # trades  = relatinship ... ??? how to handle in tortoise
