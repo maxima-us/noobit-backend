@@ -7,16 +7,10 @@ aiofiles
 jinja2
 python-multipart
 typesystem
-bootstrap4
 httpx
-confluent-kafka
-cryptofeed
-aiokafka
 python-dotenv
 pandas
-matplotlib
 redis
-TA-Lib
 stackprinter
 structlog
 pytest-asyncio
