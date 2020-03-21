@@ -15,6 +15,7 @@ api = TestClient(app)
 session = httpx.AsyncClient()
 settings.SESSION = session
 
+
 def test_get_account_balance():
     response = api.get("/json/private/account_balance/kraken")
     assert response.status_code == 200
