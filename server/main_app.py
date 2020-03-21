@@ -78,7 +78,7 @@ app.include_router(html.public.router, prefix="/html/public", tags=["public_data
 app.include_router(html.private.router, prefix="/html/private", tags=["private_data", "html"])
 
 
-app.mount("/static", StaticFiles(directory="server/static"), name="static")
+# app.mount("/static", StaticFiles(directory="server/static"), name="static")
 # we don't need static files anymore
 
 
