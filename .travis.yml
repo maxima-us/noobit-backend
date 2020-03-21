@@ -8,3 +8,4 @@ install:
 script: 
   - python -m pytest tests/server/views/json/test_public_json.py
   - python -m pytest tests/server/views/html/test_public_html.py
+  - python -m pytest tests/exchanges/kraken/rest/test_public_api_kraken.py
