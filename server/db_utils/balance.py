@@ -38,11 +38,33 @@ def aggregate_open_positions(response: dict):
         pair = pos_info["pair"]
         side = pos_info["type"]
         if side == "buy":
-            aggregated["volume"]["long"][pair] += pos_info["vol"]
-            aggregated["cost"]["long"][pair] += pos_info["cost"]
+            try:
+                aggregated["volume"]["long"][pair] += pos_info["vol"]
+            except KeyError:
+                aggregated["volume"]["long"][pair] = pos_info["vol"]
+            except Exception as e:
+                logging.error(stackprinter.format(e, style="darkbg2"))
+            try:
+                aggregated["cost"]["long"][pair] += pos_info["cost"]
+            except KeyError:
+                aggregated["cost"]["long"][pair] = pos_info["cost"]
+            except Exception as e:
+                logging.error(stackprinter.format(e, style="darkbg2"))
+
         if side == "sell":
-            aggregated["volume"]["short"][pair] += pos_info["vol"]
-            aggregated["cost"]["short"][pair] += pos_info["cost"]
+            try:
+                aggregated["volume"]["short"][pair] += pos_info["vol"]
+            except KeyError:
+                aggregated["volume"]["short"][pair] = pos_info["vol"]
+            except Exception as e:
+                logging.error(stackprinter.format(e, style="darkbg2"))
+            try:
+                aggregated["cost"]["short"][pair] += pos_info["cost"]
+            except KeyError:
+                aggregated["cost"]["short"][pair] = pos_info["cost"]
+            except Exception as e:
+                logging.error(stackprinter.format(e, style="darkbg2"))
+
 
     return aggregated
     
@@ -75,8 +97,8 @@ async def record_new_balance_update(event: str):
         # positions aggregated by side, size is volume lots (for ex in BTC and not in USD)
         positions_vol = aggregated_pos["volume"]
 
-        # counters can not have negatibe values so this does not work
-        exposure = Counter(holdings) + Counter(positions_vol["long"]) - Counter(positions_vol["short"])
+        # ! counters can not have negatibe values so this does not work
+        # exposure = Counter(holdings) + Counter(positions_vol["long"]) - Counter(positions_vol["short"])
         
         margin_level = trade_balance["data"]["margin_level"]
 
@@ -97,7 +119,7 @@ async def record_new_balance_update(event: str):
             positions_unrealized=positions_pnl,
             account_value=account_value, 
             margin=margin_level,
-            exposure=exposure
+            exposure=0
 
         )
 
