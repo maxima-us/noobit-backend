@@ -1,4 +1,4 @@
-from models.data_models.api import OpenOrders
+from models.data_models.api import Ohlc, OpenOrders
 import os
 import signal,sys,time                          
 import asyncio
@@ -16,14 +16,16 @@ from collections import deque
 from pydantic import ValidationError
 
 from models.data_models.websockets import HeartBeat, SubscriptionStatus, SystemStatus
-from models.data_models.websockets import OpenOrders, OwnTrades
+from models.data_models.websockets import Ticker, Trade, Spread, Book
 
 
 # needs to be named exactly as the channel name from the exchange 
 # TODO think about how this could work to orchestrate different exchanges
-data_models_map = {"openOrders": OpenOrders,
-                   "ownTrades": OwnTrades,
-                    }
+data_models_map = {"ticker": Ticker,
+                   "trade": Trade,
+                   "spread": Spread,
+                   "book": Book
+                  }
 
 # ================================================================================
 # ================================================================================
@@ -41,7 +43,7 @@ data_models_map = {"openOrders": OpenOrders,
 
 
 
-class BasePrivateFeedReader(ABC):
+class BasePublicFeedReader(ABC):
 
     """Base Class for Websocket Feed Readers
     Makes sure all the data the websockets send to redis is normalized
@@ -84,7 +86,7 @@ class BasePrivateFeedReader(ABC):
         """message needs to be json loaded str, make sure we have the correct keys
         """
 
-        channel = f"ws:private:status:{self.exchange}"
+        channel = f"ws:public:status:{self.exchange}"
 
         try:
             print(msg)
@@ -100,7 +102,7 @@ class BasePrivateFeedReader(ABC):
         """message needs to be json loaded str, make sure we have the correct keys
         """
 
-        channel = f"ws:private:heartbeat:{self.exchange}"
+        channel = f"ws:public:heartbeat:{self.exchange}"
 
         try:
             heartbeat = HeartBeat(**msg)
@@ -115,7 +117,7 @@ class BasePrivateFeedReader(ABC):
         """message needs to be json loadedy str, make sure we have the correct keys
         """
 
-        channel = f"ws:private:system:{self.exchange}"
+        channel = f"ws:public:system:{self.exchange}"
 
         try:
             print(msg)
@@ -127,26 +129,26 @@ class BasePrivateFeedReader(ABC):
 
 
 
-    def publish_data(self, data: dict, feed: str, redis_pool):
+    def publish_data(self, data, feed: str, feed_id: int, pair: str, redis_pool):
         """message needs to be json loadedy str, make sure we have the correct keys
         """
 
-        channel = f"ws:private:data:{self.exchange}:{feed}"
+        channel = f"ws:public:data:{self.exchange}:{feed}"
 
         try:
-            ws_data = data_models_map[feed](data=data, channel_name=feed)
+            ws_data = data_models_map[feed](channel_id=feed_id, data=data, channel_name=feed, pair=pair)
         except ValidationError as e :
             logging.error(stackprinter.format(e, style="darkbg2"))
         
         try:
             self.feed_counters[channel] += 1
-            update_chan = f"data:update:{self.exchange}:{feed}"
+            update_chan = f"ws:public:data:update:{self.exchange}:{feed}:{pair}"
             data_to_publish = ws_data.dict()
             data_to_publish = data_to_publish["data"]
             redis_pool.publish(update_chan, ujson.dumps(data_to_publish))
         except KeyError :
             self.feed_counters[channel] = 0
-            snapshot_chan = f"data:snapshot:{self.exchange}:{feed}"
+            snapshot_chan = f"ws:public:data:snapshot:{self.exchange}:{feed}:{pair}"
             data_to_publish = ws_data.dict()
             data_to_publish = data_to_publish["data"]
             redis_pool.publish(snapshot_chan, ujson.dumps(data_to_publish))

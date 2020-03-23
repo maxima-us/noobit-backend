@@ -4,6 +4,7 @@ import functools
 import asyncio
 import logging
 import uuid
+import concurrent
 
 import ujson
 import uvloop
@@ -23,13 +24,16 @@ class FeedConsumer:
         """
         self.redis = None
         if sub_map is None:
-            self.sub_map = {"events": "heartbeat:*", 
-                            "status": "status:*", 
-                            "order_snapshot": "data:snapshot:kraken:openOrders",
-                            "order_updates": "data:update:kraken:openOrders",
-                            "trade_snapshot": "data:snapshot:kraken:ownTrades",
-                            "trade_updates": "data:update:kraken:ownTrades",
-                            "system": "system:*"}
+            self.sub_map = {"heartbeat": "ws:heartbeat:*", 
+                            "status": "ws:status:*", 
+                            "system": "ws:system:*",
+                            "ownorder_snapshot": "ws:private:data:snapshot:kraken:openOrders",
+                            "ownorder_updates": "ws:private:data:update:kraken:openOrders",
+                            "owntrade_snapshot": "ws:private:data:snapshot:kraken:ownTrades",
+                            "owntrade_updates": "ws:private:data:update:kraken:ownTrades",
+                            "trade_updates": "ws:public:data:update:kraken:trade:*",
+                            "ticker_updates": "ws:pubic:data:update:kraken:ticker"
+                        }
         else:
             self.sub_map = sub_map
         self.subd_channels = {}
@@ -75,14 +79,14 @@ class FeedConsumer:
 
     async def update_orders(self, exchange):
 
-        channel = self.subd_channels["order_updates"]
+        channel = self.subd_channels["ownorder_updates"]
         bytemsg = None
         bytechan = None
         
         try:
 
             try: 
-                bytechan, bytemsg = await asyncio.wait_for(channel.get(), timeout=0.1)
+                bytechan, bytemsg = await asyncio.wait_for(channel.get(), timeout=0.01)
             except:
                 pass
 
@@ -167,16 +171,19 @@ class FeedConsumer:
 
     async def update_trades(self, exchange):
 
-        channel = self.subd_channels["trade_updates"]
+        channel = self.subd_channels["owntrade_updates"]
         bytemsg = None
         bytechan = None
 
 
         try:
             try: 
-                bytechan, bytemsg = await asyncio.wait_for(channel.get(), timeout=0.1)
-            except:
+                message = await channel.get()
+                if message is not None:
+                    bytemsg, bytechan = message
+            except aioredis.errors.ChannelClosedError:
                 pass
+            
             
             if bytemsg is None:
                 return
@@ -224,6 +231,31 @@ class FeedConsumer:
 
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
+
+
+    async def update_public_trades(self, exchange, pair):
+        
+        channel = self.subd_channels["trade_updates"]
+        bytemsg = None
+        bytechan = None
+            
+        try:
+            try: 
+                bytechan, bytemsg = await asyncio.wait_for(channel.get(), timeout=1/1000)
+            except concurrent.futures.TimeoutError:
+                pass
+            
+            if bytemsg is None:
+                return
+            
+            msg = bytemsg.decode("utf-8")
+            new_trade = ujson.loads(msg)
+            logging.info(new_trade)
+
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
+
+
     
 
 

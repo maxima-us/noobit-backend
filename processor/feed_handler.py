@@ -9,7 +9,7 @@ import stackprinter
 import uvloop
 import aioredis
 
-from exchanges.mappings import private_ws_map
+from exchanges.mappings.websockets import private_ws_map, public_ws_map
 
 
 HANDLED_SIGNALS = (
@@ -31,19 +31,18 @@ class FeedHandler(object):
     """
 
 
-    def __init__(self, exchanges: List[str], feeds: List[str]):
+    def __init__(self, exchanges: List[str], private_feeds: List[str], public_feeds: List[str], pairs: List[str]):
         """For now, feeds will be common to all exchanges, meaning all
         exchanges will subscribe to the same feeds we passed
         """
 
-        assert isinstance(exchanges, list)
-        assert isinstance(feeds, list)
-
         self.exchanges = [exchange.lower() for exchange in exchanges]
-        self.feeds = feeds
+        self.private_feeds = private_feeds
+        self.public_feeds = public_feeds
         self.terminate = False
         self.private_feed_readers = {}
         self.public_feed_readers = {}
+        self.pairs = pairs
     
     async def serve(self, ping_interval: int=60, ping_timeout: int=30):
         process_id = os.getpid()
@@ -53,9 +52,13 @@ class FeedHandler(object):
         self.redis = await aioredis.create_redis_pool('redis://localhost')
 
         for exchange in self.exchanges:
-            exchange_private_ws = private_ws_map[exchange](self.feeds)
+            exchange_private_ws = private_ws_map[exchange](self.private_feeds)
             await exchange_private_ws.subscribe(ping_interval, ping_timeout)
             self.private_feed_readers[exchange] = exchange_private_ws
+            
+            exchange_public_ws = public_ws_map[exchange](pairs=self.pairs, feeds=self.public_feeds)
+            await exchange_public_ws.subscribe(ping_interval, ping_timeout)
+            self.public_feed_readers[exchange] = exchange_public_ws
 
         
         if self.terminate:
@@ -77,6 +80,7 @@ class FeedHandler(object):
         try:
             for exchange in self.exchanges:
                 await self.private_feed_readers[exchange].process_feed(self.redis)
+                await self.public_feed_readers[exchange].process_feed(self.redis)
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
 
@@ -95,7 +99,7 @@ class FeedHandler(object):
             # do we need to change 864000 to some other number ?
             counter = counter % 864000
             # if we don't sleep this blocks for some reason
-            await asyncio.sleep(1)
+            await asyncio.sleep(0)
             should_exit = await self.on_tick(counter)
 
 

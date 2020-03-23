@@ -95,7 +95,7 @@ from server.db_utils.balance import startup_balance, record_new_balance_update
 from server.db_utils.strategy import startup_strategy
 from server.startup.monit import startup_monit
 from server.monitor.heartbeat import Heartbeat
-from .redis_sub import FeedConsumer
+from server.redis_sub import FeedConsumer
 
 # this needs to be replaced
 from exchanges.mappings import rest_api_map
@@ -366,12 +366,12 @@ class Server:
         #     print(ujson.loads(trades_update))
 
 
-        await self.redis_sub.update_orders(exchange="kraken")
+        # await self.redis_sub.update_orders(exchange="kraken")
+        await self.redis_sub.update_public_trades(exchange="kraken", pair="xbt/usd")
 
 
         # Update the default headers, once per second.
         if counter % (1/tick_interval) == 0:
-            logging.info(f"One second gone, tick interval is : {tick_interval}")                     #added
             current_time = time.time()
             current_date = formatdate(current_time, usegmt=True).encode()
             self.server_state.default_headers = [
@@ -389,7 +389,6 @@ class Server:
 
         # Write balance to db every minute
         if counter % (60/tick_interval) == 0:
-            logging.info("1 minute gone")
             await record_new_balance_update(event="periodic")
         
             holding = await self.aioredis_pool.get(f"balance:holdings:kraken")
