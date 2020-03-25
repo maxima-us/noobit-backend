@@ -74,13 +74,13 @@ class BasePrivateFeedReader(ABC):
         """
         try:
             msg = await self.ws.recv()
-            self.msg_handler(msg, redis_pool)
+            await self.msg_handler(msg, redis_pool)
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
 
 
     
-    def publish_status(self, msg: str, redis_pool):
+    async def publish_status(self, msg: str, redis_pool):
         """message needs to be json loaded str, make sure we have the correct keys
         """
 
@@ -89,14 +89,14 @@ class BasePrivateFeedReader(ABC):
         try:
             print(msg)
             subscription_status = SubscriptionStatus(**msg)
-            redis_pool.publish(channel, ujson.dumps(subscription_status.dict()))
+            await redis_pool.publish(channel, ujson.dumps(subscription_status.dict()))
 
         except ValidationError as e:
             logging.error(e)
 
 
 
-    def publish_heartbeat(self, msg: str, redis_pool):
+    async def publish_heartbeat(self, msg: str, redis_pool):
         """message needs to be json loaded str, make sure we have the correct keys
         """
 
@@ -104,14 +104,14 @@ class BasePrivateFeedReader(ABC):
 
         try:
             heartbeat = HeartBeat(**msg)
-            redis_pool.publish(channel, ujson.dumps(heartbeat.dict()))
+            await redis_pool.publish(channel, ujson.dumps(heartbeat.dict()))
 
         except ValidationError as e:
             logging.error(e)
 
 
 
-    def publish_systemstatus(self, msg: str, redis_pool):
+    async def publish_systemstatus(self, msg: str, redis_pool):
         """message needs to be json loadedy str, make sure we have the correct keys
         """
 
@@ -120,14 +120,14 @@ class BasePrivateFeedReader(ABC):
         try:
             print(msg)
             system_status = SystemStatus(**msg)
-            redis_pool.publish(channel, ujson.dumps(system_status.dict()))
+            await redis_pool.publish(channel, ujson.dumps(system_status.dict()))
 
         except ValidationError as e:
             logging.error(e)
 
 
 
-    def publish_data(self, data: dict, feed: str, redis_pool):
+    async def publish_data(self, data: dict, feed: str, redis_pool):
         """message needs to be json loadedy str, make sure we have the correct keys
         """
 
@@ -143,13 +143,13 @@ class BasePrivateFeedReader(ABC):
             update_chan = f"data:update:{self.exchange}:{feed}"
             data_to_publish = ws_data.dict()
             data_to_publish = data_to_publish["data"]
-            redis_pool.publish(update_chan, ujson.dumps(data_to_publish))
+            await redis_pool.publish(update_chan, ujson.dumps(data_to_publish))
         except KeyError :
             self.feed_counters[channel] = 0
             snapshot_chan = f"data:snapshot:{self.exchange}:{feed}"
             data_to_publish = ws_data.dict()
             data_to_publish = data_to_publish["data"]
-            redis_pool.publish(snapshot_chan, ujson.dumps(data_to_publish))
+            await redis_pool.publish(snapshot_chan, ujson.dumps(data_to_publish))
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
 

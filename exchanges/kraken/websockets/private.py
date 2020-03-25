@@ -52,8 +52,15 @@ class KrakenPrivateFeedReader(BasePrivateFeedReader):
                 logging.error(stackprinter.format(e, style="darkbg2"))
 
     
+    async def close(self):
+        try:
+            # await self.ws.wait_closed()
+            await self.ws.close()
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
+    
 
-    def msg_handler(self, msg, redis_pool):
+    async def msg_handler(self, msg, redis_pool):
         """sort messages that we receive from websocket and send them to appropriate redis chan
 
         Args:
@@ -74,27 +81,27 @@ class KrakenPrivateFeedReader(BasePrivateFeedReader):
             msg = ujson.loads(msg)
             # We need to replace keys so they correspond to our datamodel
             msg["connection_id"] = msg.pop("connectionID")
-            self.publish_systemstatus(msg, redis_pool)
+            await self.publish_systemstatus(msg, redis_pool)
 
         elif "subscription" in msg:
             msg = ujson.loads(msg)
             # We need to replace keys so they correspond to our datamodel
             msg["channel_name"] = msg.pop("channelName")
             #redis_pool.publish("status", msg)
-            self.publish_status(msg, redis_pool)
+            await self.publish_status(msg, redis_pool)
             # call some method from base class instead, that method will then check the type
 
         elif "heartbeat" in msg:
             msg = ujson.loads(msg)
             # redis_pool.publish("events", msg)
-            self.publish_heartbeat(msg, redis_pool)
+            await self.publish_heartbeat(msg, redis_pool)
         
         else : 
             msg = ujson.loads(msg)
             data = msg[0][0]
             feed = msg[1]
             # redis_pool.publish(f"data:{feed}", ujson.dumps(data))
-            self.publish_data(data, feed, redis_pool)
+            await self.publish_data(data, feed, redis_pool)
 
     
 
