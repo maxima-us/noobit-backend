@@ -1,13 +1,12 @@
-import os
-import signal,sys,time                          
+"""Kraken Private Websocket Feed Reader
+"""
+import logging
 import asyncio
 import websockets
-import logging
 
 import httpx
 import ujson
 import stackprinter
-from collections import deque
 
 from exchanges.mappings import rest_api_map
 from exchanges.base.websockets.private import BasePrivateFeedReader
@@ -15,20 +14,29 @@ from exchanges.base.websockets.private import BasePrivateFeedReader
 
 
 class KrakenPrivateFeedReader(BasePrivateFeedReader):
+    """Kraken Private Websocket Feed Reader
+
+    Args:
+        feeds (list): list of feeds to subscribe to
+    """
 
 
-    def __init__(self, feeds: list=["openOrders", "ownTrades"]):
+    def __init__(self, feeds: list = None):
+
+        if feeds is None:
+            self.feeds = ["openOrders", "ownTrades"]
+        else:
+            self.feeds = feeds
 
         self.exchange = "kraken"
         self.ws_uri = "wss://ws-auth.kraken.com"
-        self.feeds = feeds
         self.api = rest_api_map["kraken"]()
         self.api.session = httpx.AsyncClient()
         self.ws = None
         self.terminate = False
         self.feed_counters = {}
-    
-    
+
+
     async def subscribe(self, ping_interval: int, ping_timeout: int):
         """Subscribe to websocket.
         """
@@ -44,21 +52,23 @@ class KrakenPrivateFeedReader(BasePrivateFeedReader):
         for feed in self.feeds:
             try:
                 data = {"event": "subscribe", "subscription": {"name": feed, "token": ws_token['token']}}
-                payload = ujson.dumps(data) 
+                payload = ujson.dumps(data)
                 await self.ws.send(payload)
                 await asyncio.sleep(0.1)
-            
+
             except Exception as e:
                 logging.error(stackprinter.format(e, style="darkbg2"))
 
-    
+
     async def close(self):
+        """Close websocket connection
+        """
         try:
             # await self.ws.wait_closed()
             await self.ws.close()
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
-    
+
 
     async def msg_handler(self, msg, redis_pool):
         """sort messages that we receive from websocket and send them to appropriate redis chan
@@ -95,15 +105,15 @@ class KrakenPrivateFeedReader(BasePrivateFeedReader):
             msg = ujson.loads(msg)
             # redis_pool.publish("events", msg)
             await self.publish_heartbeat(msg, redis_pool)
-        
-        else : 
+
+        else:
             msg = ujson.loads(msg)
             data = msg[0][0]
             feed = msg[1]
             # redis_pool.publish(f"data:{feed}", ujson.dumps(data))
             await self.publish_data(data, feed, redis_pool)
 
-    
+
 
 # ================================================================================
 # ==== Run file
@@ -112,6 +122,3 @@ class KrakenPrivateFeedReader(BasePrivateFeedReader):
 
 #     kraken = KrakenPrivateFeedReader()
 #     kraken.run()
-
-
-

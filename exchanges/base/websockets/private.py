@@ -1,42 +1,34 @@
-from models.data_models.api import OpenOrders
-import os
-import sys,time                          
-import asyncio
+"""Base Class for Private Websocket Feed Reader
+"""
 import logging
-from typing import List
 from abc import ABC, abstractmethod
 
-import uvloop
-import websockets
-import httpx
-import aioredis
 import ujson
 import stackprinter
-from collections import deque
 from pydantic import ValidationError
 
 from models.data_models.websockets import HeartBeat, SubscriptionStatus, SystemStatus
 from models.data_models.websockets import OpenOrders, OwnTrades
 
 
-# needs to be named exactly as the channel name from the exchange 
+# needs to be named exactly as the channel name from the exchange
 # TODO think about how this could work to orchestrate different exchanges
-data_models_map = {"openOrders": OpenOrders,
+DATA_MODELS_MAP = {"openOrders": OpenOrders,
                    "ownTrades": OwnTrades,
-                    }
+                   }
 
 # ================================================================================
 # ================================================================================
 # ================================================================================
 # ================================================================================
 # ================================================================================
-# terminate = False                            
+# terminate = False
 
-# def signal_handling(signum,frame):           
-#     global terminate                         
-#     terminate = True                         
+# def signal_handling(signum,frame):
+#     global terminate
+#     terminate = True
 
-# signal.signal(signal.SIGINT,signal_handling) 
+# signal.signal(signal.SIGINT,signal_handling)
 
 
 
@@ -53,7 +45,7 @@ class BasePrivateFeedReader(ABC):
             self.feeds = feeds
             self.ws_uri = ws_uri
             self.api = rest_api_map[self.exchange]()
-            self.api.session = httpx.AsyncClient() 
+            self.api.session = httpx.AsyncClient()
             self.open_ws = None
             self.redis = None
             self.terminate = False
@@ -79,7 +71,7 @@ class BasePrivateFeedReader(ABC):
             logging.error(stackprinter.format(e, style="darkbg2"))
 
 
-    
+
     async def publish_status(self, msg: str, redis_pool):
         """message needs to be json loaded str, make sure we have the correct keys
         """
@@ -134,17 +126,17 @@ class BasePrivateFeedReader(ABC):
         channel = f"ws:private:data:{self.exchange}:{feed}"
 
         try:
-            ws_data = data_models_map[feed](data=data, channel_name=feed)
-        except ValidationError as e :
+            ws_data = DATA_MODELS_MAP[feed](data=data, channel_name=feed)
+        except ValidationError as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
-        
+
         try:
             self.feed_counters[channel] += 1
             update_chan = f"data:update:{self.exchange}:{feed}"
             data_to_publish = ws_data.dict()
             data_to_publish = data_to_publish["data"]
             await redis_pool.publish(update_chan, ujson.dumps(data_to_publish))
-        except KeyError :
+        except KeyError:
             self.feed_counters[channel] = 0
             snapshot_chan = f"data:snapshot:{self.exchange}:{feed}"
             data_to_publish = ws_data.dict()
@@ -170,7 +162,7 @@ class BasePrivateFeedReader(ABC):
         """
         raise NotImplementedError
 
-    
+
 
 
 # ================================================================================
@@ -180,6 +172,3 @@ class BasePrivateFeedReader(ABC):
 
 #     kraken = KrakenPrivateFeedReader()
 #     kraken.run()
-
-
-

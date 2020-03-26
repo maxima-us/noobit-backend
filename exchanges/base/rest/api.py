@@ -1,21 +1,21 @@
 '''Define Base MetaClass for Exchange Rest APIs'''
-
 from abc import ABC, abstractmethod
 import time
-import ujson
 import logging
+
+import ujson
 import stackprinter
 from pydantic import ValidationError
 import pandas as pd
 
-from models.data_models.api import (Ticker, Ohlc, Orderbook, Trades, Spread, AccountBalance, 
+from models.data_models.api import (Ticker, Ohlc, Orderbook, Trades, Spread, AccountBalance,
                                     TradeBalance, OpenOrders, ClosedOrders, UserTrades, OpenPositions)
 
 
 class BaseRestAPI(ABC):
     """Abstract Baseclass for Rest APIs.
 
-    Notes: 
+    Notes:
         Example Init for Kraken:
             self.exchange = "Kraken"
             self.base_url = mapping[self.exchange]["base_url"]
@@ -29,7 +29,7 @@ class BaseRestAPI(ABC):
             self._load_all_env_keys()
             self.normalize = self._load_normalize_map()
     """
-    
+
 
     def json_options(self, **kwargs):
         """ Set keyword arguments to be passed to JSON deserialization.
@@ -38,8 +38,8 @@ class BaseRestAPI(ABC):
         """
         self._json_options = kwargs
         return self
-    
-    
+
+
     async def close(self):
         """ close this session.
         :returns: none
@@ -58,15 +58,15 @@ class BaseRestAPI(ABC):
     @abstractmethod
     def _load_all_env_keys(self):
         '''Load all API keys from env file into a deque.
-        
+
         Notes:
             In .env file, keys should contain :
                 API Key : <exchange-name> & "key"
-                API Secret : <exchange-name> & "secret" 
+                API Secret : <exchange-name> & "secret"
         '''
         raise NotImplementedError
 
-    
+
     @classmethod
     def _set_class_var(cls, value):
         if not cls.env_keys_dq:
@@ -82,16 +82,18 @@ class BaseRestAPI(ABC):
 
 
     def current_key(self):
+        """env key we are currently using"""
         return self.env_keys_dq[0][0]
 
-    
+
     def current_secret(self):
+        """env secret we are currently using"""
         return self.env_keys_dq[0][1]
 
 
     def _nonce(self):
         """Nonce counter.
-        
+
         Returns:
             an always-increasing unsigned integer (up to 64 bits wide)
         """
@@ -100,16 +102,16 @@ class BaseRestAPI(ABC):
 
     def _sign(self, data: dict, urlpath: str):
         raise NotImplementedError
-    
-    
-    
-    
+
+
+
+
     # ================================================================================
     # ================================================================================
     # ==== UTILS
 
 
-    async def retry(self, *, func: object, retry_attempts: int=0, **kwargs):
+    async def retry(self, *, func: object, retry_attempts: int = 0, **kwargs):
         attempts = 0
         while True:
             try:
@@ -132,7 +134,7 @@ class BaseRestAPI(ABC):
 
         eg for kraken : {"xxbtzusd": "btc/usd", "zusd": "usd}
         '''
-        raise NotImplementedError 
+        raise NotImplementedError
 
 
 
@@ -190,25 +192,25 @@ class BaseRestAPI(ABC):
         #   KRAKEN Docs :
         #   Public methods can use either GET or POST.
         #   Private methods must use POST and be set up as follows [...]
-        #   This should also work for other exchanges 
+        #   This should also work for other exchanges
 
         if private:
-            self.response = await self.retry(func = self.session.post,
-                                            url = full_path, 
-                                            data = data, 
-                                            json = json,
-                                            headers = headers,
-                                            timeout = timeout,
-                                            retry_attempts=retries
-                                            )
-    
+            self.response = await self.retry(func=self.session.post,
+                                             url=full_path,
+                                             data=data,
+                                             json=json,
+                                             headers=headers,
+                                             timeout=timeout,
+                                             retry_attempts=retries
+                                             )
+
         else:
-            self.response = await self.retry(func = self.session.get,
-                                            url = full_path,
-                                            params = data,
-                                            timeout = timeout,
-                                            retry_attempts = retries
-                                            )
+            self.response = await self.retry(func=self.session.get,
+                                             url=full_path,
+                                             params=data,
+                                             timeout=timeout,
+                                             retry_attempts=retries
+                                             )
 
         if self.response.status_code not in (200, 201, 202):
             self.response.raise_for_status()
@@ -220,13 +222,13 @@ class BaseRestAPI(ABC):
         # we return text so it is easier to replace pairs and currencies to standard format
         resp_str = self.response.text
         normalized_resp = self._normalize_response(resp_str)
-        normalized_resp = ujson.loads(normalized_resp) 
+        normalized_resp = ujson.loads(normalized_resp)
 
         return normalized_resp
 
 
 
-    
+
     async def query_public(self, method, data=None, timeout=None, retries=0):
         """ Performs an API query that does not require a valid key/secret pair.
 
@@ -234,24 +236,24 @@ class BaseRestAPI(ABC):
             method (str) : method key as defined in endpoints map
             data (dict) : (optional) API request parameters
                 pair value should be passed as a list
-            timeout (float) : (optional) 
+            timeout (float) : (optional)
                 if not ``None``, throw Error after ``timeout`` seconds if no response
-        
+
         Returns:
             response.json (dict) : deserialised Python object
         """
-        
+
         data = self._cleanup_input_data(data)
 
-        method_endpoint = self.public_methods[method] 
+        method_endpoint = self.public_methods[method]
         method_path = f"{self.public_endpoint}/{method_endpoint}"
 
-        resp = await self._query(endpoint=method_path, 
-                                data=data, 
-                                private=False, 
-                                timeout=timeout, 
-                                retries=retries
-                                )
+        resp = await self._query(endpoint=method_path,
+                                 data=data,
+                                 private=False,
+                                 timeout=timeout,
+                                 retries=retries
+                                 )
 
         result = self._handle_response_errors(resp)
         if result is not None:
@@ -287,22 +289,22 @@ class BaseRestAPI(ABC):
             'API-Sign': self._sign(data, method_path)
         }
 
-        resp = await self._query(endpoint=method_path, 
-                                data=data, 
-                                headers=headers, 
-                                private=True, 
-                                timeout=timeout, 
-                                retries=retries
-                                )
+        resp = await self._query(endpoint=method_path,
+                                 data=data,
+                                 headers=headers,
+                                 private=True,
+                                 timeout=timeout,
+                                 retries=retries
+                                 )
 
         self._rotate_api_keys()
 
         result = self._handle_response_errors(resp)
         if result is not None:
             return result
-    
-    
-    
+
+
+
     # ================================================================================
     # ================================================================================
     # ==== USER API QUERIES
@@ -311,7 +313,7 @@ class BaseRestAPI(ABC):
     # ========================================
     # ====== Public Methods
 
-    
+
     @abstractmethod
     async def get_raw_ticker(self, *args, **kwargs) -> dict:
         """Raw (not checked against our models) ticker data for given pairs.
@@ -321,7 +323,7 @@ class BaseRestAPI(ABC):
                 input format : ["XBT-USD", "ETH-USD"]
                 must be passed as list even if single pair
             retries (int): number of request retry attempts
-    
+
         Returns:
             dict that must follow models.orm.Ticker data model
         """
@@ -329,7 +331,7 @@ class BaseRestAPI(ABC):
 
 
 
-    async def get_ticker(self, pair: list, retries: int=0) -> dict:
+    async def get_ticker(self, pair: list, retries: int = 0) -> dict:
         """Validated Ticker data (checked against data model).
 
         Args:
@@ -337,16 +339,16 @@ class BaseRestAPI(ABC):
                 input format : ["XBT-USD", "ETH-USD"]
                 must be passed as list even if single pair
             retries (int): number of request retry attempts
-    
+
         Returns:
-            dict with single key: 
-                data (dict): 
-                    key (str) : pair 
+            dict with single key:
+                data (dict):
+                    key (str) : pair
                     value (list) : array of ask, bid, open, high, low, close, volume, vwap, trades
         """
 
         data = await self.get_raw_ticker(pair, retries)
-        try: 
+        try:
             ticker = Ticker(data=data)
             return ticker.dict()
         except ValidationError as e:
@@ -355,14 +357,14 @@ class BaseRestAPI(ABC):
 
 
 
-    async def get_ticker_as_pandas(self, pair: list, retries: int=0):
+    async def get_ticker_as_pandas(self, pair: list, retries: int = 0):
         """Checked ticker data for given pairs as pandas df.
         """
         validated_response = await self.get_ticker(pair, retries)
 
         df = pd.DataFrame.from_dict(validated_response["data"], orient="index") # ==> better to orient along index
         return df
-    
+
 
 
     @abstractmethod
@@ -370,7 +372,7 @@ class BaseRestAPI(ABC):
         """Raw Ohlc data (not yet validated against data model).
 
         Args:
-            pair (list) : list containing single request pair 
+            pair (list) : list containing single request pair
             timeframe (int) : candle timeframe in minutes
                 possible values : 1 (default), 5, 15, 30, 60, 240, 1440, 10080, 21600
             since : return committed OHLC data since given id (optional)
@@ -387,7 +389,7 @@ class BaseRestAPI(ABC):
 
 
 
-    async def get_ohlc(self, pair: list, timeframe: int, since: int=None, retries: int=0):
+    async def get_ohlc(self, pair: list, timeframe: int, since: int = None, retries: int = 0):
         """Validated Ohlc data (checked against data model).
 
         Args:
@@ -396,15 +398,15 @@ class BaseRestAPI(ABC):
                 possible values : 1 (default), 5, 15, 30, 60, 240, 1440, 10080, 21600
             since : return committed OHLC data since given id (optional)
             retries (int): number of request retry attempts
-        
+
         Returns:
-            dict with only two keys: 
+            dict with only two keys:
                 data (list) : array of <time>, <open>, <high>, <low>, <close>, <vwap>, <volume>, <count>
                     vwap and count are optional, can be none
                 last (Decimal) : id to be used as since when polling for new, committed OHLC data
         """
         response = await self.get_raw_ohlc(pair, timeframe, since, retries)
-        try: 
+        try:
             ohlc = Ohlc(data=response["data"], last=response["last"])
             return ohlc.dict()
         except ValidationError as e:
@@ -413,7 +415,7 @@ class BaseRestAPI(ABC):
 
 
 
-    async def get_ohlc_as_pandas(self, pair: list, timeframe: int, since: int=None, retries: int=0):
+    async def get_ohlc_as_pandas(self, pair: list, timeframe: int, since: int = None, retries: int = 0):
         """Validated Ohlc data as pandas dataframe.
 
         Returns:
@@ -422,7 +424,7 @@ class BaseRestAPI(ABC):
                 last (int)
 
         """
-        validated_response = await self.get_ohlc(pair, retries)
+        validated_response = await self.get_ohlc(pair, timeframe, since, retries)
 
         cols = ["time", "open", "high", "low", "close", "vwap", "volume", "count"]
         df = pd.DataFrame(data=validated_response["data"], columns=cols)
@@ -433,33 +435,33 @@ class BaseRestAPI(ABC):
     @abstractmethod
     async def get_raw_orderbook(self, *args, **kwargs) -> dict:
         raise NotImplementedError
-    
 
-    
-    async def get_orderbook(self, pair: list, count: int=None, retries: int=0):
+
+
+    async def get_orderbook(self, pair: list, count: int = None, retries: int = 0):
         """Validated orderbook data (checked against data model).
 
         Args:
             pair (list) : asset pair to get market depth for
             count (int) : maximum number of asks/bids (optional)
             retries (int): number of request retry attempts
-        
+
         Returns:
-            dict with only two keys: 
+            dict with only two keys:
                 asks (list) : array of <price>, <volume>, <timestamp>
                 bids (list) : array of <price>, <volume>, <timestamp>
         """
         response = await self.get_raw_orderbook(pair, count, retries)
-        try: 
+        try:
             ob = Orderbook(asks=response["asks"], bids=response["bids"])
             return ob.dict()
         except ValidationError as e:
             logging.warning("Please check that your get_raw_orderbook method returns the correct type")
             logging.error(e)
-    
-    
 
-    async def get_orderbook_as_pandas(self, pair: list, count: int=None, retries: int=0):
+
+
+    async def get_orderbook_as_pandas(self, pair: list, count: int = None, retries: int = 0):
         """Validated orderbook data as pandas dataframe.
 
         Returns:
@@ -474,13 +476,13 @@ class BaseRestAPI(ABC):
         asks_df = pd.DataFrame(data=validated_response["asks"], columns=cols)
         bids_df = pd.DataFrame(data=validated_response["bids"], columns=cols)
         return {"asks": asks_df, "bids": bids_df}
-    
+
 
 
     @abstractmethod
     async def get_raw_trades(self, *arg, **kwargs) -> dict:
         """Raw Trades data (not yet validated against data model).
-        
+
         Args:
             pair (list): asset pair to get trade data for
             since (int): return trade data since given id (optional.  exclusive)
@@ -491,12 +493,12 @@ class BaseRestAPI(ABC):
                 last (int) : id to be used as since when polling for new data
         """
         raise NotImplementedError
-    
 
-    
-    async def get_trades(self, pair: list, since: int=None, retries: int=0):
+
+
+    async def get_trades(self, pair: list, since: int = None, retries: int = 0):
         """Validated Trades data (checked against data model).
-        
+
         Args:
             pair (list): asset pair to get trade data for
             since (int): return trade data since given id (optional.  exclusive)
@@ -507,7 +509,7 @@ class BaseRestAPI(ABC):
                 last (Decimal) : id to be used as since when polling for new data
         """
         response = await self.get_raw_trades(pair, since, retries)
-        try: 
+        try:
             trades = Trades(data=response["data"], last=response["last"])
             return trades.dict()
         except ValidationError as e:
@@ -516,9 +518,9 @@ class BaseRestAPI(ABC):
 
 
 
-    async def get_trades_as_pandas(self, pair: list, since: int=None, retries: int=0):
+    async def get_trades_as_pandas(self, pair: list, since: int = None, retries: int = 0):
         """Validated Trades data (checked against data model).
-        
+
         Args:
             pair (list): asset pair to get trade data for
             since (int): return trade data since given id (optional.  exclusive)
@@ -539,7 +541,7 @@ class BaseRestAPI(ABC):
     @abstractmethod
     async def get_raw_spread(self, *args, **kwargs) -> dict:
         """Raw Spread data (not yet validated against data model).
-        
+
         Args:
             pair (list): asset pair to get trade data for
             since (int): return data since given id (optional.  exclusive)
@@ -551,11 +553,11 @@ class BaseRestAPI(ABC):
                 last (Decimal) : id to be used as since when polling for new data
         """
         raise NotImplementedError
-    
 
-    async def get_spread(self, pair: list, since: int=None, retries: int=0):
+
+    async def get_spread(self, pair: list, since: int = None, retries: int = 0):
         """Validated Spread data (checked against data model).
-        
+
         Args:
             pair (list): asset pair to get trade data for
             since (int): return trade data since given id (optional.  exclusive)
@@ -563,21 +565,21 @@ class BaseRestAPI(ABC):
 
         Returns:
             dict : two keys
-                data (list) : array of <time>, <bid>, <ask> 
+                data (list) : array of <time>, <bid>, <ask>
                 last (Decimal) : id to be used as since when polling for new data
         """
         response = await self.get_raw_spread(pair, since, retries)
-        try: 
+        try:
             trades = Spread(data=response["data"], last=response["last"])
             return trades.dict()
         except ValidationError as e:
             logging.warning("Please check that get_raw_spread method returns the correct type")
             logging.error(e)
 
-    
-    async def get_spread_as_pandas(self, pair: list, since: int=None, retries: int=0) -> pd.DataFrame:
+
+    async def get_spread_as_pandas(self, pair: list, since: int = None, retries: int = 0) -> pd.DataFrame:
         """Validated Spread data as pandas dataframe.
-        
+
         Args:
             pair (list): asset pair to get trade data for
             since (int): return trade data since given id (optional.  exclusive)
@@ -606,9 +608,9 @@ class BaseRestAPI(ABC):
     @abstractmethod
     async def get_raw_account_balance(self, *args, **kwargs) -> dict:
         raise NotImplementedError
-    
-    
-    async def get_account_balance(self, retries: int=0):
+
+
+    async def get_account_balance(self, retries: int = 0) -> dict:
         """Validated account balance data (checked against data model).
 
         Args:
@@ -619,19 +621,21 @@ class BaseRestAPI(ABC):
                 data (dict) : dict of <asset name> : <balance amount>
         """
         response = await self.get_raw_account_balance(retries)
-        try: 
+        try:
             account_balance = AccountBalance(data=response)
             return account_balance.dict()
         except ValidationError as e:
             logging.warning("Please check that get_raw_account_balance method returns the correct type")
             logging.error(e)
 
-        
-    async def get_account_balance_as_pandas(self, retries: int=0):
+
+    async def get_account_balance_as_pandas(self, retries: int = 0) -> pd.DataFrame:
         """Probably useless.
         """
-        raise NotImplementedError
-    
+        validated_response = await self.get_account_balance(retries)
+        df = pd.DataFrame.from_dict(validated_response["data"], orient="index") # ==> better to orient along index
+        return df
+
 
 
     @abstractmethod
@@ -648,12 +652,12 @@ class BaseRestAPI(ABC):
 
                 - equivalent_balance (combined balance of all currencies)
                 - trade_balance (combined balance of all equity currencies)
-                - positions_margin 
+                - positions_margin
                 - positions_unrealized (net profit/loss of open positions)
                 - positions_cost basis
                 - positions_valuation
                 - equity (trade balance + unrealized net profit/loss)
-                - free_margin (equity - initial margin) 
+                - free_margin (equity - initial margin)
                     (maximum margin available to open new positions)
                 - margin_level ( equity*100 / initial margin )
 
@@ -661,10 +665,10 @@ class BaseRestAPI(ABC):
             I dont't really understand what is meant by asset_class input in the API Docs
         """
         raise NotImplementedError
-    
 
 
-    async def get_trade_balance(self, asset_class: str=None, asset: str=None, retries: int=0):
+
+    async def get_trade_balance(self, asset_class: str = None, asset: str = None, retries: int = 0) -> dict:
         """Trade balance data (not validated against data model).
 
         Args:
@@ -673,18 +677,18 @@ class BaseRestAPI(ABC):
             asset (str): base asset used to determine balance (default = ZUSD)
 
         Returns:
-            dict : one key 
-            
+            dict : one key
+
                 data (dict) : with following keys:
 
                 - equivalent_balance (combined balance of all currencies)
                 - trade_balance (combined balance of all equity currencies)
-                - positions_margin 
+                - positions_margin
                 - positions_unrealized (net profit/loss of open positions)
                 - positions_cost basis
                 - positions_valuation
                 - equity (trade balance + unrealized net profit/loss)
-                - free_margin (equity - initial margin) 
+                - free_margin (equity - initial margin)
                     (maximum margin available to open new positions)
                 - margin_level ( equity*100 / initial margin )
 
@@ -692,7 +696,7 @@ class BaseRestAPI(ABC):
             I dont't really understand what is meant by asset_class input in the API Docs
         """
         response = await self.get_raw_trade_balance(asset_class, asset, retries)
-        try: 
+        try:
             trade_balance = TradeBalance(data=response)
             return trade_balance.dict()
         except ValidationError as e:
@@ -700,7 +704,12 @@ class BaseRestAPI(ABC):
             logging.error(e)
 
 
-    async def get_trade_balance_as_pandas(self, asset_class: str=None, asset: str=None, retries: int=0):
+    async def get_trade_balance_as_pandas(self, asset_class: str = None,
+                                          asset: str = None,
+                                          retries: int = 0
+                                          ) -> pd.DataFrame:
+        """Get validated Trade Balance data as pandas df
+        """
         validated_response = await self.get_trade_balance(asset_class, asset, retries)
         df = pd.DataFrame.from_dict(validated_response["data"], orient="index") # ==> better to orient along index
         return df
@@ -726,7 +735,7 @@ class BaseRestAPI(ABC):
                 - positions_cost basis
                 - positions_valuation
                 - equity (trade balance + unrealized net profit/loss)
-                - free_margin (equity - initial margin) 
+                - free_margin (equity - initial margin)
                     (maximum margin available to open new positions)
                 - margin_level ( equity*100 / initial margin )
 
@@ -736,11 +745,11 @@ class BaseRestAPI(ABC):
         raise NotImplementedError
 
 
-    async def get_open_orders(self, userref: int=None, trades: bool=True, retries: int=0) -> dict:
+    async def get_open_orders(self, userref: int = None, trades: bool = True, retries: int = 0) -> dict:
         """Open orders data (checked against data model).
         """
         response = await self.get_raw_open_orders(userref, trades, retries)
-        try: 
+        try:
             open_orders = OpenOrders(data=response)
             return open_orders.dict()
         except ValidationError as e:
@@ -748,7 +757,9 @@ class BaseRestAPI(ABC):
             logging.error(e)
 
 
-    async def get_open_orders_as_pandas(self, userref: int=None, trades:bool=True, retries: int=0):
+    async def get_open_orders_as_pandas(self, userref: int = None, trades: bool = True, retries: int = 0):
+        """Get Open Order data as pandas df
+        """
         validated_response = await self.get_open_orders(userref, trades, retries)
         df = pd.DataFrame.from_dict(validated_response["data"], orient="index") # ==> better to orient along index
         return df
@@ -758,14 +769,20 @@ class BaseRestAPI(ABC):
     async def get_raw_closed_orders(self, *args, **kwargs) -> dict:
         raise NotImplementedError
 
-    
-    async def get_closed_orders(self, offset: int=0, trades: bool=False, userref: int=None, 
-                                start: int=None, end: int=None, closetime: str="both", retries: int=0) -> dict:
+
+    async def get_closed_orders(self, offset: int = 0,
+                                trades: bool = False,
+                                userref: int = None,
+                                start: int = None,
+                                end: int = None,
+                                closetime: str = "both",
+                                retries: int = 0
+                                ) -> dict:
         """Validated closed orders data (checked against data model).
         """
 
         response = await self.get_raw_closed_orders(offset, trades, userref, start, end, closetime, retries)
-        try: 
+        try:
             closed_orders = ClosedOrders(data=response)
             return closed_orders.dict()
         except ValidationError as e:
@@ -773,8 +790,14 @@ class BaseRestAPI(ABC):
             logging.error(e)
 
 
-    async def get_closed_orders_as_pandas(self, offset: int=0, trades: bool=False, userref: int=None, 
-                                start: int=None, end: int=None, closetime: str="both", retries: int=0) -> pd.DataFrame:
+    async def get_closed_orders_as_pandas(self, offset: int = 0,
+                                          trades: bool = False,
+                                          userref: int = None,
+                                          start: int = None,
+                                          end: int = None,
+                                          closetime: str = "both",
+                                          retries: int = 0
+                                          ) -> pd.DataFrame:
 
         validated_response = await self.get_closed_orders(offset, trades, userref, start, end, closetime, retries)
         df = pd.DataFrame.from_dict(validated_response["data"], orient="index")
@@ -785,10 +808,14 @@ class BaseRestAPI(ABC):
     @abstractmethod
     async def get_raw_user_trades(self, *args, **kwargs) -> pd.DataFrame:
         raise NotImplementedError
-    
-    
-    async def get_user_trades(self, trade_type: str="all", trades: bool=False, start: int=None, 
-                             end: int=None, retries: int=0) -> dict:
+
+
+    async def get_user_trades(self, trade_type: str = "all",
+                              trades: bool = False,
+                              start: int = None,
+                              end: int = None,
+                              retries: int = 0
+                              ) -> dict:
         """Validated user trades data (checked against data model).
         """
         response = await self.get_raw_user_trades(trade_type, trades, start, end, retries)
@@ -800,12 +827,18 @@ class BaseRestAPI(ABC):
             logging.error(e)
 
 
-    async def get_user_trades_as_pandas(self, trade_type: str="all", trades: bool=False, start: int=None, 
-                                        end: int=None, retries: int=0) -> pd.DataFrame:
+    async def get_user_trades_as_pandas(self, trade_type: str = "all",
+                                        trades: bool = False,
+                                        start: int = None,
+                                        end: int = None,
+                                        retries: int = 0
+                                        ) -> pd.DataFrame:
+        """Get validated user trades data as pandas df
+        """
         validated_response = await self.get_user_trades(trade_type, trades, start, end, retries)
         df = pd.DataFrame.from_dict(validated_response["data"], orient="index")
         return df
-        
+
 
 
     @abstractmethod
@@ -813,7 +846,7 @@ class BaseRestAPI(ABC):
         raise NotImplementedError
 
 
-    async def get_open_positions(self, txid: list=[], show_pnl=True, retries: int=0) -> dict:
+    async def get_open_positions(self, txid: list = None, show_pnl=True, retries: int = 0) -> dict:
         """Validated open positions data (checked against data model).
 
         Args:
@@ -822,7 +855,7 @@ class BaseRestAPI(ABC):
             retries (int)
 
         Returns:
-            dict : single key <data> 
+            dict : single key <data>
                 data (dict) : position_txid as key and pos_info dict as value
                     pos_info:
                     ordertxid = order responsible for execution of trade
@@ -850,13 +883,15 @@ class BaseRestAPI(ABC):
             logging.error(e)
 
 
-    async def get_open_positions_as_pandas(self, txid: list=[], show_pnl=True, retries: int=0) -> pd.DataFrame:
+    async def get_open_positions_as_pandas(self, txid: list = None, show_pnl=True, retries: int = 0) -> pd.DataFrame:
+        """Get validated open positions data as pandas df
+        """
         validated_response = await self.get_open_positions(txid, show_pnl, retries)
         df = pd.DataFrame.from_dict(validated_response["data"], orient="index")
         return df
-    
-    
-    
+
+
+
     # ========================================
     # ====== Private Methods
 
@@ -878,4 +913,4 @@ class BaseRestAPI(ABC):
 
     # @abstractmethod
     # async def close_all_positions(self, **kwargs):
-    #     raise NotImplementedError 
+    #     raise NotImplementedError

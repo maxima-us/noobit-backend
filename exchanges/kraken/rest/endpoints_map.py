@@ -1,6 +1,6 @@
 base_endpoints = {
         #! deprecated
-                
+
                 "Binance": None,
                 "Bitfinex": "https://api-pub.bitfinex.com/v2/" ,
                 "Bitmex": 'https://www.bitmex.com',
@@ -19,7 +19,7 @@ mapping = {
                     "base_url": "https://api.kraken.com",
                     "public_endpoint": "/0/public",
                     "private_endpoint": "/0/private",
-                        
+
                     "public_methods":{
                         "time": "Time",
                         "assets": "Assets",
@@ -46,7 +46,7 @@ mapping = {
                         "volume": "TradeVolume",
                         "place_order": "AddOrder",
                         "cancel_order": "CancelOrder",
-                        "ws_token": "GetWebSocketsToken" 
+                        "ws_token": "GetWebSocketsToken"
                     }
                 },
 

@@ -54,7 +54,7 @@ HANDLED_SIGNALS = (
 
 # =================== Setup Stackprinter ======================= #
 import stackprinter
-stackprinter.set_excepthook(style='darkbg2') 
+stackprinter.set_excepthook(style='darkbg2')
 
 
 # =================== Set logger ======================= #
@@ -84,13 +84,13 @@ def print_version(ctx, param, value):
 
 # =========================================================================================
 # =========================================================================================
-# added import necessary for bot 
+# added import necessary for bot
 
 
 import ujson
 import websockets
 import aioredis
-from server import settings                                    
+from server import settings
 from server.db_utils.balance import startup_balance, record_new_balance_update
 from server.db_utils.strategy import startup_strategy
 from server.startup.monit import startup_monit
@@ -226,9 +226,9 @@ class Server:
             self.servers = []
             for sock in sockets:
                 server = await loop.create_server(
-                    create_protocol, 
-                    sock=sock, 
-                    ssl=config.ssl, 
+                    create_protocol,
+                    sock=sock,
+                    ssl=config.ssl,
                     backlog=config.backlog
                 )
                 self.servers.append(server)
@@ -249,9 +249,9 @@ class Server:
             if os.path.exists(config.uds):
                 uds_perms = os.stat(config.uds).st_mode
             server = await loop.create_unix_server(
-                create_protocol, 
+                create_protocol,
                 path=config.uds,
-                ssl=config.ssl, 
+                ssl=config.ssl,
                 backlog=config.backlog
             )
             os.chmod(config.uds, uds_perms)
@@ -342,20 +342,20 @@ class Server:
 
 
 
-        
+
     async def on_tick(self, counter, tick_interval) -> bool:
 
         # await self.pre_algo_tick()
-        
-        # # come up with sthg smarter, like instantiating our counter given time at startup ? 
+
+        # # come up with sthg smarter, like instantiating our counter given time at startup ?
         # dt = datetime.datetime.utcnow()
 
-        # await self.on_algo_tick(hour=dt.hour, 
+        # await self.on_algo_tick(hour=dt.hour,
         #                         minute=dt.minute,
         #                         second=dt.second,
         #                         microsecond=dt.microsecond
         #                         )
-        
+
         #consume ws messages
         # await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["status"])
         # await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["events"])
@@ -390,7 +390,7 @@ class Server:
         # Write balance to db every minute
         if counter % (60/tick_interval) == 0:
             await record_new_balance_update(event="periodic")
-        
+
             holding = await self.aioredis_pool.get(f"balance:holdings:kraken")
             logging.info(f"Holdings : {ujson.loads(holding)}")
             account_value = await self.aioredis_pool.get(f"balance:account_value:kraken")
@@ -408,7 +408,7 @@ class Server:
 
     async def shutdown(self, sockets=None):
         logger.warning("Initiating application shutdown.")
-        
+
         logger.info("Closing Websockets")
         for _, ws in self.open_websockets.items():
             await ws.close()

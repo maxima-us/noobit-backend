@@ -1,24 +1,22 @@
-from server import settings
-
+"""Kraken Rest API
+"""
 import urllib
 import hashlib
 import base64
 import hmac
 import os
-from collections import deque 
+from collections import deque
 
 import logging
 import stackprinter
 import requests
-
 from dotenv import load_dotenv
-load_dotenv()
 
-import pandas as pd
-
+from server import settings
 from .endpoints_map import mapping
 from ...base.rest.api import BaseRestAPI
 
+load_dotenv()
 
 
 # derived from krakenex https://github.com/veox/python3-krakenex/blob/master/krakenex/api.py
@@ -54,7 +52,7 @@ class KrakenRestAPI(BaseRestAPI):
 
         self._load_all_env_keys()
         self.normalize = self._load_normalize_map()
-        self.to_kraken_format = {v:k for k,v in self.normalize.items()}
+        self.to_kraken_format = {v:k for k, v in self.normalize.items()}
 
 
 
@@ -84,20 +82,20 @@ class KrakenRestAPI(BaseRestAPI):
                         env_list_of_tuples.append((tuple_api_key, tuple_secret_key))
 
             self._set_class_var(deque(env_list_of_tuples, maxlen=len(env_list_of_tuples)))
-            
+
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
 
 
     def _sign(self, data: dict, urlpath: str):
         """Sign request data according to Kraken's scheme.
-        
+
         Args:
-            data (dict): API request parameters  
-            urlpath (str): API URL path sans host  
-        
+            data (dict): API request parameters
+            urlpath (str): API URL path sans host
+
         Returns
-            signature digest  
+            signature digest
         """
         postdata = urllib.parse.urlencode(data)
 
@@ -106,7 +104,7 @@ class KrakenRestAPI(BaseRestAPI):
         message = urlpath.encode() + hashlib.sha256(encoded).digest()
 
         signature = hmac.new(base64.b64decode(self.current_secret()),
-                             message, 
+                             message,
                              hashlib.sha512)
         sigdigest = base64.b64encode(signature.digest())
 
@@ -127,13 +125,13 @@ class KrakenRestAPI(BaseRestAPI):
         Args:
             data (dict): api request payload
         """
-        
+
         if data is None:
             data = {}
 
         # input that needs to be passed in as comma delimited list:
         # pair, txid, asset
-        else :
+        else:
             if "asset" in data.keys():
                 pass
                 # convert normalized asset to exchange format
@@ -142,25 +140,24 @@ class KrakenRestAPI(BaseRestAPI):
 
                 # else:
                 #     kraken_asset = f"Z{data['asset'].upper()}"
-                
+
                 # data["asset"] = kraken_asset
 
 
             # Store for later as we can not delete key during iteration
             invalid_keys = []
-            
+
             for key in data.keys():
 
                 # Convert to valid string
                 if data[key] == True|False:
                     data[key] = str(data[key]).lower()
-                
+
                 # Skip if value is None or [] or {}
                 if (not data[key]) or (data[key] is None):
                     invalid_keys.append(key)
                     logging.warning(f"Passed empty value for : {key}")
                     continue
-
 
                 elif key in ["asset", "pair", "txid"]:
                     # invalid_keys.append(key) => we don't have to delete the keys but instead edit them
@@ -177,12 +174,12 @@ class KrakenRestAPI(BaseRestAPI):
                         kraken_pairs = []
                         for pair in data[key]:
                             kraken_pairs.append(self.to_kraken_format[pair.upper()])
-                    
+
                         data[key] = kraken_pairs
-                    
+
                     # if we passed more than 1 element we need to change the value for given key
                     # edit : even for a single element, otherwise will throw error
-                    if len(data[key])>0:
+                    if len(data[key]) > 0:
                         comma_list = ",".join(data[key])
                         # full_path = f"{full_path}?{key}={comma_list}"
                         data[key] = comma_list
@@ -193,7 +190,7 @@ class KrakenRestAPI(BaseRestAPI):
                 del data[key]
 
         return data
-    
+
 
     def _load_normalize_map(self):
         """Map kraken format assets or pair to standardized format assets or pair.
@@ -210,11 +207,11 @@ class KrakenRestAPI(BaseRestAPI):
         method_endpoint = mapping[self.exchange]["public_methods"]["tradable_pairs"]
         response = requests.get(f"{base_url}{public_endpoint}/{method_endpoint}")
         response = response.json()
-        pair_map = {k:v["wsname"].replace("/", "-") for k,v in response["result"].items() if ".d" not in k}
+        pair_map = {k:v["wsname"].replace("/", "-") for k, v in response["result"].items() if ".d" not in k}
         assert pair_map is not None
 
         asset_map = {}
-        for k,v in response["result"].items():
+        for k, v in response["result"].items():
             if ".d" not in k:
                 kraken_format_base = v["base"]
                 kraken_format_quote = v["quote"]
@@ -223,18 +220,18 @@ class KrakenRestAPI(BaseRestAPI):
                 asset_map[kraken_format_quote] = stand_format_quote
 
         pair_map.update(asset_map)
-        
-        return pair_map 
+
+        return pair_map
 
 
     def _normalize_response(self, response: str):
         # if not resp["error"]:
         #     fiat_list = ["usd", "USD", "eur", "EUR"]
         #     return {self.normalize[k]:v for k,v in resp["result"].items() if any(fiat in k for fiat in fiat_list)}
-        for k,v in self.normalize.items():
+        for k, v in self.normalize.items():
             if k in response:
-                response = response.replace(k,v)
-        
+                response = response.replace(k, v)
+
         return response
 
     def _handle_response_errors(self, response):
@@ -242,16 +239,16 @@ class KrakenRestAPI(BaseRestAPI):
             logging.error("Response returned None")
             return None
         if response["error"]:
-            logging.warning(f"Error with request : {resp['error']}\n{12*' '}Request URL : {self.response.url}\n{12*' '}With data : {self.response.data}")
+            logging.warning(f"Error with request : {response['error']}\n{12*' '}Request URL : {self.response.url}\n{12*' '}With data : {self.response.data}")
             #! if error is : ['EGeneral:Temporary lockout'] we need to wait
             if response["error"] == ['EOrder:Insufficient funds']:
                 logging.warning("Insufficent funds to place order")
             return None
         else:
             return response["result"]
-    
-    
-    
+
+
+
 
     # ================================================================================
     # ================================================================================
@@ -262,7 +259,7 @@ class KrakenRestAPI(BaseRestAPI):
     # ========================================
 
 
-    async def get_mapping(self, retries: int=0) -> dict:
+    async def get_mapping(self) -> dict:
         """Mapping of exchange format asset or pairs to standardized format asset or pairs.
         """
         return self.normalize
@@ -270,7 +267,7 @@ class KrakenRestAPI(BaseRestAPI):
 
 
 
-    async def get_raw_ticker(self, pair: list, retries: int=0) -> dict:
+    async def get_raw_ticker(self, pair: list, retries: int = 0) -> dict:
         """Raw (unchecked) ticker data for given pair.
 
         Args:
@@ -278,7 +275,7 @@ class KrakenRestAPI(BaseRestAPI):
                 input format : ["XBT-USD", "ETH-USD"]
                 must be passed as list even if single pair
             retries (int): number of request retry attempts
-    
+
         Returns:
             dict that must follow Ticker data model
 
@@ -298,27 +295,28 @@ class KrakenRestAPI(BaseRestAPI):
         #              "v":["1572.18277937","3951.32636727"],"p":["9094.01315","9095.67807"],"t":[4995,12404],
         #              "l":["9001.90000","9001.90000"],"h":["9175.00000","9175.00000"],"o":"9066.00000"}
         #  }
-        
+
         remap = {"a": "ask",
-                "b": "bid",
-                "c": "close",
-                "v": "volume",
-                "p": "vwap",
-                "t": "trades",
-                "l": "low",
-                "h": "high",
-                "o": "open"}
+                 "b": "bid",
+                 "c": "close",
+                 "v": "volume",
+                 "p": "vwap",
+                 "t": "trades",
+                 "l": "low",
+                 "h": "high",
+                 "o": "open"
+                 }
 
         remap_response = {}
 
         for pair, v_dict in response.items():
-            remap_response[pair] = {remap[k]:v for k,v in v_dict.items()}
+            remap_response[pair] = {remap[k]:v for k, v in v_dict.items()}
 
         return remap_response
 
 
 
-    async def get_raw_ohlc(self, pair: list, timeframe: int, since: int=None, retries=0) -> dict:
+    async def get_raw_ohlc(self, pair: list, timeframe: int, since: int = None, retries=0) -> dict:
         """Raw OHLC data (not checked against our data models).
 
         Args:
@@ -358,15 +356,15 @@ class KrakenRestAPI(BaseRestAPI):
         return {"data": data, "last": last}
 
 
-    
-    async def get_raw_orderbook(self, pair: list, count: int=None, retries: int=0) -> dict:
+
+    async def get_raw_orderbook(self, pair: list, count: int = None, retries: int = 0) -> dict:
         """Raw Orderbook data (not checked against our data models).
 
         Args:
             pair (list) : asset pair to get market depth for
             count (int) : maximum number of asks/bids (optional)
             retries (int): number of request retry attempts
-        
+
         Returns:
             dict : 2 keys
                 "ask": array of <price>, <volume>, <timestamp>
@@ -375,9 +373,9 @@ class KrakenRestAPI(BaseRestAPI):
 
         data = {"pair": pair, "count": count}
         response = await self.query_public(method="orderbook",
-                                          data=data,
-                                          retries=retries
-                                          )
+                                           data=data,
+                                           retries=retries
+                                           )
 
         # response is of format:
         # {"XXBTZUSD":{"asks":[["9108.50000","3.309",1583527816],
@@ -398,7 +396,7 @@ class KrakenRestAPI(BaseRestAPI):
         return {"asks": asks, "bids": bids}
 
 
-    async def get_raw_trades(self, pair: list, since: int=None, retries: int=0) -> dict:
+    async def get_raw_trades(self, pair: list, since: int = None, retries: int = 0) -> dict:
         """Raw trades data (not validated against data model).
 
         Args:
@@ -429,20 +427,20 @@ class KrakenRestAPI(BaseRestAPI):
             last = response["last"]
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
-        
+
         return {"data": data, "last": last}
 
 
-    async def get_raw_spread(self, pair: list, since: int=None, retries: int=0) -> dict:
+    async def get_raw_spread(self, pair: list, since: int = None, retries: int = 0) -> dict:
         """Raw spread data (not validated against data model).
 
         Args:
-            retries (int): 
+            retries (int):
             pair (list): asset pair to get spread data for
             since (int): return spread data since given id (optional.  inclusive)
 
         Returns:
-            dict : keys 
+            dict : keys
                 data (list) : array of entries <time>, <bid>, <ask>
                 last (Decimal) : id to be used as since when polling for new data
         """
@@ -475,7 +473,7 @@ class KrakenRestAPI(BaseRestAPI):
     # ========================================
 
 
-    async def get_raw_account_balance(self, retries: int=0) -> dict:
+    async def get_raw_account_balance(self, retries: int = 0) -> dict:
         """Raw account balance (not validated against data model).
 
         Args:
@@ -489,13 +487,13 @@ class KrakenRestAPI(BaseRestAPI):
         response = await self.query_private(method="account_balance", retries=retries)
         # response returns a dict with of format {asset name : balance}
 
-        nz_balances = {k:v for k,v in response.items() if float(v)>0}
+        nz_balances = {k:v for k, v in response.items() if float(v) > 0}
 
         # return non_zero
         return nz_balances
-        
 
-    async def get_raw_trade_balance(self, asset_class: str=None, asset: str=None, retries: int=0) -> pd.DataFrame:
+
+    async def get_raw_trade_balance(self, asset_class: str = None, asset: str = None, retries: int = 0) -> dict:
         """Raw trade balance data (not validated against data model).
 
         Args:
@@ -506,8 +504,8 @@ class KrakenRestAPI(BaseRestAPI):
         Returns:
             dict
 
-        Notes: 
-            Response returns a dict with following keys: 
+        Notes:
+            Response returns a dict with following keys:
             eb = equivalent balance (combined balance of all currencies)
             tb = trade balance (combined balance of all equity currencies)
             m = margin amount of open positions
@@ -525,14 +523,14 @@ class KrakenRestAPI(BaseRestAPI):
         data = {"asset": asset}
         response = await self.query_private(method="trade_balance",
                                             data=data,
-                                            retries=retries 
+                                            retries=retries
                                             )
-        
+
         #   for model validation we need "ml" key to have a value
         #   response dict might not contain "ml" key if no positions are open
         if not response.get("ml"):
             response["ml"] = 0
-        
+
         remap = {"eb": "equivalent_balance",
                  "tb": "trade_balance",
                  "m": "positions_margin",
@@ -544,10 +542,10 @@ class KrakenRestAPI(BaseRestAPI):
                  "ml": "margin_level"
                 }
 
-        return {remap[k]:v for k,v in response.items()}
+        return {remap[k]:v for k, v in response.items()}
 
 
-    async def get_raw_open_orders(self, userref: int=None, trades: bool=True, retries: int=0) -> pd.DataFrame:
+    async def get_raw_open_orders(self, userref: int = None, trades: bool = True, retries: int = 0) -> dict:
         """Raw ropen orders (not validated against data model).
 
         Args:
@@ -611,13 +609,20 @@ class KrakenRestAPI(BaseRestAPI):
                                             data=data,
                                             retries=retries
                                             )
-        
+
         # df = pd.DataFrame.from_dict(response["open"], orient="index") # ==> better to orient along index
         # return df
         return response["open"]
 
 
-    async def get_raw_closed_orders(self, offset: int=0, trades: bool=False, userref: int=None, start: int=None, end: int=None, closetime: str="both", retries: int=0) -> pd.DataFrame:
+    async def get_raw_closed_orders(self, offset: int = 0,
+                                    trades: bool = False,
+                                    userref: int = None,
+                                    start: int = None,
+                                    end: int = None,
+                                    closetime: str = "both",
+                                    retries: int = 0
+                                    ) -> dict:
         """Closed orders data.
 
         Args:
@@ -632,9 +637,8 @@ class KrakenRestAPI(BaseRestAPI):
                 both (default)
 
         Returns:
-            
             data : dict of order info in closed array with txid as the key
-            
+
             refid = Referral order transaction id that created this order
             userref = user reference id
             status = status of order:
@@ -677,7 +681,7 @@ class KrakenRestAPI(BaseRestAPI):
             reason = additional info on status (if any)
 
         Note:
-            What is userref 
+            What is userref
             Absolutely not sure how to handle trades/start/end/closetime args
             What should start/end default to ?
             How do we pass a java string for closetime ?
@@ -690,11 +694,16 @@ class KrakenRestAPI(BaseRestAPI):
                                             retries=retries
                                             )
 
-        # df = pd.DataFrame.from_dict(response["closed"], orient="index") # ==> better to orient along index 
+        # df = pd.DataFrame.from_dict(response["closed"], orient="index") # ==> better to orient along index
         # return df
         return response["closed"]
 
-    async def get_raw_user_trades(self, trade_type: str="all", trades: bool=False, start: int=None, end: int=None, retries: int=0) -> pd.DataFrame:
+    async def get_raw_user_trades(self, trade_type: str = "all",
+                                  trades: bool = False,
+                                  start: int = None,
+                                  end: int = None,
+                                  retries: int = 0
+                                  ) -> dict:
         """User's historical trades.
 
         Args:
@@ -725,23 +734,23 @@ class KrakenRestAPI(BaseRestAPI):
             margin = initial margin (quote currency)
             misc = comma delimited list of miscellaneous info
                 closing = trade closes all or part of a position
-        
+
         Notes
             Trades (bool) not passed to data dict
         """
 
         data = {"type": trade_type, "start": start, "end": end, "trades": trades}
         response = await self.query_private(method="trades_history",
-                                            data=data, 
+                                            data=data,
                                             retries=retries
                                             )
-        
+
         # df = pd.DataFrame.from_dict(response["trades"], orient="index")
         # return df       # we don't want to return "count" value as we can get it from df
         return response["trades"]
 
 
-    async def get_raw_open_positions(self, txid: list=[], show_pnl=True, retries: int=0) -> pd.DataFrame:
+    async def get_raw_open_positions(self, txid: list = None, show_pnl: bool = True, retries: int = 0) -> dict:
         """Open positions data.
 
         Args:
@@ -752,7 +761,7 @@ class KrakenRestAPI(BaseRestAPI):
         Returns:
             pandas.DataFrame
             index : ordertxid
-            columns : 
+            columns :
             pair = asset pair
             time = unix timestamp of trade
             type = type of order used to open position (buy/sell)
@@ -772,7 +781,7 @@ class KrakenRestAPI(BaseRestAPI):
 
         data = {"txid": txid, "docalcs": show_pnl}
         response = await self.query_private(method="open_positions",
-                                            data=data, 
+                                            data=data,
                                             retries=retries
                                             )
 
@@ -788,20 +797,20 @@ class KrakenRestAPI(BaseRestAPI):
     #! We should make sure to update cache and database every time we use these
 
 
-    async def place_order(self, 
-                          pair: list, 
+    async def place_order(self,
+                          pair: list,
                           side: str,
-                          ordertype: str, 
+                          ordertype: str,
                           volume: float,
-                          price: float=None,
-                          price2: float=None, 
-                          leverage: int=None,
-                          start_time: int=None,
-                          expire_time: int=None,
-                          userref: int=None,
-                          validate: bool=False, 
-                          oflags: list=[], 
-                          retries: int=0
+                          price: float = None,
+                          price2: float = None,
+                          leverage: int = None,
+                          start_time: int = None,
+                          expire_time: int = None,
+                          userref: int = None,
+                          validate: bool = False,
+                          oflags: list = None,
+                          retries: int = 0
                           ):
         """Place an order.
 
@@ -822,7 +831,7 @@ class KrakenRestAPI(BaseRestAPI):
                 stop-loss-and-limit (price = stop loss price, price2 = limit price)
                 settle-position
             volume = order volume in lots
-            price = price (optional. dependent on ordertype) 
+            price = price (optional. dependent on ordertype)
             price2 = secondary price (optional. dependent on ordertype)
             leverage = amount of leverage desired (optional.  default = none)
             oflags = comma delimited list of order flags (optional):
@@ -853,33 +862,33 @@ class KrakenRestAPI(BaseRestAPI):
                 close = conditional close order description (if conditional close set)
             txid = array of transaction ids for order (if order was added successfully)
         """
-        
+
         data = {
-            "pair": pair, 
+            "pair": pair,
             "type": side,
-            "ordertype": ordertype, 
+            "ordertype": ordertype,
             "price": price,
             "price2": price2,
             "volume": volume,
-            "leverage": leverage, 
+            "leverage": leverage,
             "oflags": oflags,
             "starttm": start_time,
             "expiretm": expire_time,
-            "userref": userref, 
-            "validate": validate 
+            "userref": userref,
+            "validate": validate
         }
         response = await self.query_private(method="place_order",
-                                            data=data, 
+                                            data=data,
                                             retries=retries
                                             )
 
         return response
 
-    
-    async def cancel_order(self, txid: str, retries: int=0):
+
+    async def cancel_order(self, txid: str, retries: int = 0):
         """Cancel an Open Order.
 
-        Args: 
+        Args:
             txid (str): transaction id
 
         Returns:
@@ -888,42 +897,42 @@ class KrakenRestAPI(BaseRestAPI):
         """
         data = {"txid": txid}
         response = await self.query_private(method="cancel_order",
-                                            data=data, 
+                                            data=data,
                                             retries=retries
                                             )
         return response
-    
-    
+
+
 
 
     # ==== Websocket Auth Token
     # ========================================
 
 
-    async def get_websocket_auth_token(self, validity: int=None, permissions: list=None, retries: int=0):
+    async def get_websocket_auth_token(self, validity: int = None, permissions: list = None, retries: int = 0):
         """Get auth token to subscribe to private websocket feed.
 
-        Args:  
-            validity (int) : number of minutes that token is valid 
+        Args:
+            validity (int) : number of minutes that token is valid
                 (optional / default (max): 60 minutes)
-            permissions (list) : comma separated list of allowed feeds 
+            permissions (list) : comma separated list of allowed feeds
                 (optional / default: all)
 
         Returns:
             dict
             keys:
             token (str) : token to authenticate private websocket subscription
-            expires (int) : time to expiry 
+            expires (int) : time to expiry
 
         Note:
 
-            The API client must request an authentication "token" via the following REST API endpoint "GetWebSocketsToken" 
-            to connect to WebSockets Private endpoints. 
-            The token should be used within 15 minutes of creation. 
+            The API client must request an authentication "token" via the following REST API endpoint "GetWebSocketsToken"
+            to connect to WebSockets Private endpoints.
+            The token should be used within 15 minutes of creation.
             The token does not expire once a connection to a WebSockets API private message (openOrders or ownTrades) is maintained.
 
 
-        This should be called at startup, we get a token, then subscribe to a ws feed 
+        This should be called at startup, we get a token, then subscribe to a ws feed
         We receive all the updates for our orders and send it to redis
         That way we can track position changes almost at tick speed without needing to make rest calls
         We will need to check the token creation time on every tick and a get new token every 30/40 minutes
