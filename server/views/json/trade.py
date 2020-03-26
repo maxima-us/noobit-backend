@@ -3,7 +3,7 @@ import json
 import datetime
 import asyncio
 import uuid
-import logging
+
 import stackprinter
 from decimal import Decimal 
 from typing import List
@@ -125,7 +125,7 @@ async def place_order(exchange: str,
 
 
 @router.post('/cancel_order/{exchange}', response_class=UJSONResponse)
-async def cancel_order(exchange: str, 
+async def cancel_order(exchange: str,
                         txid: str = Query(..., title="ID of Order to cancel"),
                         retries: int = Query(None, title="Number of times to retry the request if it fails")
                         ):

@@ -24,8 +24,7 @@ from server.startup.register_orm import register_tortoise
 
 #TODO       load httpx client at startup : https://www.python-httpx.org/advanced/
 
-from server.views import cache, html, json, items, users, fastapi_users, charts
-
+from server.views import cache, html, json, items, users, fastapi_users
 
 app = FastAPI()
 
@@ -65,7 +64,6 @@ router = APIRouter()
 # Test Routers
 app.include_router(router, prefix="/tasks")
 app.include_router(items.router)
-app.include_router(charts.router, prefix="/charts", tags=["charts"])
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(fastapi_users.router, prefix="/users", tags=["users"])
 

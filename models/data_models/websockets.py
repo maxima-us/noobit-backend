@@ -1,8 +1,8 @@
 from typing import List, Any, Dict, Tuple, Optional, Union
 from typing_extensions import Literal, TypedDict
-from datetime import date
 from enum import Enum
 from decimal import Decimal
+
 from pydantic import BaseModel
 
 from models.data_models.api import TickerItem

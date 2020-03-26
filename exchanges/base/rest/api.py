@@ -725,7 +725,7 @@ class BaseRestAPI(ABC):
 
                 - equivalent_balance (combined balance of all currencies)
                 - trade_balance (combined balance of all equity currencies)
-                - positions_margin 
+                - positions_margin
                 - positions_unrealized (net profit/loss of open positions)
                 - positions_cost basis
                 - positions_valuation

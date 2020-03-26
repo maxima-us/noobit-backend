@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.com/maxima-us/noobit-backend.svg?branch=master)](https://travis-ci.com/maxima-us/noobit-backend)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/ee5a7cf93c65477db5bd675f8979aa9d)](https://www.codacy.com/manual/maximousse/noobit-backend?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=maxima-us/noobit-backend&amp;utm_campaign=Badge_Grade)
 
 # NooBit Backend
 
@@ -10,14 +11,11 @@ OpenAPI interface accessible at localhost:8000/docs
 Interfaces with sqlite db via Tortoise ORM  
 Listens to redis channels to automatically update db  
 
-
 **Feed Handler** :  
 Receive data from websocket, sort and publish to appropriate redis channels
 
-
 **Trading Engine** :  
 Handle signals and execution logic (not implemented yet)
-
 
 ## Usage
 
@@ -40,30 +38,28 @@ KRAKEN_BTC_EUR_API_SECRET=[YOUR SECRET]
 From within noobit-backend folder :
 
 To start api server:
-```
+```python
 python start_server.py
 ```
 
 To start websocket feed handler (publish all incoming websocket data to appropriate redis channel) :
-```
+```python
 python start_feedhandler.py
 ```
 
 ### Testing
 
 From within noobit-backend folder :
-```
+```python
 python -m pytest -vv
 ```
 
-
 ## To Do
 
-- data validation + testing for placing & closing orders
-- implement cancel all orders / positions methods
-- public ws feed
-- command line 
-- trading engine
+-  data validation + testing for placing & closing orders
+-  implement cancel all orders / positions methods
+-  command line 
+-  trading engine
 
 
 

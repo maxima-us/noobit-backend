@@ -86,7 +86,7 @@ def test_get_spread():
 
     only_data_and_last_as_keys = len(response.json())==2 and list(response.json().keys())==["data", "last"]
     assert not only_data_and_last_as_keys, response.json()
-    
+
     try:
         account_balance = Spread(data=response.json(), last=0)
     except ValidationError as e:

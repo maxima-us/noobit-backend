@@ -1,5 +1,3 @@
-from server import settings
-
 import logging
 from typing import Dict, List, Optional
 

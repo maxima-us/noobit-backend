@@ -27,13 +27,12 @@ class Trade(models.Model):
     leverage = fields.IntField(default=0)
 
 
-    order_id : fields.ForeignKeyRelation[Order] = fields.ForeignKeyField("models.Order", 
+    order_id : fields.ForeignKeyRelation[Order] = fields.ForeignKeyField("models.Order",
                                                                          related_name="trade",
                                                                          to_field="order_id",
                                                                          from_field="trade"
                                                                          )
 
-    
     def __str__(self) -> str:
         return f"Trade {self.trade_id}: {self.price}"
 

@@ -33,6 +33,5 @@ async def startup_strategy():
             except Exception as e:
                 logging.error(stackprinter.format(e, style="darkbg2"))
 
-        
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))

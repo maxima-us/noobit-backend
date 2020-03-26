@@ -114,7 +114,7 @@ class FeedConsumer:
                 #         }]
                 #       )
 
-                # or 
+                # or
                 #      (b'data:update:kraken:openOrders', 
                 #       b'[{"OUZTAZ-BO7AD-MDSOA6":{"status":"open"}}]
                 #       )

@@ -8,7 +8,7 @@ class Balance(models.Model):
     # time at which we took the snapshot
     time_recorded = fields.BigIntField(default=datetime.datetime.utcnow().timestamp())   
     # event responsible for the creation of the record
-    event = fields.CharField(max_length=40)                         
+    event = fields.CharField(max_length=40)
 
     holdings = fields.JSONField(null=True)
     positions = fields.JSONField(null=True)

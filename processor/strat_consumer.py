@@ -74,7 +74,7 @@ class KrakenStratConsumer:
     async def consume_from_channel(self, channel: aioredis.Channel):
         
         try:
-            # some data channels might not send any data for some period 
+            # some data channels might not send any data for some period
             # if we don't time out we may block the loop
             try:
                 msg = await asyncio.wait_for(channel.get(), timeout=0.01)

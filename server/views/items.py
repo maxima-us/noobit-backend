@@ -58,7 +58,7 @@ async def add_item_starlette(request: Request):
         )
     return JSONResponse({"item": str(item)}, status_code=HTTP_201_CREATED)
 
-# FastAPI way of doing it 
+# FastAPI way of doing it
 @router.post("/fastapi/form/create_ts")
 async def add_item_fastapi(*, form_title=Form(...), form_descr=Form(...), form_owner=Form(...)):
     item = await Item.create(

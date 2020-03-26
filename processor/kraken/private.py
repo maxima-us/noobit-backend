@@ -1,5 +1,5 @@
 import os
-import signal,sys,time                          
+import signal,sys
 import asyncio
 import uvloop
 import websockets
@@ -28,7 +28,7 @@ HANDLED_SIGNALS = (
 # ================================================================================
 # terminate = False                            
 
-# def signal_handling(signum,frame):           
+# def signal_handling(signum,frame):
 #     global terminate                         
 #     terminate = True                         
 

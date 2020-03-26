@@ -8,7 +8,6 @@ import time
 import os
 from functools import wraps
 from collections import namedtuple, deque 
-import json
 
 import logging
 import stackprinter
@@ -94,7 +93,7 @@ class KrakenRestAPI(BaseRestAPI):
                         tuple_api_key = v
                         env_secret_key = k.replace("KEY", "SECRET")
                         tuple_secret_key = os.environ[env_secret_key]
-                        env_list_of_tuples.append((tuple_api_key, tuple_secret_key)) 
+                        env_list_of_tuples.append((tuple_api_key, tuple_secret_key))
 
             self._set_class_var(deque(env_list_of_tuples, maxlen=len(env_list_of_tuples)))
             

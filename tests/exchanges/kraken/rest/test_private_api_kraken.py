@@ -4,7 +4,6 @@ from typing import Optional, Union
 from models.data_models.api import (AccountBalance, Ohlc, OpenOrders, ClosedOrders, Orderbook, Spread, Ticker,
                                     TradeBalance, Trades, UserTrades, OpenPositions)
 from pydantic import ValidationError
-import time
 import pytest
 import pandas as pd
 import logging

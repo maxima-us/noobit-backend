@@ -24,8 +24,7 @@ private_ws_url = "wss://ws-auth.kraken.com"
 class KrakenPrivateFeedReader(object):
 
 
-    def __init__(self, 
-                       feeds: list=["openOrders", "ownTrades"], 
+    def __init__(self, feeds: list=["openOrders", "ownTrades"], 
                        ws_uri: str="wss://ws-auth.kraken.com",
                        loop=None
                        ):
