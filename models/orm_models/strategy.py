@@ -1,4 +1,3 @@
-import datetime
 import random
 from tortoise import fields, models
 from .exchange import Exchange

@@ -5,7 +5,6 @@ from decimal import Decimal
 from typing import List
 
 from server.views import APIRouter, Query, HTMLResponse, UJSONResponse
-from exchanges.kraken.utils.pairs import kraken_pairs
 from exchanges.mappings import rest_api_map
 
 
@@ -20,7 +19,8 @@ router = APIRouter()
 
 @router.get('/pairs/{exchange}', response_class=UJSONResponse)
 async def get_pairs(exchange: str):
-    pairs = await kraken_pairs(client=settings.SESSION)
+    api = rest_api_map[exchange]()
+    pairs = await api.get_mapping()
     return pairs
 
 

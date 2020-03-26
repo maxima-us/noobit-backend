@@ -30,7 +30,7 @@ class KrakenPrivateFeedReader(BasePrivateFeedReader):
     
     
     async def subscribe(self, ping_interval: int, ping_timeout: int):
-        """Subscribe to websocket
+        """Subscribe to websocket.
         """
 
         self.ws = await websockets.connect(uri=self.ws_uri,

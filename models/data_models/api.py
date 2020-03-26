@@ -1,6 +1,5 @@
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Literal, TypedDict
-from datetime import date
 from enum import Enum
 from decimal import Decimal
 from pydantic import BaseModel

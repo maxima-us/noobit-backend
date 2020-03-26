@@ -1,6 +1,6 @@
 from models.data_models.api import OpenOrders
 import os
-import signal,sys,time                          
+import sys,time                          
 import asyncio
 import logging
 from typing import List

@@ -19,8 +19,6 @@ load_dotenv()
 import pandas as pd
 
 from .endpoints_map import mapping
-from ..utils.pairs import normalize_currency, normalize_pair, kraken_format_pair
-from ..utils.clean_data import flatten_response_dict, balance_remove_zero_values
 from ...base.rest.api import BaseRestAPI
 
 
@@ -67,6 +65,7 @@ class KrakenRestAPI(BaseRestAPI):
 
         self._load_all_env_keys()
         self.normalize = self._load_normalize_map()
+        self.to_kraken_format = {v:k for k,v in self.normalize.items()}
 
 
 
@@ -183,7 +182,7 @@ class KrakenRestAPI(BaseRestAPI):
                     if key == "pair":
                         kraken_pairs = []
                         for pair in data[key]:
-                            kraken_pairs.append(kraken_format_pair(pair))
+                            kraken_pairs.append(self.to_kraken_format[pair.upper()])
                     
                         data[key] = kraken_pairs
                     
@@ -203,7 +202,14 @@ class KrakenRestAPI(BaseRestAPI):
     
 
     def _load_normalize_map(self):
-        """We can't use query public because it will cause a recursion error
+        """Map kraken format assets or pair to standardized format assets or pair
+
+        Returns:
+            dict of format :
+                {<XXBTZUSD>:<XBT-USD>, <XXBT>:<XBT>}
+
+        Note:
+            We can't use query public because it will cause a recursion error
         """
         base_url = mapping[self.exchange]["base_url"]
         public_endpoint = mapping[self.exchange]["public_endpoint"]
@@ -225,6 +231,7 @@ class KrakenRestAPI(BaseRestAPI):
         pair_map.update(asset_map)
         assert pair_map is not None
         return pair_map 
+
 
     def _normalize_response(self, resp: str):
         # if not resp["error"]:
@@ -261,7 +268,15 @@ class KrakenRestAPI(BaseRestAPI):
     # ========================================
 
 
-    async def get_raw_ticker(self, pair: list, retries: int=0) -> pd.DataFrame:
+    async def get_mapping(self, retries: int=0) -> dict:
+        """Mapping of exchange format asset or pairs to standardized format asset or pairs
+        """
+        return self.normalize
+
+
+
+
+    async def get_raw_ticker(self, pair: list, retries: int=0) -> dict:
         """Returns raw (unchecked) ticker data for given pair
 
         Args:
