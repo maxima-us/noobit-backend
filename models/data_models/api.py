@@ -1,7 +1,7 @@
-from typing import Any, Dict, List, Optional, Tuple, Union
-from typing_extensions import Literal, TypedDict
-from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 from decimal import Decimal
+
+from typing_extensions import Literal, TypedDict
 from pydantic import BaseModel
 
 
@@ -40,7 +40,7 @@ class Ticker(BaseModel):
             tickerinfo: TypedDict with keys:
                 ask, bid, open, high, low, close, volume, vwap, trades
     """
-    
+
     data: Dict[str, TickerItem]
 
     class Config:
@@ -65,10 +65,10 @@ class Ohlc(BaseModel):
         last (Decimal) : id to be used as since when polling for new, committed OHLC data
     """
 
-    data : List[OhlcEntry]
-    last : Decimal
+    data: List[OhlcEntry]
+    last: Decimal
 
-    # data: List[Tuple[Decimal, Decimal, Decimal, Decimal, Decimal, Optional[Decimal], Decimal, Optional[Decimal]]] 
+    # data: List[Tuple[Decimal, Decimal, Decimal, Decimal, Decimal, Optional[Decimal], Decimal, Optional[Decimal]]]
     # last: Decimal
 
 
@@ -122,8 +122,8 @@ class Trades(BaseModel):
 
     # data = List[Tuple[Decimal, Decimal, Decimal, Literal["b", "s"], Literal["m", "l"]]]
     # data = List[Tuple[Decimal, Decimal, Decimal, Any, Any, Optional[Any]]]
-    data : List[TradesEntry]
-    last : Decimal
+    data: List[TradesEntry]
+    last: Decimal
 
     class Config:
         arbitrary_types_allowed = True
@@ -176,15 +176,15 @@ class AccountBalance(BaseModel):
 
 
 class TradeBalanceData(TypedDict):
-    equity_balance : float
-    trade_balance : float
-    positions_margin : float
-    positions_unrealized : float
-    positions_cost : float
-    positions_valuation : float
-    equity : float 
-    free_margin : float
-    margin_level : float
+    equity_balance: float
+    trade_balance: float
+    positions_margin: float
+    positions_unrealized: float
+    positions_cost: float
+    positions_valuation: float
+    equity: float
+    free_margin: float
+    margin_level: float
 
 class TradeBalance(BaseModel):
     """Trade Balance Data Model
@@ -214,7 +214,7 @@ class TradeBalance(BaseModel):
 class OpenOrdersItem(TypedDict):
     """
     Result: array of order info in open array with txid as the key
-        
+
         refid = Referral order transaction id that created this order
         userref = user reference id
         status = status of order:
@@ -265,10 +265,10 @@ class OpenOrdersItem(TypedDict):
     vol_exec: Decimal
     cost: Decimal
     fee: Decimal
-    price: Optional[Decimal]=None
-    stopprice: Optional[Decimal]=None
-    limitprice: Optional[Decimal]=None
-    misc: Optional[Any]=None
+    price: Optional[Decimal] = None
+    stopprice: Optional[Decimal] = None
+    limitprice: Optional[Decimal] = None
+    misc: Optional[Any] = None
     oflags: Any
     trades: Any
 
@@ -278,7 +278,7 @@ class OpenOrders(BaseModel):
     Args :
 
         data : dict of order info in open array with txid as the key
-        
+
         refid = Referral order transaction id that created this order
         userref = user reference id
         status = status of order:
@@ -326,7 +326,7 @@ class OpenOrders(BaseModel):
 class ClosedOrdersItem(TypedDict):
     """
     Result: array of order info in open array with txid as the key
-        
+
         refid = Referral order transaction id that created this order
         userref = user reference id
         status = status of order:
@@ -380,14 +380,14 @@ class ClosedOrdersItem(TypedDict):
     vol_exec: Decimal
     cost: Decimal
     fee: Decimal
-    price: Optional[Decimal]=None
-    stopprice: Optional[Decimal]=None
-    limitprice: Optional[Decimal]=None
-    misc: Optional[Any]=None
+    price: Optional[Decimal] = None
+    stopprice: Optional[Decimal] = None
+    limitprice: Optional[Decimal] = None
+    misc: Optional[Any] = None
     oflags: Any
     trades: Any
     closetm: Decimal
-    reason: Optional[Any]=None
+    reason: Optional[Any] = None
 
 class ClosedOrders(BaseModel):
     # tortoise ORM can not json serialize Decimal
@@ -411,11 +411,11 @@ class UserTradesEntry(TypedDict):
     price: Decimal
     cost: Decimal
     fee: Decimal
-    margin: Optional[Decimal]=None
-    misc: Optional[Any]=None
-    
-    
-    
+    margin: Optional[Decimal] = None
+    misc: Optional[Any] = None
+
+
+
 class UserTrades(BaseModel):
     """User Trades Data Model
 
@@ -453,9 +453,9 @@ class OpenPositionsEntry(TypedDict):
     vol_closed: Decimal
     margin: Decimal
     value: Decimal
-    net: Optional[Decimal]=None
-    misc: Optional[Any]=None
-    oflags: Optional[Any]=None
+    net: Optional[Decimal] = None
+    misc: Optional[Any] = None
+    oflags: Optional[Any] = None
 
 
 class OpenPositions(BaseModel):
@@ -497,4 +497,3 @@ class PlacedOrder(BaseModel):
         close = conditional close order description (if conditional close set)
     txid = array of transaction ids for order (if order was added successfully)
     """
-    

@@ -208,7 +208,6 @@ class KrakenRestAPI(BaseRestAPI):
         response = requests.get(f"{base_url}{public_endpoint}/{method_endpoint}")
         response = response.json()
         pair_map = {k:v["wsname"].replace("/", "-") for k, v in response["result"].items() if ".d" not in k}
-        assert pair_map is not None
 
         asset_map = {}
         for k, v in response["result"].items():

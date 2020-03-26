@@ -1,6 +1,5 @@
 import random
 from tortoise import fields, models
-from .exchange import Exchange
 
 class Strategy(models.Model):
 
@@ -10,7 +9,6 @@ class Strategy(models.Model):
     name = fields.CharField(max_length=15)
     type = fields.CharField(max_length=40, null=True)
     timeframe = fields.IntField(null=True)
-    
-    
-    order = fields.ReverseRelation["models.Order"]
 
+
+    order = fields.ReverseRelation["models.Order"]

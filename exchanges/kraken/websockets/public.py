@@ -1,13 +1,9 @@
-import os
-import signal,sys,time                          
+import logging
 import asyncio
 import websockets
-import logging
 
-import httpx
 import ujson
 import stackprinter
-from collections import deque
 
 from exchanges.mappings import rest_api_map
 from exchanges.base.websockets.public import BasePublicFeedReader
@@ -29,8 +25,8 @@ class KrakenPublicFeedReader(BasePublicFeedReader):
         self.pairs = pairs
         self.timeframe = timeframe
         self.depth = depth
-    
-    
+
+
     async def subscribe(self, ping_interval: int, ping_timeout: int):
         """Subscribe to websocket
         """
@@ -48,10 +44,10 @@ class KrakenPublicFeedReader(BasePublicFeedReader):
                     data["subscription"]["interval"] = self.timeframe
                 if feed == "book":
                     data["subscription"]["depth"] = self.depth
-                payload = ujson.dumps(data) 
+                payload = ujson.dumps(data)
                 await self.ws.send(payload)
                 await asyncio.sleep(0.1)
-            
+
             except Exception as e:
                 logging.error(stackprinter.format(e, style="darkbg2"))
 
@@ -99,8 +95,8 @@ class KrakenPublicFeedReader(BasePublicFeedReader):
             msg = ujson.loads(msg)
             # redis_pool.publish("events", msg)
             await self.publish_heartbeat(msg, redis_pool)
-        
-        else : 
+
+        else :
             msg = ujson.loads(msg)
             channel_id = msg[0]
             data = msg[1]
@@ -109,7 +105,7 @@ class KrakenPublicFeedReader(BasePublicFeedReader):
             # redis_pool.publish(f"data:{feed}", ujson.dumps(data))
             await self.publish_data(data, feed=channel_name, feed_id=channel_id, pair=pair, redis_pool=redis_pool)
 
-    
+
 
 # ================================================================================
 # ==== Run file

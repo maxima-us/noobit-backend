@@ -16,8 +16,8 @@ class Trade(models.Model):
     exchange_id = fields.ForeignKeyField("models.Exchange")
     exchange_trade_id = fields.CharField(max_length=30, unique=True)
 
-    time_created = fields.BigIntField(default=datetime.datetime.utcnow().timestamp())   
-    trade_side = fields.CharField(max_length=5)      
+    time_created = fields.BigIntField(default=datetime.datetime.utcnow().timestamp())
+    trade_side = fields.CharField(max_length=5)
 
     pair = fields.CharField(max_length=10)
     price = fields.FloatField()
@@ -27,11 +27,11 @@ class Trade(models.Model):
     leverage = fields.IntField(default=0)
 
 
-    order_id : fields.ForeignKeyRelation[Order] = fields.ForeignKeyField("models.Order",
-                                                                         related_name="trade",
-                                                                         to_field="order_id",
-                                                                         from_field="trade"
-                                                                         )
+    order_id: fields.ForeignKeyRelation[Order] = fields.ForeignKeyField("models.Order",
+                                                                        related_name="trade",
+                                                                        to_field="order_id",
+                                                                        from_field="trade"
+                                                                        )
 
     def __str__(self) -> str:
         return f"Trade {self.trade_id}: {self.price}"

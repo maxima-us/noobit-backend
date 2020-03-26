@@ -1,5 +1,4 @@
 import datetime
-import uuid
 from tortoise import fields, models
 from .strategy import Strategy
 
@@ -18,25 +17,25 @@ class Order(models.Model):
     status = fields.CharField(max_length=30, default="pending")
     order_type = fields.CharField(max_length=30)
     order_side = fields.CharField(max_length=5)
-    
+
     time_created = fields.BigIntField(default=datetime.datetime.utcnow().timestamp())                             #should be unix timestamp
-    time_executed = fields.BigIntField(null=True)                   
+    time_executed = fields.BigIntField(null=True)
 
     pair = fields.CharField(max_length=10)
     volume = fields.FloatField()
     filled = fields.FloatField()
     price = fields.FloatField(null=True)
     price2 = fields.FloatField(null=True)
-    leverage = fields.SmallIntField(null=True) 
+    leverage = fields.SmallIntField(null=True)
 
     start_time = fields.BigIntField(null=True)
     expire_time = fields.BigIntField(null=True)
-    
-    strategy_id : fields.ForeignKeyRelation[Strategy] = fields.ForeignKeyField("models.Strategy", 
-                                                                         related_name="order",
-                                                                         to_field="strategy_id",
-                                                                         from_field="order"
-                                                                         )
+
+    strategy_id: fields.ForeignKeyRelation[Strategy] = fields.ForeignKeyField("models.Strategy",
+                                                                              related_name="order",
+                                                                              to_field="strategy_id",
+                                                                              from_field="order"
+                                                                              )
 
     # trades  = relatinship ... ??? how to handle in tortoise
     trade = fields.ReverseRelation["models.Trade"]

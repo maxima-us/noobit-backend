@@ -1,30 +1,23 @@
-from server import settings
-import logging
-import time
-from contextlib import suppress
-
-import asyncio
 import uvicorn
-from uvicorn.loops.uvloop import uvloop_setup
-
-from fastapi import Depends, FastAPI, APIRouter
-from starlette.staticfiles import StaticFiles
+from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
+
+from server import settings
 from server.startup.register_client import register_session
 from server.startup.register_orm import register_tortoise
+from server.views import cache, html, json, items, users, fastapi_users
 
 #! skip register kafka for use with aiokafka
 # from kafka.register_kafka import register_kafka
 
-# TODO      copy paste code from minigryph: at startup should initialize all exchange classes 
+# TODO      copy paste code from minigryph: at startup should initialize all exchange classes
 # TODO      from abstract factory and store them in settings file
-# TODO      then we can load them into the views.account file 
-# TODO      ==> rather just send all the minigryph data to a kafka topic instead of printing it, 
+# TODO      then we can load them into the views.account file
+# TODO      ==> rather just send all the minigryph data to a kafka topic instead of printing it,
 # TODO      ==> and have fastapi connect to that topic + the same database
 
 #TODO       load httpx client at startup : https://www.python-httpx.org/advanced/
 
-from server.views import cache, html, json, items, users, fastapi_users
 
 app = FastAPI()
 
@@ -42,9 +35,9 @@ app.add_middleware(
 )
 
 register_tortoise(
-    app=app, 
-    db_url="sqlite://fastapi.db", 
-    modules={"models": ["models.orm_models"]}, 
+    app=app,
+    db_url="sqlite://fastapi.db",
+    modules={"models": ["models.orm_models"]},
     generate_schemas=True,
     )
 
@@ -102,6 +95,6 @@ async def run_uvicorn():
 
 # def run_server():
 #     from server import main_server
-    
+
 #     logging.info("Initiating application startup.")
 #     main_server.run("main_app:app", host='localhost', port=8000, reload=False)

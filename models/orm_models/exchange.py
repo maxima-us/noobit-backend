@@ -7,7 +7,7 @@ class Exchange(models.Model):
 
     exchange_id = fields.IntField(pk=True, unique=True)
     name = fields.CharField(max_length=20)
-    
+
     balance = fields.ReverseRelation["models.Balance"]
 
     def __str__(self) -> str:

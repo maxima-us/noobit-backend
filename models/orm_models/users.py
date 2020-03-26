@@ -6,7 +6,7 @@ class User(TortoiseBaseUserModel):
     pass
 
 
-# This probably needs to be put in the routing/views directory? 
+# This probably needs to be put in the routing/views directory?
 
 # SECRET = ""
 # auth = JWTAuthentication(secret=SECRET, lifetime_seconds=3600)
