@@ -13,10 +13,9 @@ from models.data_models.api import (Ticker, Ohlc, Orderbook, Trades, Spread, Acc
 
 
 class BaseRestAPI(ABC):
-    """Abstract Baseclass for Rest APIs
+    """Abstract Baseclass for Rest APIs.
 
-    Notes : 
-
+    Notes: 
         Example Init for Kraken:
             self.exchange = "Kraken"
             self.base_url = mapping[self.exchange]["base_url"]
@@ -58,10 +57,9 @@ class BaseRestAPI(ABC):
 
     @abstractmethod
     def _load_all_env_keys(self):
-        '''load all API keys from env file into a deque
+        '''Load all API keys from env file into a deque.
         
         Notes:
-        
             In .env file, keys should contain :
                 API Key : <exchange-name> & "key"
                 API Secret : <exchange-name> & "secret" 
@@ -92,7 +90,7 @@ class BaseRestAPI(ABC):
 
 
     def _nonce(self):
-        """ Nonce counter.
+        """Nonce counter.
         
         Returns:
             an always-increasing unsigned integer (up to 64 bits wide)
@@ -100,7 +98,7 @@ class BaseRestAPI(ABC):
         return int(1000*time.time())
 
 
-    def _sign(self, *args, **kwargs):
+    def _sign(self, data: dict, urlpath: str):
         raise NotImplementedError
     
     
@@ -127,8 +125,7 @@ class BaseRestAPI(ABC):
 
     @abstractmethod
     def _load_normalize_map(self):
-        '''instantiate instance variable self.pair_map as dict\t
-        Has to map both pairs and assets/currencies
+        '''Instantiate instance variable self.pair_map as dict.
 
         keys : exchange format
         value : standard format
@@ -147,14 +144,14 @@ class BaseRestAPI(ABC):
 
     @abstractmethod
     def _normalize_response(self, response: str):
-        '''input response has to be json string to make it easier to replace values'''
+        '''Input response has to be json string to make it easier to replace values.'''
         raise NotImplementedError
 
 
     @abstractmethod
     def _handle_response_errors(self, response):
-        '''input response has to be json object
-        needs to return none if there is an error and the data if there was no error
+        '''Input response has to be json object.
+        Needs to return none if there is an error and the data if there was no error.
         '''
         raise NotImplementedError
 
@@ -317,7 +314,7 @@ class BaseRestAPI(ABC):
     
     @abstractmethod
     async def get_raw_ticker(self, *args, **kwargs) -> dict:
-        """Returns raw (not checked against our models) ticker data for given pairs
+        """Raw (not checked against our models) ticker data for given pairs.
 
         Args:
             pair (list) : list of requested pairs
@@ -333,7 +330,7 @@ class BaseRestAPI(ABC):
 
 
     async def get_ticker(self, pair: list, retries: int=0) -> dict:
-        """Returns validated Ticker data (checked against data model)
+        """Validated Ticker data (checked against data model).
 
         Args:
             pair (list) : list of requested pairs
@@ -346,7 +343,6 @@ class BaseRestAPI(ABC):
                 data (dict): 
                     key (str) : pair 
                     value (list) : array of ask, bid, open, high, low, close, volume, vwap, trades
-                    w
         """
 
         data = await self.get_raw_ticker(pair, retries)
@@ -360,7 +356,7 @@ class BaseRestAPI(ABC):
 
 
     async def get_ticker_as_pandas(self, pair: list, retries: int=0):
-        """Returns checked ticker data for given pairs as pandas df
+        """Checked ticker data for given pairs as pandas df.
         """
         validated_response = await self.get_ticker(pair, retries)
 
@@ -371,7 +367,7 @@ class BaseRestAPI(ABC):
 
     @abstractmethod
     async def get_raw_ohlc(self, *args, **kwargs) -> dict:
-        """ Returns raw Ohlc data (not yet validated against data model)
+        """Raw Ohlc data (not yet validated against data model).
 
         Args:
             pair (list) : list containing single request pair 
@@ -392,7 +388,7 @@ class BaseRestAPI(ABC):
 
 
     async def get_ohlc(self, pair: list, timeframe: int, since: int=None, retries: int=0):
-        """Returns validated Ohlc data (checked against data model)
+        """Validated Ohlc data (checked against data model).
 
         Args:
             pair (list) : asset pair to get market depth for
@@ -418,7 +414,7 @@ class BaseRestAPI(ABC):
 
 
     async def get_ohlc_as_pandas(self, pair: list, timeframe: int, since: int=None, retries: int=0):
-        """Get validated Ohlc data as pandas dataframe
+        """Validated Ohlc data as pandas dataframe.
 
         Returns:
             dict: two keys
@@ -441,7 +437,7 @@ class BaseRestAPI(ABC):
 
     
     async def get_orderbook(self, pair: list, count: int=None, retries: int=0):
-        """Return validated orderbook data (checked against data model)
+        """Validated orderbook data (checked against data model).
 
         Args:
             pair (list) : asset pair to get market depth for
@@ -464,7 +460,7 @@ class BaseRestAPI(ABC):
     
 
     async def get_orderbook_as_pandas(self, pair: list, count: int=None, retries: int=0):
-        """Get validated orderbook data as pandas dataframe
+        """Validated orderbook data as pandas dataframe.
 
         Returns:
             dict: 2 keys
@@ -483,7 +479,7 @@ class BaseRestAPI(ABC):
 
     @abstractmethod
     async def get_raw_trades(self, *arg, **kwargs) -> dict:
-        """ Returns raw Trades data (not yet validated against data model)
+        """Raw Trades data (not yet validated against data model).
         
         Args:
             pair (list): asset pair to get trade data for
@@ -499,7 +495,7 @@ class BaseRestAPI(ABC):
 
     
     async def get_trades(self, pair: list, since: int=None, retries: int=0):
-        """ Returns validated Trades data (checked against data model)
+        """Validated Trades data (checked against data model).
         
         Args:
             pair (list): asset pair to get trade data for
@@ -521,7 +517,7 @@ class BaseRestAPI(ABC):
 
 
     async def get_trades_as_pandas(self, pair: list, since: int=None, retries: int=0):
-        """ Returns validated Trades data (checked against data model)
+        """Validated Trades data (checked against data model).
         
         Args:
             pair (list): asset pair to get trade data for
@@ -542,7 +538,7 @@ class BaseRestAPI(ABC):
 
     @abstractmethod
     async def get_raw_spread(self, *args, **kwargs) -> dict:
-        """ Returns raw Spread data (not yet validated against data model)
+        """Raw Spread data (not yet validated against data model).
         
         Args:
             pair (list): asset pair to get trade data for
@@ -558,7 +554,7 @@ class BaseRestAPI(ABC):
     
 
     async def get_spread(self, pair: list, since: int=None, retries: int=0):
-        """ Returns validated Spread data (checked against data model)
+        """Validated Spread data (checked against data model).
         
         Args:
             pair (list): asset pair to get trade data for
@@ -580,7 +576,7 @@ class BaseRestAPI(ABC):
 
     
     async def get_spread_as_pandas(self, pair: list, since: int=None, retries: int=0) -> pd.DataFrame:
-        """ Returns validated Spread data as pandas dataframe
+        """Validated Spread data as pandas dataframe.
         
         Args:
             pair (list): asset pair to get trade data for
@@ -613,7 +609,7 @@ class BaseRestAPI(ABC):
     
     
     async def get_account_balance(self, retries: int=0):
-        """Get validated account balance data (checked against data model)
+        """Validated account balance data (checked against data model).
 
         Args:
             retries (int)
@@ -632,7 +628,7 @@ class BaseRestAPI(ABC):
 
         
     async def get_account_balance_as_pandas(self, retries: int=0):
-        """Probably useless
+        """Probably useless.
         """
         raise NotImplementedError
     
@@ -640,7 +636,7 @@ class BaseRestAPI(ABC):
 
     @abstractmethod
     async def get_raw_trade_balance(self, *args, **kwargs) -> dict:
-        """Get trade balance data (not validated against data model)
+        """Trade balance data (not validated against data model).
 
         Args:
             asset_class (str): asset class (optional):
@@ -669,7 +665,7 @@ class BaseRestAPI(ABC):
 
 
     async def get_trade_balance(self, asset_class: str=None, asset: str=None, retries: int=0):
-        """Get trade balance data (not validated against data model)
+        """Trade balance data (not validated against data model).
 
         Args:
             asset_class (str): asset class (optional):
@@ -713,7 +709,7 @@ class BaseRestAPI(ABC):
 
     @abstractmethod
     async def get_raw_open_orders(self, *args, **kwargs) -> dict:
-        """Get trade balance data (not validated against data model)
+        """Trade balance data (not validated against data model).
 
         Args:
             asset_class (str): asset class (optional):
@@ -741,7 +737,7 @@ class BaseRestAPI(ABC):
 
 
     async def get_open_orders(self, userref: int=None, trades: bool=True, retries: int=0) -> dict:
-        """Get open orders
+        """Open orders data (checked against data model).
         """
         response = await self.get_raw_open_orders(userref, trades, retries)
         try: 
@@ -765,7 +761,7 @@ class BaseRestAPI(ABC):
     
     async def get_closed_orders(self, offset: int=0, trades: bool=False, userref: int=None, 
                                 start: int=None, end: int=None, closetime: str="both", retries: int=0) -> dict:
-        """Returns validated closed orders data (checked against data model)
+        """Validated closed orders data (checked against data model).
         """
 
         response = await self.get_raw_closed_orders(offset, trades, userref, start, end, closetime, retries)
@@ -793,7 +789,7 @@ class BaseRestAPI(ABC):
     
     async def get_user_trades(self, trade_type: str="all", trades: bool=False, start: int=None, 
                              end: int=None, retries: int=0) -> dict:
-        """Returns validated user trades data (checked against data model)
+        """Validated user trades data (checked against data model).
         """
         response = await self.get_raw_user_trades(trade_type, trades, start, end, retries)
         try:
@@ -818,7 +814,7 @@ class BaseRestAPI(ABC):
 
 
     async def get_open_positions(self, txid: list=[], show_pnl=True, retries: int=0) -> dict:
-        """Get validated open positions data (checked against data model)
+        """Validated open positions data (checked against data model).
 
         Args:
             txid (str) : transaction ids to restrict output to
