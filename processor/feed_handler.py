@@ -28,7 +28,7 @@ HANDLED_SIGNALS = (
 
 class FeedHandler(object):
     """Central Logic to handle all different websocket data
-    
+
     Args:
         exchanges (list): list of exchanges to subscribe to
         feeds (list): list of feeds to subscribe to (shared)
@@ -63,13 +63,13 @@ class FeedHandler(object):
         await exchange_private_ws.subscribe(ping_interval, ping_timeout)
         if exchange_private_ws is not None:
             self.private_feed_readers[exchange] = exchange_private_ws
-        
+
 
     async def consume_private(self, exchange):
 
         retries = 0
         delay = 1
-        
+
         while retries <= self.retries or self.retries == -1:
 
             try:
@@ -80,7 +80,7 @@ class FeedHandler(object):
                     private_fr = self.private_feed_readers[exchange]
                     await private_fr.msg_handler(msg, self.redis_pool)
                     # print(msg)
-            
+
             except CancelledError:
                 return
 
@@ -100,7 +100,7 @@ class FeedHandler(object):
 
     async def close_private(self, exchange):
         await self.private_feed_readers[exchange].close()
-        
+
 
 
 
@@ -115,9 +115,9 @@ class FeedHandler(object):
     async def consume_public(self, exchange):
         retries = 0
         delay = 1
-        
+
         while retries <= self.retries or self.retries == -1:
-        
+
             try:
                 async for msg in self.public_feed_readers[exchange].ws:
                     if self.terminate:
@@ -125,17 +125,17 @@ class FeedHandler(object):
                     public_fr = self.public_feed_readers[exchange]
                     await public_fr.msg_handler(msg, self.redis_pool)
                     # print(msg)
-            
+
             except CancelledError:
                 return
-                
+
             except (ConnectionClosed, ConnectionAbortedError, ConnectionResetError, socket_error) as e:
                 print("reconnecting public ws")
                 await asyncio.sleep(delay)
                 await self.connect_public(exchange)
                 retries += 1
                 delay *= 2
-            
+
             except Exception as e:
                 print(stackprinter.format(e, style="darkbg2"))
                 await asyncio.sleep(delay)
@@ -150,7 +150,7 @@ class FeedHandler(object):
 
 
     async def setup(self):
-        
+
         self.redis_pool = await aioredis.create_redis_pool('redis://localhost')
 
         for exchange in self.exchanges:
@@ -168,7 +168,7 @@ class FeedHandler(object):
 
 
     def run(self):
-        
+
         process_id = os.getpid()
         print(f"Starting process {process_id}")
 
@@ -200,7 +200,7 @@ class FeedHandler(object):
             await self.close_private(exchange)
             await self.close_public(exchange)
         print("FeedHandler --- Closing redis")
-        self.redis_pool.close()                                
+        self.redis_pool.close()
         await self.redis_pool.wait_closed()
         print("FeedHandler --- Shutdown complete")
 

@@ -9,11 +9,8 @@ import os
 import platform
 import signal
 import socket
-import ssl
 import sys
 import time
-import datetime
-import typing
 from email.utils import formatdate
 
 import click
@@ -88,11 +85,10 @@ def print_version(ctx, param, value):
 
 
 import ujson
-import websockets
 import aioredis
 from server import settings
-from server.db_utils.balance import startup_balance, record_new_balance_update
-from server.db_utils.strategy import startup_strategy
+from server.db_utils.balance import startup_balance_table, record_new_balance_update
+from server.db_utils.strategy import startup_strategy_table
 from server.startup.monit import startup_monit
 from server.monitor.heartbeat import Heartbeat
 from server.redis_sub import FeedConsumer
@@ -167,12 +163,26 @@ class Server:
         self.redis_sub = None
         self.aioredis_pool = None
 
+        # redis
+        self.redis_tasks = []
+        self.subscribed_channels = []
+
 
     #! this is the part we need to replace in backend.main
     def run(self, sockets=None):
         self.config.setup_event_loop()
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.serve(sockets=sockets))
+        # loop.run_until_complete(self.startup_feed_consumer())
+        # loop.run_until_complete(self.serve(sockets=sockets))
+        loop.run_until_complete(self.main(sockets))
+
+
+    async def main(self, sockets):
+        await self.subscribe_redis_channel()
+        await self.start_redis_consumer()
+
+        results = await asyncio.gather(*self.redis_tasks, self.serve(sockets=sockets))
+        return results
 
 
     async def serve(self, sockets=None):
@@ -190,11 +200,18 @@ class Server:
         color_message = "Started server process [" + click.style("%d", fg="cyan") + "]"
         logger.info(message, process_id, extra={"color_message": color_message})
 
-        await self.startup(sockets=sockets)
+        await self.startup_monitoring()
+        await self.startup_server(sockets=sockets)
+        await self.startup_db()
+
         if self.should_exit:
             return
+
         await self.main_loop()
-        await self.shutdown(sockets=sockets)
+
+        logger.info("Initiating application shutdown")
+        await self.shutdown_audit()
+        await self.shutdown_server(sockets=sockets)
 
 
         message = "Finished server process [%d]"
@@ -206,7 +223,8 @@ class Server:
         )
 
 
-    async def startup(self, sockets=None):
+
+    async def startup_server(self, sockets=None):
         await self.lifespan.startup()
         if self.lifespan.should_exit:
             self.should_exit = True
@@ -291,41 +309,53 @@ class Server:
                 extra={"color_message": color_message},
             )
             self.servers = [server]
+        self.started = True
 
 
-        # TODO put all of this in a start_trading_bot file ==> maybe put in serve func above instead of here
+
+    async def startup_monitoring(self):
         # start monit daemon
         startup_monit()
-
-        # aioredis pool connection to use across entire server module
-        settings.AIOREDIS_POOL = await aioredis.create_redis_pool('redis://localhost')
-        self.aioredis_pool = settings.AIOREDIS_POOL
-
-        # self.target_exchange = self.cache["target_exchange"]
-        # self.target_api = rest_api_map[self.target_exchange]()
-
         self.heartbeat = Heartbeat(heartbeat_key="server", is_active=True)
 
 
-        await startup_balance()
+    async def startup_db(self):
+        await startup_balance_table()
         await record_new_balance_update(event="startup")
-        await startup_strategy()
+        await startup_strategy_table()
+
+
+
+    async def subscribe_redis_channel(self):
         # self.open_websockets["private"] = await connect_private_websockets(api=self.target_api)
         # self.open_websockets["public"] = await connect_public_websockets(pairs=["XBT/USD"])
-
 
         # ==> We will read websocket data from redis sub
         # self.private_ws = KrakenPrivateFeedReader(api=self.target_api)
         # con_status = await self.private_ws.connect_to_ws()
         # sub_status = await self.private_ws.subscribe()
+        # aioredis pool connection to use across entire server module
+        settings.AIOREDIS_POOL = await aioredis.create_redis_pool('redis://localhost')
+        self.aioredis_pool = settings.AIOREDIS_POOL
 
-        self.redis_sub = FeedConsumer()
-        await self.redis_sub.subscribe()
-        #! also check balances at shutdown
+        redis_channels = ["ws:private:data:update:kraken:*",
+                          "ws:public:data:update:kraken:trade:*"
+                          ]
+        for chan in redis_channels:
+            subd_chan = await self.aioredis_pool.psubscribe(chan)
+            # subscription always returns a list
+            self.subscribed_channels.append(subd_chan[0])
 
-        self.started = True
+
+    async def start_redis_consumer(self):
+        for chan in self.subscribed_channels:
+            self.redis_tasks.append(self.consume_from_channel(chan))
 
 
+
+    async def consume_from_channel(self, channel):
+        async for message in channel.iter():
+            logger.info(f"Message : {message}")
 
 
 
@@ -344,32 +374,6 @@ class Server:
 
 
     async def on_tick(self, counter, tick_interval) -> bool:
-
-        # await self.pre_algo_tick()
-
-        # # come up with sthg smarter, like instantiating our counter given time at startup ?
-        # dt = datetime.datetime.utcnow()
-
-        # await self.on_algo_tick(hour=dt.hour,
-        #                         minute=dt.minute,
-        #                         second=dt.second,
-        #                         microsecond=dt.microsecond
-        #                         )
-
-        #consume ws messages
-        # await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["status"])
-        # await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["events"])
-        # await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["data"])
-        # await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["system"])
-        # trades_update = await self.redis_sub.consume_from_channel(self.redis_sub.subd_channels["kraken_orders"])
-        # if trades_update:
-        #     print(ujson.loads(trades_update))
-
-
-        # await self.redis_sub.update_orders(exchange="kraken")
-        await self.redis_sub.update_public_trades(exchange="kraken", pair="xbt/usd")
-
-
         # Update the default headers, once per second.
         if counter % (1/tick_interval) == 0:
             current_time = time.time()
@@ -391,9 +395,11 @@ class Server:
         if counter % (60/tick_interval) == 0:
             await record_new_balance_update(event="periodic")
 
-            holding = await self.aioredis_pool.get(f"balance:holdings:kraken")
+            holding = await self.aioredis_pool.get(f"db:balance:holdings:kraken")
             logging.info(f"Holdings : {ujson.loads(holding)}")
-            account_value = await self.aioredis_pool.get(f"balance:account_value:kraken")
+            positions = await self.aioredis_pool.get(f"db:balance:positions:kraken")
+            logging.info(f"Positions : {ujson.loads(positions)}")
+            account_value = await self.aioredis_pool.get(f"db:balance:account_value:kraken")
             logging.info(f"Account value : {ujson.loads(account_value)}")
 
 
@@ -406,16 +412,8 @@ class Server:
         return False
 
 
-    async def shutdown(self, sockets=None):
-        logger.warning("Initiating application shutdown.")
 
-        logger.info("Closing Websockets")
-        for _, ws in self.open_websockets.items():
-            await ws.close()
-
-        #! Check balances at shutdown
-        # logger.info("Updating Balances")
-        # await shutdown_balances()
+    async def shutdown_server(self, sockets=None):
 
         # Stop accepting new connections.
         for socket in sockets or []:
@@ -447,6 +445,17 @@ class Server:
         # Send the lifespan shutdown event, and wait for application shutdown.
         if not self.force_exit:
             await self.lifespan.shutdown()
+
+
+    async def shutdown_audit(self):
+
+        logger.info("Closing Websockets")
+        for _, ws in self.open_websockets.items():
+            await ws.close()
+
+        #! Check balances at shutdown
+        # logger.info("Updating Balances")
+        # await shutdown_balances()
 
 
 

@@ -1,13 +1,9 @@
-import os
-import signal,sys,time                          
-import functools
 import asyncio
 import logging
 import uuid
 import concurrent
 
 import ujson
-import uvloop
 import aioredis
 import stackprinter
 
@@ -20,12 +16,12 @@ class FeedConsumer:
 
     def __init__(self, sub_map: dict=None):
         """
-        Sub Map keys are how we want to name the channel, value is the channel/pattern to subscribe to 
+        Sub Map keys are how we want to name the channel, value is the channel/pattern to subscribe to
         """
         self.redis = None
         if sub_map is None:
-            self.sub_map = {"heartbeat": "ws:heartbeat:*", 
-                            "status": "ws:status:*", 
+            self.sub_map = {"heartbeat": "ws:heartbeat:*",
+                            "status": "ws:status:*",
                             "system": "ws:system:*",
                             "ownorder_snapshot": "ws:private:data:snapshot:kraken:openOrders",
                             "ownorder_updates": "ws:private:data:update:kraken:openOrders",
@@ -33,7 +29,7 @@ class FeedConsumer:
                             "owntrade_updates": "ws:private:data:update:kraken:ownTrades",
                             "trade_updates": "ws:public:data:update:kraken:trade:*",
                             "ticker_updates": "ws:pubic:data:update:kraken:ticker"
-                        }
+                            }
         else:
             self.sub_map = sub_map
         self.subd_channels = {}
@@ -42,28 +38,27 @@ class FeedConsumer:
 
 
     async def subscribe(self):
-        
+
         # self.redis = await aioredis.create_redis_pool('redis://localhost')
-        self.redis = settings.AIOREDIS_POOL 
-        
+        self.redis = settings.AIOREDIS_POOL
+
         try:
             for key, channel_name in self.sub_map.items():
                 res = await self.redis.psubscribe(channel_name)
                 # subscribe/psub always return a list
                 self.subd_channels[key] = res[0]
-                assert isinstance(self.subd_channels[key], aioredis.Channel)
 
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
 
-    
+
     async def handle_msg(self, msg):
         print(f"Consumer --- Got message : {msg}")
-    
+
 
 
     async def consume_from_channel(self, channel: aioredis.Channel):
-        
+
         try:
             # print(f"consume from channel : {channel.name}")
             # print(f"        is active : {channel.is_active}")
@@ -73,8 +68,8 @@ class FeedConsumer:
             except :
                 pass
         except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2")) 
-            
+            logging.error(stackprinter.format(e, style="darkbg2"))
+
 
 
     async def update_orders(self, exchange):
@@ -82,10 +77,10 @@ class FeedConsumer:
         channel = self.subd_channels["ownorder_updates"]
         bytemsg = None
         bytechan = None
-        
+
         try:
 
-            try: 
+            try:
                 bytechan, bytemsg = await asyncio.wait_for(channel.get(), timeout=0.01)
             except:
                 pass
@@ -93,7 +88,7 @@ class FeedConsumer:
             if bytemsg is None:
                 return
                 # raw message will be tuple of format :
-                #        (b'data:update:kraken:openOrders', 
+                #        (b'data:update:kraken:openOrders',
                 #         b'[{"OURTBZ-BO9CD-MHTOA6":{"status":"canceled","cost":"0.00000",
                 #                                            "vol_exec":"0.00000000","fee":"0.00000",
                 #                                            "avg_price":"0.00000"}
@@ -101,7 +96,7 @@ class FeedConsumer:
                 #          )
 
                 #  or
-                #     (b'data:update:kraken:openOrders', 
+                #     (b'data:update:kraken:openOrders',
                 #      b'[{"OUZTAZ-BO7AD-MDSOA6":{"avg_price":"0.00000","cost":"0.00000",
                 #                                         "descr":{"close":null,"leverage":null,
                 #                                                  "order":"buy 10.00000000 XBT\\/USD @ limit 10.00000",
@@ -115,7 +110,7 @@ class FeedConsumer:
                 #       )
 
                 # or
-                #      (b'data:update:kraken:openOrders', 
+                #      (b'data:update:kraken:openOrders',
                 #       b'[{"OUZTAZ-BO7AD-MDSOA6":{"status":"open"}}]
                 #       )
 
@@ -139,7 +134,7 @@ class FeedConsumer:
                                             order_type=order_info["descr"]["ordertype"],
                                             order_side=order_info["descr"]["type"],
                                             pair=order_info["descr"]["pair"].replace("/", "-"),
-                                            price=order_info["descr"]["price"],  
+                                            price=order_info["descr"]["price"],
                                             price2=order_info["descr"]["price2"],
                                             leverage=order_info["descr"]["leverage"],
                                             volume=order_info["vol"],
@@ -167,7 +162,7 @@ class FeedConsumer:
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
 
-    
+
 
     async def update_trades(self, exchange):
 
@@ -177,19 +172,19 @@ class FeedConsumer:
 
 
         try:
-            try: 
+            try:
                 message = await channel.get()
                 if message is not None:
                     bytemsg, bytechan = message
             except aioredis.errors.ChannelClosedError:
                 pass
-            
-            
+
+
             if bytemsg is None:
                 return
 
             # raw message will be tuple of format
-            #       (b'data:update:kraken:openOrders', 
+            #       (b'data:update:kraken:openOrders',
             #        b'[{"TDLH43-DVQXD-2KHVYY": {"cost": "1000000.00000",
             #                                    "fee": "600.00000",
             #                                    "margin": "0.00000",
@@ -204,7 +199,7 @@ class FeedConsumer:
             #                                    }
             #          }]
             #        )
-            
+
             msg = bytemsg.decode("utf-8")
             new_trade = ujson.loads(msg)
 
@@ -215,15 +210,15 @@ class FeedConsumer:
                 order_price = await Order.filter(exchange_order_id=corresponding_order_id).values("price")
                 trade_price = trade_info["price"]
                 slippage = trade_price - order_price
-                
+
                 await Trade.create(exchange_id_id=exchange_id,
                                     exchange_trade_id=trade_id,
                                     time_created=trade_info["time"],
                                     trade_side=trade_info["type"],
                                     pair=trade_info["pair"].replace("/", "-"),
-                                    price=trade_price,                             
+                                    price=trade_price,
                                     volume=trade_info["vol"],
-                                    fee=trade_info["fee"], 
+                                    fee=trade_info["fee"],
                                     slippage=slippage,
                                     order_id_id=corresponding_order_id
                                     )
@@ -234,20 +229,20 @@ class FeedConsumer:
 
 
     async def update_public_trades(self, exchange, pair):
-        
+
         channel = self.subd_channels["trade_updates"]
         bytemsg = None
         bytechan = None
-            
+
         try:
-            try: 
+            try:
                 bytechan, bytemsg = await asyncio.wait_for(channel.get(), timeout=1/1000)
             except concurrent.futures.TimeoutError:
                 pass
-            
+
             if bytemsg is None:
                 return
-            
+
             msg = bytemsg.decode("utf-8")
             new_trade = ujson.loads(msg)
             logging.info(new_trade)
@@ -256,7 +251,7 @@ class FeedConsumer:
             logging.error(stackprinter.format(e, style="darkbg2"))
 
 
-    
+
 
 
 

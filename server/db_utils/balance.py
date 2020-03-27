@@ -1,16 +1,12 @@
-import json
 import logging
-from collections import Counter
 
 import ujson
-import aioredis
 import stackprinter
 
 from server import settings
 from models.orm_models.balance import Balance
 from models.orm_models.exchange import Exchange
 from exchanges.mappings import rest_api_map
-from exchanges.base.rest.api import BaseRestAPI
 
 # need to make this dynamic too
 # from exchanges.kraken.utils.clean_data import open_positions_aggregated_by_pair, balance_remove_zero_values
@@ -33,7 +29,7 @@ def aggregate_open_positions(response: dict):
     aggregated = {"cost": {"long": {}, "short": {}},
                   "volume": {"long": {}, "short": {}}
                   }
-    
+
     for pos_id, pos_info in response.items():
         pair = pos_info["pair"]
         side = pos_info["type"]
@@ -67,7 +63,7 @@ def aggregate_open_positions(response: dict):
 
 
     return aggregated
-    
+
 
 
 async def record_new_balance_update(event: str):
@@ -99,17 +95,17 @@ async def record_new_balance_update(event: str):
 
         # ! counters can not have negatibe values so this does not work
         # exposure = Counter(holdings) + Counter(positions_vol["long"]) - Counter(positions_vol["short"])
-        
-        margin_level = trade_balance["data"]["margin_level"]
 
+        margin_level = trade_balance["data"]["margin_level"]
 
         redis = settings.AIOREDIS_POOL
 
-        await redis.set(f"balance:holdings:{exchange_name}", ujson.dumps(holdings))
-        await redis.set(f"balance:positions:{exchange_name}", ujson.dumps(positions_vol))
-        await redis.set(f"balance:account_value:{exchange_name}", ujson.dumps(account_value))
-        await redis.set(f"balance:margin_level:{exchange_name}", ujson.dumps(margin_level))
-        await redis.set(f"balance:positions_unrealized:{exchange_name}", ujson.dumps(positions_pnl))
+        # TODO we could make each get request send the update value to redis ?
+        await redis.set(f"db:balance:holdings:{exchange_name}", ujson.dumps(holdings))
+        await redis.set(f"db:balance:positions:{exchange_name}", ujson.dumps(positions_vol))
+        await redis.set(f"db:balance:account_value:{exchange_name}", ujson.dumps(account_value))
+        await redis.set(f"db:balance:margin_level:{exchange_name}", ujson.dumps(margin_level))
+        await redis.set(f"db:balance:positions_unrealized:{exchange_name}", ujson.dumps(positions_pnl))
 
         await Balance.create(
             exchange_id=exchange_id,
@@ -117,7 +113,7 @@ async def record_new_balance_update(event: str):
             holdings=holdings,
             positions=positions_vol,
             positions_unrealized=positions_pnl,
-            account_value=account_value, 
+            account_value=account_value,
             margin=margin_level,
             exposure=0
 
@@ -127,7 +123,7 @@ async def record_new_balance_update(event: str):
 
 
 
-async def startup_balance():
+async def startup_balance_table():
 
     try:
         exch_balances = await Balance.all().values()
@@ -142,24 +138,24 @@ async def startup_balance():
                 # returns a list of dicts of format {exchange_id: int, name: str}
 
                 if not exchanges:
-                    await instantiate_exchange_table(exchanges)
+                    await instantiate_exchange_table()
 
             except Exception as e:
                 logging.error(stackprinter.format(e, style="darkbg2"))
 
-        
+
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))
-    
 
 
-async def instantiate_exchange_table(exchanges: dict):
+
+async def instantiate_exchange_table():
     '''
     instantiate table if the passed dict is empty \t
-    ==> we will need to define which exchanges need to be passed somehow and 
-    what their ids should be 
+    ==> we will need to define which exchanges need to be passed somehow and
+    what their ids should be
     '''
-    logging.warning(f"Exchange DBTable is empty") 
+    logging.warning(f"Exchange DBTable is empty")
 
     for exchange_name, exchange_id in settings.EXCHANGE_IDS_FROM_NAME.items():
         await Exchange.create(
@@ -168,5 +164,5 @@ async def instantiate_exchange_table(exchanges: dict):
         )
 
         logging.warning(f"Added {exchange_name.upper()} to Exchange DBTable -- Exchange ID:{exchange_id}")
-    
+
     logging.warning("Exchange DBTable instantiated")

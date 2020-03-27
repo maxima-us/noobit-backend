@@ -1,19 +1,11 @@
-import json
 import logging
-from collections import Counter
 
-import ujson
-import aioredis
 import stackprinter
 
-from server import settings
 from models.orm_models.strategy import Strategy
-from models.orm_models.exchange import Exchange
-from exchanges.mappings import rest_api_map
-from exchanges.base.rest.api import BaseRestAPI
 
 
-async def startup_strategy():
+async def startup_strategy_table():
 
     try:
         strategies = await Strategy.all().values()

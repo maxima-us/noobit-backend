@@ -156,17 +156,17 @@ class KrakenRestAPI(BaseRestAPI):
                 # Skip if value is None or [] or {}
                 if (not data[key]) or (data[key] is None):
                     invalid_keys.append(key)
-                    logging.warning(f"Passed empty value for : {key}")
+                    logging.debug(f"Passed empty value for : {key}")
                     continue
 
                 elif key in ["asset", "pair", "txid"]:
                     # invalid_keys.append(key) => we don't have to delete the keys but instead edit them
-                    logging.warning("Key = asset|pair|txid : Updating data dict to accomodate Kraken Api Format")
+                    logging.debug("Key = asset|pair|txid : Updating data dict to accomodate Kraken Api Format")
 
                     # in case we forgot to pass a list
                     if not isinstance(data[key], list):
                         data[key] = [data[key]]
-                        logging.warning("Please pass single pair as a list")
+                        logging.debug("Please pass single pair as a list")
 
 
                     # convert normalized pair to exchange format / data["pair"] is a list
