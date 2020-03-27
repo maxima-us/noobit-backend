@@ -1,7 +1,6 @@
 '''
 Hack uvicorn main file to launch our own service on top of it
 '''
-
 import asyncio
 import functools
 import logging
@@ -89,6 +88,7 @@ import aioredis
 from server import settings
 from server.db_utils.balance import startup_balance_table, record_new_balance_update
 from server.db_utils.strategy import startup_strategy_table
+from server.db_utils.update_from_ws import update_user_trades, update_user_orders, update_public_trades
 from server.startup.monit import startup_monit
 from server.monitor.heartbeat import Heartbeat
 from server.redis_sub import FeedConsumer
@@ -136,7 +136,7 @@ class ServerState:
 
 
 class Server:
-    def __init__(self, config):
+    def __init__(self, config, sub_map=None):
         self.config = config
         self.server_state = ServerState()
 
@@ -157,15 +157,26 @@ class Server:
         self.heartbeat = None
 
         # websockets
-        self.open_websockets = {}
-        self.private_ws = None
-        self.public_ws = None
+        # self.open_websockets = {}
+        # self.private_ws = None
+        # self.public_ws = None
         self.redis_sub = None
         self.aioredis_pool = None
 
         # redis
         self.redis_tasks = []
-        self.subscribed_channels = []
+        self.subscribed_channels = {}
+        if sub_map is None:
+            self.sub_map = {"heartbeat": "ws:heartbeat:*",
+                            "status": "ws:status:*",
+                            "system": "ws:system:*",
+                            "user_order_updates": "ws:private:data:update:kraken:openOrders",
+                            "user_trade_updates": "ws:private:data:update:kraken:ownTrades",
+                            "public_trade_updates": "ws:public:data:update:kraken:trade:*",
+                            "public_ticker_updates": "ws:pubic:data:update:kraken:ticker"
+                            }
+        else:
+            self.sub_map = sub_map
 
 
     #! this is the part we need to replace in backend.main
@@ -176,10 +187,28 @@ class Server:
         # loop.run_until_complete(self.serve(sockets=sockets))
         loop.run_until_complete(self.main(sockets))
 
+        # try:
+        #     loop.run_until_complete(self.main(sockets))
+        # except KeyboardInterrupt:
+        #     self.should_exit = True
+        #     print("Keyboard Interrupt")
+        # finally:
+        #     loop = asyncio.get_event_loop()
+        #     tasks = asyncio.all_tasks(loop)
+        #     print(f"Closing tasks : {asyncio.current_task(loop)}")
+        #     for task in tasks:
+        #         task.cancel()
+        #     print("Initiating shutdown")
+        #     loop.run_until_complete(self.shutdown_server())
+        #     print("Stopping Event Loop")
+        #     loop.stop()
+        #     print("Closing Event Loop")
+        #     loop.close()
+
 
     async def main(self, sockets):
-        await self.subscribe_redis_channel()
-        await self.start_redis_consumer()
+        # await self.subscribe_redis_channel()
+        await self.setup_redis_sub()
 
         results = await asyncio.gather(*self.redis_tasks, self.serve(sockets=sockets))
         return results
@@ -210,7 +239,7 @@ class Server:
         await self.main_loop()
 
         logger.info("Initiating application shutdown")
-        await self.shutdown_audit()
+        await self.shutdown_feed_connection()
         await self.shutdown_server(sockets=sockets)
 
 
@@ -326,7 +355,7 @@ class Server:
 
 
 
-    async def subscribe_redis_channel(self):
+    async def setup_redis_sub(self):
         # self.open_websockets["private"] = await connect_private_websockets(api=self.target_api)
         # self.open_websockets["public"] = await connect_public_websockets(pairs=["XBT/USD"])
 
@@ -338,25 +367,30 @@ class Server:
         settings.AIOREDIS_POOL = await aioredis.create_redis_pool('redis://localhost')
         self.aioredis_pool = settings.AIOREDIS_POOL
 
-        redis_channels = ["ws:private:data:update:kraken:*",
-                          "ws:public:data:update:kraken:trade:*"
-                          ]
-        for chan in redis_channels:
-            subd_chan = await self.aioredis_pool.psubscribe(chan)
+        for key, channel_name in self.sub_map.items():
+            subd_chan = await self.aioredis_pool.psubscribe(channel_name)
             # subscription always returns a list
-            self.subscribed_channels.append(subd_chan[0])
+            self.subscribed_channels[key] = subd_chan[0]
+            self.redis_tasks.append(self.consume_from_channel(key, subd_chan[0]))
+
+        logger.debug(f"redis tasks : {self.redis_tasks}")
+        logger.debug(f"subscribed channels : {self.subscribed_channels}")
 
 
-    async def start_redis_consumer(self):
-        for chan in self.subscribed_channels:
-            self.redis_tasks.append(self.consume_from_channel(chan))
+    async def consume_from_channel(self, key, channel):
+        async for chan, message in channel.iter():
+            if self.should_exit:
+                break
+            # decide what we do with each message
+            # ==> if its a trade or order we need to writ to db
+            if key == "public_trade_updates":
+                await update_public_trades(exchange="kraken", message=message)
 
+            if key == "user_trade_updates":
+                await update_user_trades(exchange="kraken", message=message)
 
-
-    async def consume_from_channel(self, channel):
-        async for message in channel.iter():
-            logger.info(f"Message : {message}")
-
+            if key == "user_order_updates":
+                await update_user_orders(exchange="kraken", message=message)
 
 
     async def main_loop(self, tick_interval=settings.TICK_INTERVAL):
@@ -396,11 +430,11 @@ class Server:
             await record_new_balance_update(event="periodic")
 
             holding = await self.aioredis_pool.get(f"db:balance:holdings:kraken")
-            logging.info(f"Holdings : {ujson.loads(holding)}")
+            logger.info(f"Holdings : {ujson.loads(holding)}")
             positions = await self.aioredis_pool.get(f"db:balance:positions:kraken")
-            logging.info(f"Positions : {ujson.loads(positions)}")
+            logger.info(f"Positions : {ujson.loads(positions)}")
             account_value = await self.aioredis_pool.get(f"db:balance:account_value:kraken")
-            logging.info(f"Account value : {ujson.loads(account_value)}")
+            logger.info(f"Account value : {ujson.loads(account_value)}")
 
 
 
@@ -447,11 +481,15 @@ class Server:
             await self.lifespan.shutdown()
 
 
-    async def shutdown_audit(self):
+    async def shutdown_feed_connection(self):
 
-        logger.info("Closing Websockets")
-        for _, ws in self.open_websockets.items():
-            await ws.close()
+        #   ! no ws anymore
+        # logger.info("Closing Websockets")
+        # for _, ws in self.open_websockets.items():
+        #     await ws.close()
+
+        self.aioredis_pool.close()
+        await self.aioredis_pool.wait_closed()
 
         #! Check balances at shutdown
         # logger.info("Updating Balances")
@@ -477,4 +515,3 @@ class Server:
             self.force_exit = True
         else:
             self.should_exit = True
-
