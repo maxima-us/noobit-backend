@@ -67,10 +67,5 @@ async def cancel_all_orders(exchange: str,
                             retries: int = Query(None, title="Number of times to retry the request if it fails")
                             ):
     api = rest_api_map[exchange]()
-
-    # open_orders = api.get_open_orders()
-
-    # response = await api.cancel_order(txid=txid)
-    # return response
-    pass
-
+    response = await api.cancel_all_orders(retries=retries)
+    return response

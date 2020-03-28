@@ -57,9 +57,8 @@ python -m pytest -vv
 ## To Do
 
   - data validation + testing for placing & closing orders
-  - implement cancel all orders / positions methods
+  - implement cancel all positions
   - command line
   - trading engine
-
 
 

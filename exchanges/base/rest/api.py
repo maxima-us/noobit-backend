@@ -718,35 +718,108 @@ class BaseRestAPI(ABC):
 
     @abstractmethod
     async def get_raw_open_orders(self, *args, **kwargs) -> dict:
-        """Trade balance data (not validated against data model).
+        """Raw open orders data (not validated against data model).
 
         Args:
-            asset_class (str): asset class (optional):
-                currency (default)
-            asset (str): base asset used to determine balance (default = ZUSD)
+            trades = whether or not to include trades in output
+                (optional.  default = false)
+            userref = restrict results to given user reference id
+                (optional)
 
         Returns:
-            dict with following keys
-
-                - equivalent_balance (combined balance of all currencies)
-                - trade_balance (combined balance of all equity currencies)
-                - positions_margin
-                - positions_unrealized (net profit/loss of open positions)
-                - positions_cost basis
-                - positions_valuation
-                - equity (trade balance + unrealized net profit/loss)
-                - free_margin (equity - initial margin)
-                    (maximum margin available to open new positions)
-                - margin_level ( equity*100 / initial margin )
-
-        Note:
-            I dont't really understand what is meant by asset_class input in the API Docs
+            dict with ordertxid as key and orderinfo as value:
+                orderinfo :
+                refid = Referral order transaction id that created this order
+                userref = user reference id
+                status = status of order:
+                    pending = order pending book entry
+                    open = open order
+                    closed = closed order
+                    canceled = order canceled
+                    expired = order expired
+                opentm = unix timestamp of when order was placed
+                starttm = unix timestamp of order start time (or 0 if not set)
+                expiretm = unix timestamp of order end time (or 0 if not set)
+                descr = order description info
+                    pair = asset pair
+                    type = type of order (buy/sell)
+                    ordertype = order type (See Add standard order)
+                    price = primary price
+                    price2 = secondary price
+                    leverage = amount of leverage
+                    order = order description
+                    close = conditional close order description (if conditional close set)
+                vol = volume of order (base currency unless viqc set in oflags)
+                vol_exec = volume executed (base currency unless viqc set in oflags)
+                cost = total cost (quote currency unless unless viqc set in oflags)
+                fee = total fee (quote currency)
+                price = average price (quote currency unless viqc set in oflags)
+                stopprice = stop price (quote currency, for trailing stops)
+                limitprice = triggered limit price (quote currency, when limit based order type triggered)
+                misc = comma delimited list of miscellaneous info
+                    stopped = triggered by stop price
+                    touched = triggered by touch price
+                    liquidated = liquidation
+                    partial = partial fill
+                oflags = comma delimited list of order flags
+                    viqc = volume in quote currency
+                    fcib = prefer fee in base currency (default if selling)
+                    fciq = prefer fee in quote currency (default if buying)
+                    nompp = no market price protection
+                trades = array of trade ids related to order (if trades info requested and data available)
         """
         raise NotImplementedError
 
 
     async def get_open_orders(self, userref: int = None, trades: bool = True, retries: int = 0) -> dict:
         """Open orders data (checked against data model).
+        Args:
+            trades = whether or not to include trades in output
+                (optional.  default = false)
+            userref = restrict results to given user reference id
+                (optional)
+
+        Returns:
+            dict with ordertxid as key and orderinfo as value:
+                orderinfo :
+                refid = Referral order transaction id that created this order
+                userref = user reference id
+                status = status of order:
+                    pending = order pending book entry
+                    open = open order
+                    closed = closed order
+                    canceled = order canceled
+                    expired = order expired
+                opentm = unix timestamp of when order was placed
+                starttm = unix timestamp of order start time (or 0 if not set)
+                expiretm = unix timestamp of order end time (or 0 if not set)
+                descr = order description info
+                    pair = asset pair
+                    type = type of order (buy/sell)
+                    ordertype = order type (See Add standard order)
+                    price = primary price
+                    price2 = secondary price
+                    leverage = amount of leverage
+                    order = order description
+                    close = conditional close order description (if conditional close set)
+                vol = volume of order (base currency unless viqc set in oflags)
+                vol_exec = volume executed (base currency unless viqc set in oflags)
+                cost = total cost (quote currency unless unless viqc set in oflags)
+                fee = total fee (quote currency)
+                price = average price (quote currency unless viqc set in oflags)
+                stopprice = stop price (quote currency, for trailing stops)
+                limitprice = triggered limit price (quote currency, when limit based order type triggered)
+                misc = comma delimited list of miscellaneous info
+                    stopped = triggered by stop price
+                    touched = triggered by touch price
+                    liquidated = liquidation
+                    partial = partial fill
+                oflags = comma delimited list of order flags
+                    viqc = volume in quote currency
+                    fcib = prefer fee in base currency (default if selling)
+                    fciq = prefer fee in quote currency (default if buying)
+                    nompp = no market price protection
+                trades = array of trade ids related to order (if trades info requested and data available)
         """
         response = await self.get_raw_open_orders(userref, trades, retries)
         try:
@@ -897,20 +970,37 @@ class BaseRestAPI(ABC):
 
 
     @abstractmethod
-    async def place_order(self, **kwargs):
+    async def place_order(self, *args, **kwargs):
         raise NotImplementedError
 
 
     @abstractmethod
-    async def cancel_order(self, **kwargs):
+    async def cancel_order(self, *args, **kwargs):
         raise NotImplementedError
 
 
-    # @abstractmethod
-    # async def cancel_all_orders(self, **kwargs):
-    #     raise NotImplementedError
+    async def cancel_all_orders(self, retries: int = 0):
+        """Cancel all orders and return count of how many we canceled"""
+        count = 0
+        id_list = []
+        response = await self.get_open_orders(retries=retries)
+        open_orders = response["data"]
+        for order_id, _ in open_orders.items():
+            await self.cancel_order(order_id, retries=retries)
+            count += 1
+            id_list.append(order_id)
+        return {"canceled": id_list, "count": count}
 
 
-    # @abstractmethod
-    # async def close_all_positions(self, **kwargs):
-    #     raise NotImplementedError
+    async def close_all_positions(self, retries: int = 0):
+        """Close all positions and return count of how many we closed"""
+        count = 0
+        id_list = []
+        response = await self.get_open_positions(retries=retries)
+        open_positions = response["data"]
+        for pos_id, pos_info in open_positions.items():
+            # how to we close a position ?
+            # we need to place an order, maybe using the "settle-position" arg
+            # not well documented
+            # should we write a close_position(pos_id) method ?
+            pass
