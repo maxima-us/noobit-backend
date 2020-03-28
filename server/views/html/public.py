@@ -1,7 +1,3 @@
-from server import settings
-import json
-import logging
-from decimal import Decimal 
 from typing import List
 
 from server.views import APIRouter, Query, HTMLResponse, UJSONResponse
@@ -25,17 +21,17 @@ async def get_pairs(exchange: str):
 
 
 @router.get('/ticker/{exchange}', response_class=HTMLResponse)
-async def get_ticker(exchange: str, 
+async def get_ticker(exchange: str,
                      pair: List[str] = Query(..., title="Dash Separated Pair", maxlength=8)
                      ):
     api = rest_api_map[exchange]()
     response = await api.get_ticker_as_pandas(pair=pair)
     html_table = response.to_html()
     return html_table
-    
+
 
 @router.get('/ohlc/{exchange}', response_class=HTMLResponse)
-async def get_ohlc(exchange: str, 
+async def get_ohlc(exchange: str,
                    pair: str = Query(..., title="Dash Separated Pair", maxlength=8),
                    timeframe: int = Query(..., title="OHLC Candle Interval in minutes"),
                    since: int = Query(None, title="Return data since given timestamp"),
@@ -47,7 +43,7 @@ async def get_ohlc(exchange: str,
     return f"{html_table}<br><p>last : {response['last']}</p>"
 
 @router.get('/orderbook/{exchange}', response_class=HTMLResponse)
-async def get_orderbook(exchange: str, 
+async def get_orderbook(exchange: str,
                         pair: str = Query(..., title="Dash Separated Pair", maxlength=8),
                         count: int = Query(None, title="Maximum number of asks/bids to return"),
                         retries: int = Query(None, title="Number of times to retry the request if it fails")
@@ -60,7 +56,7 @@ async def get_orderbook(exchange: str,
 
 
 @router.get("/trades/{exchange}", response_class=HTMLResponse)
-async def get_trades(exchange: str, 
+async def get_trades(exchange: str,
                      pair: str = Query(..., title="Dash Separated Pair", maxlength=8),
                      since: int = Query(None, title="Return data since given timestamp"),
                      retries: int = Query(None, title="Number of times to retry the request if it fails")
@@ -72,7 +68,7 @@ async def get_trades(exchange: str,
 
 
 @router.get("/spread/{exchange}", response_class=HTMLResponse)
-async def get_spread(exchange: str, 
+async def get_spread(exchange: str,
                      pair: str = Query(..., title="Dash Separated Pair", maxlength=8),
                      since: int = Query(None, title="Return data since given timestamp"),
                      retries: int = Query(None, title="Number of times to retry the request if it fails")
@@ -81,5 +77,3 @@ async def get_spread(exchange: str,
     response = await api.get_spread_as_pandas(pair=[pair], since=since, retries=retries)
     html_table = response["data"].to_html()
     return f"{html_table}<br><p>last : {response['last']}</p>"
-
-

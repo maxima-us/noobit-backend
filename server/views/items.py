@@ -4,7 +4,6 @@ from fastapi.encoders import jsonable_encoder
 from starlette.responses import JSONResponse
 from starlette.requests import Request
 from starlette.status import HTTP_201_CREATED
-from starlette.staticfiles import StaticFiles
 
 # from data_models.items import Item
 from models.orm_models.items import Item
@@ -17,8 +16,8 @@ router = APIRouter()
 @router.get("/", name="home")
 async def read_items():
     return [
-        {"name": "Item FOO"}, 
-        {"name": "Item BAR"},        
+        {"name": "Item FOO"},
+        {"name": "Item BAR"},
         ]
 
 
@@ -41,7 +40,7 @@ async def all_items():
     return all_items
 
 
-# Starlette way of doing it 
+# Starlette way of doing it
 @router.post("/starlette/form/create_ts")
 async def add_item_starlette(request: Request):
 
@@ -67,7 +66,7 @@ async def add_item_fastapi(*, form_title=Form(...), form_descr=Form(...), form_o
         owner_id=form_owner
     )
     return JSONResponse({"item": str(item)}, status_code=HTTP_201_CREATED)
-    
+
 # =======================================================================================
 # == USING STARLETTE TEMPLATING SYSTEM
 
@@ -88,10 +87,10 @@ from server.form_schemas import forms, ItemSchema
 @router.get("/starlette/form/create_ts")
 async def item_form_starlette(request: Request):
     form = forms.Form(ItemSchema)
-    return templates.TemplateResponse("typesystem_form.html", {"request": request, "form": form}) 
-    
+    return templates.TemplateResponse("typesystem_form.html", {"request": request, "form": form})
+
 
 @router.get("/fastapi/form/create_ts")
 async def item_form_fastapi(request: Request):
     form = forms.Form(ItemSchema)
-    return templates.TemplateResponse("typesystem_form.html", {"request": request, "form": form}) 
+    return templates.TemplateResponse("typesystem_form.html", {"request": request, "form": form})
