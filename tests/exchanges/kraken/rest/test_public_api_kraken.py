@@ -14,7 +14,7 @@ import logging
 
 
 # ==== PyTest Fixtures
-# ======================================== 
+# ========================================
 
 
 @pytest.fixture
@@ -60,9 +60,9 @@ async def test_get_ticker_as_pandas(api):
     assert isinstance(pairs_list, pd.DataFrame)
 
     cols = ["ask", "bid", "close", "volume", "vwap", "trades", "low", "high", "open"]
-    
+
     assert sorted(single_pair.columns.values.tolist()) == sorted(cols)
-    assert sorted(pairs_list.columns.values.tolist()) == sorted(cols) 
+    assert sorted(pairs_list.columns.values.tolist()) == sorted(cols)
 
 
 
@@ -70,11 +70,11 @@ async def test_get_ticker_as_pandas(api):
 async def test_get_ohlc(api):
     resp = await api.get_ohlc(["XBT-USD"], timeframe=240)
 
-    assert isinstance(resp["data"], list) 
+    assert isinstance(resp["data"], list)
     assert isinstance(resp["last"], Decimal)
     assert sorted(list(resp.keys())) == ["data", "last"]
 
-    try: 
+    try:
         ohlc_model = Ohlc(data=resp["data"], last=resp["last"])
     except ValidationError as e:
         logging.error(resp)
@@ -101,7 +101,7 @@ async def test_get_orderbook(api):
     assert isinstance(resp["asks"], list)
     assert isinstance(resp["bids"], list)
 
-    try: 
+    try:
         ob_model = Orderbook(asks=resp["asks"], bids=resp["bids"])
     except ValidationError as e:
         logging.error(e)
@@ -132,8 +132,8 @@ async def test_get_trades(api):
 
     assert isinstance(resp["data"], list)
     assert isinstance(resp["last"], Decimal)
-    
-    try: 
+
+    try:
         trades = Trades(data=resp["data"], last=resp["last"])
     except ValidationError as e:
         logging.error(e)

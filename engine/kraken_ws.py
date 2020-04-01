@@ -1,5 +1,5 @@
 import os
-import signal,sys,time                          
+import signal,sys,time
 import asyncio
 import uvloop
 import websockets
@@ -26,27 +26,27 @@ HANDLED_SIGNALS = (
 # ================================================================================
 # ================================================================================
 # ================================================================================
-# terminate = False                            
+# terminate = False
 
-# def signal_handling(signum,frame):           
-#     global terminate                         
-#     terminate = True                         
+# def signal_handling(signum,frame):
+#     global terminate
+#     terminate = True
 
-# signal.signal(signal.SIGINT,signal_handling) 
+# signal.signal(signal.SIGINT,signal_handling)
 
 
 
 class KrakenPrivateFeedProducer:
 
 
-    def __init__(self, feeds: list=["openOrders", "ownTrades"], 
+    def __init__(self, feeds: list=["openOrders", "ownTrades"],
                        ws_uri: str="wss://ws-auth.kraken.com",
                        ):
 
         self.ws_uri = ws_uri
         self.feeds = feeds
         self.api = Api(exchange="kraken")
-        self.api.session = httpx.AsyncClient() 
+        self.api.session = httpx.AsyncClient()
         self.open_ws = None
         self.redis = None
         self.terminate = False
@@ -59,7 +59,7 @@ class KrakenPrivateFeedProducer:
         self.install_signal_handlers()
 
         self.redis = await aioredis.create_redis_pool('redis://localhost')
-        await self.subscribe_to_ws(ping_interval, ping_timeout) 
+        await self.subscribe_to_ws(ping_interval, ping_timeout)
 
         while not self.terminate:
             await self.process_ws_feed()
@@ -86,10 +86,10 @@ class KrakenPrivateFeedProducer:
         for feed in self.feeds:
             try:
                 data = {"event": "subscribe", "subscription": {"name": feed, "token": ws_token['token']}}
-                payload = ujson.dumps(data) 
+                payload = ujson.dumps(data)
                 await self.ws.send(payload)
                 await asyncio.sleep(0.1)
-            
+
             except Exception as e:
                 logging.error(stackprinter.format(e, style="darkbg2"))
 
@@ -112,19 +112,19 @@ class KrakenPrivateFeedProducer:
         elif "event" in msg:
             # msg = ujson.loads(msg)
             self.redis.publish("events", msg)
-        
-        else : 
+
+        else :
             msg = ujson.loads(msg)
             data = msg[0]
             feed = msg[1]
             self.redis.publish(f"data:{feed}", ujson.dumps(data))
 
-    
+
     def run(self):
         uvloop.install()
         asyncio.run(self.serve())
-    
-    
+
+
     def install_signal_handlers(self):
         loop = asyncio.get_event_loop()
 

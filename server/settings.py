@@ -9,6 +9,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+# Server
+SERVER = None
+
 
 # Redis config
 REDIS = redis.Redis(host='localhost', port=6379, db=0)
@@ -18,13 +21,13 @@ AIOREDIS_POOL = None
 #                 ==> we will need to find a way to share the ws data
 # STRAT = strats.mesa
 
-# Strat interval 
+# Strat interval
 STRAT_TF = "1-minute"
 
 # Target exchange
 STRAT_EXCHANGE = "kraken"
 
-# Target pair 
+# Target pair
 STRAT_PAIR = ""     # ==> we have not integrated this variable in our code yet
 
 # Exchange IDs
@@ -32,7 +35,7 @@ EXCHANGE_IDS_FROM_NAME = {
     "kraken": 1,
     }
 
-EXCHANGE_NAME_FROM_IDS = {v:k for k,v in EXCHANGE_IDS_FROM_NAME.items()}
+EXCHANGE_NAME_FROM_IDS = {v:k for k, v in EXCHANGE_IDS_FROM_NAME.items()}
 
 # Uvicorn
 UVICORN_RUNNING = False

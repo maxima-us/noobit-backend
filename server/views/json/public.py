@@ -1,6 +1,9 @@
 from typing import List
 
-from server.views import APIRouter, Query, UJSONResponse
+import stackprinter
+
+from server import settings
+from server.views import APIRouter, Query, UJSONResponse, WebSocket, HTMLResponse
 from exchanges.mappings import rest_api_map
 
 
@@ -75,3 +78,54 @@ async def get_spread(exchange: str,
     api = rest_api_map[exchange]()
     response = await api.get_spread(pair=[pair], since=since, retries=retries)
     return response["data"]
+
+
+
+
+#! COME BACK TO THIS, WEBSOCKET BELOW DOESNT WORK AS INTENDED YET
+
+import ujson
+
+@router.websocket("/ws/trades/{exchange}")
+async def get_trades_from_ws(websocket: WebSocket,
+                             exchange: str,
+                             # pair: str = Query(..., title="Dash Separated Pair", maxlength=8)
+                             ):
+    await websocket.accept()
+
+    server_instance = settings.SERVER
+    subd_channels = server_instance.subscribed_channels
+    public_trade_updates = subd_channels["public_trade_updates"]
+
+    try:
+        async for _chan, message in public_trade_updates.iter():
+            msg = message.decode("utf-8")
+            data = ujson.loads(msg)
+            print(data)
+            await websocket.send_text(f"{data}")
+    except Exception as e:
+        print(stackprinter.format(e, style="darkbg2"))
+
+
+@router.get("/trades_from_ws")
+async def receive_trades_from_ws():
+    html = """
+        <head>
+            <title>Trades</title>
+        </head>
+        <body>
+            <ul id='messages'>
+            </ul>
+            <script>
+                var ws = new WebSocket("ws://localhost:8000/json/public/ws/trades/kraken");
+                ws.onmessage = function(event) {
+                    var messages = document.getElementById('messages')
+                    var message = document.createElement('li')
+                    var content = document.createTextNode(event.data)
+                    message.appendChild(content)
+                    messages.appendChild(message)
+                };
+            </script>
+        </body>
+    """
+    return HTMLResponse(html)

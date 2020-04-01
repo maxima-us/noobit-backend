@@ -21,3 +21,4 @@ python-rapidjson
 websockets
 snakeviz
 aioredis
+TA-Lib

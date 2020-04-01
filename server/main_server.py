@@ -91,7 +91,6 @@ from server.db_utils.strategy import startup_strategy_table
 from server.db_utils.update_from_ws import update_user_trades, update_user_orders, update_public_trades
 from server.startup.monit import startup_monit
 from server.monitor.heartbeat import Heartbeat
-from server.redis_sub import FeedConsumer
 
 # this needs to be replaced
 from exchanges.mappings import rest_api_map
@@ -338,7 +337,10 @@ class Server:
                 extra={"color_message": color_message},
             )
             self.servers = [server]
+
         self.started = True
+        # so we can use this instance in other modules
+        settings.SERVER = self
 
 
 
@@ -378,19 +380,27 @@ class Server:
 
 
     async def consume_from_channel(self, key, channel):
-        async for chan, message in channel.iter():
+        async for _chan, message in channel.iter():
             if self.should_exit:
                 break
+
             # decide what we do with each message
-            # ==> if its a trade or order we need to writ to db
+            # ==> if its a private trade or order we need to write to db
+
             if key == "public_trade_updates":
                 await update_public_trades(exchange="kraken", message=message)
 
             if key == "user_trade_updates":
+                # update trades db table
                 await update_user_trades(exchange="kraken", message=message)
+                # TODO update balance db table (remove or add the bought/sold asset)
+                #       take into account trade fees
+                # TODO update cache with new balance
 
             if key == "user_order_updates":
                 await update_user_orders(exchange="kraken", message=message)
+                # TODO push new order to cache ?
+
 
 
     async def main_loop(self, tick_interval=settings.TICK_INTERVAL):
@@ -403,8 +413,6 @@ class Server:
             counter = counter % 864000
             await asyncio.sleep(tick_interval)
             should_exit = await self.on_tick(counter, tick_interval)
-
-
 
 
     async def on_tick(self, counter, tick_interval) -> bool:
