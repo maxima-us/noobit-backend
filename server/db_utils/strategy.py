@@ -19,7 +19,7 @@ async def startup_strategy_table():
                 await Strategy.create(
                     id=0,
                     name="discretionary",
-                    type="discrionary"
+                    type="discretionary"
                 )
 
             except Exception as e:

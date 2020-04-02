@@ -442,7 +442,7 @@ class Server:
             positions = await self.aioredis_pool.get(f"db:balance:positions:kraken")
             logger.info(f"Positions : {ujson.loads(positions)}")
             account_value = await self.aioredis_pool.get(f"db:balance:account_value:kraken")
-            logger.info(f"Account value : {ujson.loads(account_value)}")
+            # logger.info(f"Account value : {ujson.loads(account_value)}")
 
 
 

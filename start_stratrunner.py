@@ -5,6 +5,8 @@ import talib
 from engine.strategy import BaseStrategy
 from engine.strat_runner import StratRunner
 
+from strategies.test_strat import TestStrat
+
 
 # ==================== WITHOUT STRATRUNNER
 
@@ -40,20 +42,33 @@ from engine.strat_runner import StratRunner
 # ==================== WITH STRATRUNNER
 
 strat = BaseStrategy(exchange="kraken",
-                     pair=["xbt-usd"],
+                     pair=["eth-usd"],
                      timeframe=240,
                      volume=0,
                      )
 strat.add_indicator(func=talib.MAMA, source="close", fastlimit=0.5, slowlimit=0.05)
 strat.add_indicator(func=talib.RSI, source="close", timeperiod=14)
+strat.add_crossunder("RSI", 45)
+strat.add_crossunder("RSI", 60)
+strat.add_crossup("MAMA0", "MAMA1")
+# strat.add_long_condition(condition=(("RSI" < 60) & "CROSSOVER_MAMA0_MAMA1"))
+
 
 strat2 = BaseStrategy(exchange="kraken",
                       pair=["eth-usd"],
-                      timeframe=240,
+                      timeframe=60,
                       volume=0,
                       )
 strat2.add_indicator(func=talib.MAMA, source="close", fastlimit=0.5, slowlimit=0.05)
 strat2.add_indicator(func=talib.RSI, source="close", timeperiod=14)
+strat2.add_indicator(func=talib.HT_TRENDMODE, source="close")
+strat2.add_crossover("RSI", 60)
 
-runner = StratRunner(strats=[strat, strat2])
+strat3 = TestStrat(exchange="kraken",
+                   pair=["eth-usd"],
+                   timeframe=240,
+                   volume=0
+                   )
+
+runner = StratRunner(strats=[strat3])
 runner.run()
