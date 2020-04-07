@@ -143,7 +143,19 @@ async def update_user_trades(exchange, message):
 
 
 async def update_public_trades(exchange, message):
+    try:
+        if message is None:
+            return
 
+        msg = message.decode("utf-8")
+        new_trade = ujson.loads(msg)
+        logging.info(new_trade)
+
+    except Exception as e:
+        logging.error(stackprinter.format(e, style="darkbg2"))
+
+
+async def update_public_spread(exchange, message):
     try:
         if message is None:
             return

@@ -1,29 +1,18 @@
 import os
-import signal
 import asyncio
 from asyncio import CancelledError
 from typing import List
-from contextlib import suppress
-import logging
 from socket import error as socket_error
 
-
-import stackprinter
-from typing_extensions import Literal
 import uvloop
 import aioredis
-import websockets
 from websockets import ConnectionClosed
 
-
+from structlogger import get_logger, log_exception
 from exchanges.mappings.websockets import private_ws_map, public_ws_map
 
 
-HANDLED_SIGNALS = (
-    signal.SIGINT,  # Unix signal 2. Sent by Ctrl+C.
-    signal.SIGTERM,  # Unix signal 15. Sent by `kill <pid>`.
-)
-
+logger = get_logger(__name__)
 
 
 class FeedHandler(object):
@@ -38,7 +27,7 @@ class FeedHandler(object):
     """
 
 
-    def __init__(self, exchanges: List[str], private_feeds: List[str], public_feeds: List[str], pairs: List[str], retries: int=10):
+    def __init__(self, exchanges: List[str], private_feeds: List[str], public_feeds: List[str], pairs: List[str], retries: int = 10):
         """For now, feeds will be common to all exchanges, meaning all
         exchanges will subscribe to the same feeds we passed
         """
@@ -57,7 +46,7 @@ class FeedHandler(object):
 
 
 
-    async def connect_private(self, exchange, ping_interval: int=60, ping_timeout: int=30):
+    async def connect_private(self, exchange, ping_interval: int = 60, ping_timeout: int = 30):
 
         exchange_private_ws = private_ws_map[exchange](self.private_feeds)
         await exchange_private_ws.subscribe(ping_interval, ping_timeout)
@@ -85,14 +74,14 @@ class FeedHandler(object):
                 return
 
             except (ConnectionClosed, ConnectionAbortedError, ConnectionResetError, socket_error) as e:
-                print("encountered connection issue - reconnecting...")
+                log_exception(logger, e)
                 await asyncio.sleep(delay)
                 await self.connect_private(exchange)
                 retries += 1
                 delay *= 2
 
-            except Exception:
-                print("encountered an exception, reconnecting")
+            except Exception as e:
+                log_exception(logger, e)
                 await asyncio.sleep(delay)
                 retries += 1
                 delay *= 2
@@ -105,7 +94,7 @@ class FeedHandler(object):
 
 
 
-    async def connect_public(self, exchange, ping_interval: int=60, ping_timeout: int=30):
+    async def connect_public(self, exchange, ping_interval: int = 60, ping_timeout: int = 30):
         exchange_public_ws = public_ws_map[exchange](pairs=self.pairs, feeds=self.public_feeds)
         await exchange_public_ws.subscribe(ping_interval, ping_timeout)
         if exchange_public_ws is not None:
@@ -130,14 +119,14 @@ class FeedHandler(object):
                 return
 
             except (ConnectionClosed, ConnectionAbortedError, ConnectionResetError, socket_error) as e:
-                print("reconnecting public ws")
+                log_exception(logger, e)
                 await asyncio.sleep(delay)
                 await self.connect_public(exchange)
                 retries += 1
                 delay *= 2
 
             except Exception as e:
-                print(stackprinter.format(e, style="darkbg2"))
+                log_exception(logger, e)
                 await asyncio.sleep(delay)
                 retries += 1
                 delay *= 2
@@ -164,13 +153,15 @@ class FeedHandler(object):
 
     async def main(self):
         results = await asyncio.gather(*self.tasks)
+        logger.info(self.public_feeds)
+        logger.info(self.private_feeds)
         return results
 
 
     def run(self):
 
         process_id = os.getpid()
-        print(f"Starting process {process_id}")
+        logger.info(f"Starting process {process_id}")
 
         loop = uvloop.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -180,18 +171,18 @@ class FeedHandler(object):
             loop.run_until_complete(self.main())
         except KeyboardInterrupt:
             self.terminate=True
-            print("Keyboard Interrupt")
+            logger.info("Keyboard Interrupt")
         finally:
             loop = asyncio.get_event_loop()
             tasks = asyncio.all_tasks(loop)
-            print(f"Closing tasks : {asyncio.current_task(loop)}")
+            logger.info(f"Closing tasks : {asyncio.current_task(loop)}")
             for task in tasks:
                 task.cancel()
-            print("Initiating shutdown")
+            logger.info("Initiating shutdown")
             loop.run_until_complete(self.shutdown())
-            print("Stopping Event Loop")
+            logger.info("Stopping Event Loop")
             loop.stop()
-            print("Closing Event Loop")
+            logger.info("Closing Event Loop")
             loop.close()
 
 
@@ -199,10 +190,10 @@ class FeedHandler(object):
         for exchange in self.exchanges:
             await self.close_private(exchange)
             await self.close_public(exchange)
-        print("FeedHandler --- Closing redis")
+        logger.info("FeedHandler --- Closing redis")
         self.redis_pool.close()
         await self.redis_pool.wait_closed()
-        print("FeedHandler --- Shutdown complete")
+        logger.info("FeedHandler --- Shutdown complete")
 
 
 

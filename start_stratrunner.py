@@ -1,11 +1,9 @@
-import asyncio
-
 import talib
 
 from engine.strategy import BaseStrategy
 from engine.strat_runner import StratRunner
 
-from strategies.test_strat import TestStrat
+from strategies.mock_strat import MockStrat
 
 
 # ==================== WITHOUT STRATRUNNER
@@ -64,9 +62,9 @@ strat2.add_indicator(func=talib.RSI, source="close", timeperiod=14)
 strat2.add_indicator(func=talib.HT_TRENDMODE, source="close")
 strat2.add_crossover("RSI", 60)
 
-strat3 = TestStrat(exchange="kraken",
-                   pair=["eth-usd"],
-                   timeframe=240,
+strat3 = MockStrat(exchange="kraken",
+                   pair=["xbt-usd"],
+                   timeframe=1,
                    volume=0
                    )
 

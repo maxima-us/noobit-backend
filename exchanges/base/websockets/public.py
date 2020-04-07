@@ -1,14 +1,16 @@
 """Base Class for Public Websocket Feed Reader
 """
-import logging
 from abc import ABC, abstractmethod
 
 import ujson
-import stackprinter
 from pydantic import ValidationError
 
+from structlogger import get_logger, log_exception
 from models.data_models.websockets import HeartBeat, SubscriptionStatus, SystemStatus
 from models.data_models.websockets import Ticker, Trade, Spread, Book
+
+
+logger = get_logger(__name__)
 
 
 # needs to be named exactly as the channel name from the exchange
@@ -73,8 +75,7 @@ class BasePublicFeedReader(ABC):
             msg = await self.ws.recv()
             self.msg_handler(msg, redis_pool)
         except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
-
+            log_exception(logger, e)
 
 
     async def publish_status(self, msg: str, redis_pool):
@@ -84,12 +85,12 @@ class BasePublicFeedReader(ABC):
         channel = f"ws:public:status:{self.exchange}"
 
         try:
-            print(msg)
+            logger.info(msg)
             subscription_status = SubscriptionStatus(**msg)
             await redis_pool.publish(channel, ujson.dumps(subscription_status.dict()))
 
         except ValidationError as e:
-            logging.error(e)
+            logger.error(e)
 
 
 
@@ -104,7 +105,7 @@ class BasePublicFeedReader(ABC):
             await redis_pool.publish(channel, ujson.dumps(heartbeat.dict()))
 
         except ValidationError as e:
-            logging.error(e)
+            logger.error(e)
 
 
 
@@ -115,12 +116,12 @@ class BasePublicFeedReader(ABC):
         channel = f"ws:public:system:{self.exchange}"
 
         try:
-            print(msg)
+            logger.info(msg)
             system_status = SystemStatus(**msg)
             await redis_pool.publish(channel, ujson.dumps(system_status.dict()))
 
         except ValidationError as e:
-            logging.error(e)
+            logger.error(e)
 
 
 
@@ -133,14 +134,14 @@ class BasePublicFeedReader(ABC):
         try:
             ws_data = DATA_MODELS_MAP[feed](channel_id=feed_id, data=data, channel_name=feed, pair=pair)
         except ValidationError as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
+            log_exception(logger, e)
 
         try:
             self.feed_counters[channel] += 1
             update_chan = f"ws:public:data:update:{self.exchange}:{feed}:{pair}"
             data_to_publish = ws_data.dict()
             data_to_publish = data_to_publish["data"]
-            print("data :", data_to_publish)
+            logger.info(f"data : {data_to_publish}")
             await redis_pool.publish(update_chan, ujson.dumps(data_to_publish))
         except KeyError:
             self.feed_counters[channel] = 0
@@ -149,8 +150,7 @@ class BasePublicFeedReader(ABC):
             data_to_publish = data_to_publish["data"]
             await redis_pool.publish(snapshot_chan, ujson.dumps(data_to_publish))
         except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
-
+            log_exception(logger, e)
         # try:
         #     #!  how to we know which model we need to load ? should we use a mapping again ?
         #     #!  we could try to look up <feed> key in a model mapping defined in data_models.websockets ?

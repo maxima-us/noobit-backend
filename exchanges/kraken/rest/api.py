@@ -265,7 +265,6 @@ class KrakenRestAPI(BaseRestAPI):
 
 
 
-
     async def get_raw_ticker(self, pair: list, retries: int = 0) -> dict:
         """Raw (unchecked) ticker data for given pair.
 

@@ -3,6 +3,9 @@
 
 # NooBit Backend
 
+## Installation
+For Ta-Lib install please see their doc
+
 ## Processes
 
 **API Server** :

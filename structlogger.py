@@ -60,7 +60,7 @@ def get_logger(name: str, level=logging.INFO, exception_style: str="darkbg2"):
     wrapper_class=structlog.stdlib.BoundLogger,
     cache_logger_on_first_use=True,
     )
-    
+
     logging.basicConfig(
         format="%(message)s\n\r:%(filename)s:%(funcName)s:line%(lineno)s",
         stream=sys.stdout,
@@ -74,5 +74,5 @@ def get_logger(name: str, level=logging.INFO, exception_style: str="darkbg2"):
 
 
 def log_exception(logger: object, msg: str):
-    return logger.exception(stackprinter.format(msg))
+    return logger.exception(stackprinter.format(msg, style="darkbg2"))
 

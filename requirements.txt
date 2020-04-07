@@ -15,10 +15,11 @@ pandas
 redis
 stackprinter
 structlog
+colorama
 pytest-asyncio
 ujson
 python-rapidjson
 websockets
 snakeviz
 aioredis
-TA-Lib
+# TA-Lib

@@ -5,7 +5,6 @@ import websockets
 import ujson
 import stackprinter
 
-from exchanges.mappings import rest_api_map
 from exchanges.base.websockets.public import BasePublicFeedReader
 
 
@@ -13,7 +12,7 @@ from exchanges.base.websockets.public import BasePublicFeedReader
 class KrakenPublicFeedReader(BasePublicFeedReader):
 
 
-    def __init__(self, pairs: list, timeframe: int=1, depth: int=10, feeds: list=["ticker", "trade", "book"]):
+    def __init__(self, pairs: list, timeframe: int=1, depth: int=10, feeds: list=["ticker", "trade", "book", "spread"]):
 
         self.exchange = "kraken"
         self.ws_uri = "wss://ws.kraken.com"
@@ -96,12 +95,12 @@ class KrakenPublicFeedReader(BasePublicFeedReader):
             # redis_pool.publish("events", msg)
             await self.publish_heartbeat(msg, redis_pool)
 
-        else :
+        else:
             msg = ujson.loads(msg)
             channel_id = msg[0]
             data = msg[1]
             channel_name = msg[2]
-            pair = msg[3]
+            pair = msg[3].replace("/", "-").lower()
             # redis_pool.publish(f"data:{feed}", ujson.dumps(data))
             await self.publish_data(data, feed=channel_name, feed_id=channel_id, pair=pair, redis_pool=redis_pool)
 

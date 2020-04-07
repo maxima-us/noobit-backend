@@ -5,7 +5,10 @@ import os
 import uvloop
 from tortoise import Tortoise
 
+from structlogger import get_logger, log_exception
 from engine.strategy import BaseStrategy
+
+logger = get_logger(__name__)
 
 class StratRunner():
 
@@ -46,13 +49,26 @@ class StratRunner():
 
     async def setup_strats(self):
         for strat in self.strats:
-            await strat.register()
-            # start task telling strat to run
+            try:
+                await strat.register_to_db()
+                await strat.subscribe_to_ws()
+            except Exception as e:
+                log_exception(logger, e)
+
+            if strat.execution:
+                try:
+                    await strat.execution.setup()
+                    self.tasks.extend(strat.execution.redis_tasks)
+                except Exception as e:
+                    log_exception(logger, e)
+
             self.tasks.append(strat.main_loop())
+
 
     def shutdown_strats(self):
         for strat in self.strats:
             strat.should_exit = True
+            strat.execution.should_exit = True
 
 
     async def main(self):
@@ -63,14 +79,16 @@ class StratRunner():
     def run(self):
 
         process_id = os.getpid()
-        print(f"Starting process {process_id}")
+        logger.info(f"Starting process {process_id}")
 
         loop = uvloop.new_event_loop()
         asyncio.set_event_loop(loop)
 
-        loop.run_until_complete(self.init_tortoise())
-        loop.run_until_complete(self.setup_strats())
-
+        try:
+            loop.run_until_complete(self.init_tortoise())
+            loop.run_until_complete(self.setup_strats())
+        except Exception as e:
+            log_exception(logger, e)
 
         try:
             loop.run_until_complete(self.main())
@@ -85,12 +103,12 @@ class StratRunner():
         finally:
             loop = asyncio.get_event_loop()
             tasks = asyncio.all_tasks(loop)
-            print("Initiating shutdown")
+            logger.info("Initiating shutdown")
             for task in tasks:
                 task.cancel()
-            print("Closing Db connections")
+            logger.info("Closing Db connections")
             loop.run_until_complete(self.shutdown_tortoise())
-            print("Stopping Event Loop")
+            logger.info("Stopping Event Loop")
             loop.stop()
-            print("Closing Event Loop")
+            logger.info("Closing Event Loop")
             loop.close()

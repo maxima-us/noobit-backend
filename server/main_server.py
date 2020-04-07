@@ -88,12 +88,9 @@ import aioredis
 from server import settings
 from server.db_utils.balance import startup_balance_table, record_new_balance_update
 from server.db_utils.strategy import startup_strategy_table
-from server.db_utils.update_from_ws import update_user_trades, update_user_orders, update_public_trades
+from server.db_utils.update_from_ws import update_user_trades, update_user_orders, update_public_trades, update_public_spread
 from server.startup.monit import startup_monit
 from server.monitor.heartbeat import Heartbeat
-
-# this needs to be replaced
-from exchanges.mappings import rest_api_map
 
 
 
@@ -172,7 +169,8 @@ class Server:
                             "user_order_updates": "ws:private:data:update:kraken:openOrders",
                             "user_trade_updates": "ws:private:data:update:kraken:ownTrades",
                             "public_trade_updates": "ws:public:data:update:kraken:trade:*",
-                            "public_ticker_updates": "ws:pubic:data:update:kraken:ticker"
+                            "public_ticker_updates": "ws:pubic:data:update:kraken:ticker",
+                            "public_spread_updates": "ws:public:data:update:kraken:spread:xbt-usd"
                             }
         else:
             self.sub_map = sub_map
@@ -400,6 +398,9 @@ class Server:
             if key == "user_order_updates":
                 await update_user_orders(exchange="kraken", message=message)
                 # TODO push new order to cache ?
+
+            if key == "public_spread_updates":
+                await update_public_spread(exchange="kraken", message=message)
 
 
 

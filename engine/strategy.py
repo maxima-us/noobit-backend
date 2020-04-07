@@ -1,22 +1,22 @@
 import random
 import asyncio
-from abc import ABC, abstractmethod, abstractproperty
-import signal
-import re
 
 import httpx
-import talib
 import ujson
-import stackprinter
+import websockets
+
 
 from server import settings
+from structlogger import get_logger, log_exception
 from exchanges.mappings import rest_api_map
 from models.orm_models import Strategy
 
-HANDLED_SIGNALS = (
-    signal.SIGINT,  # Unix signal 2. Sent by Ctrl+C.
-    signal.SIGTERM,  # Unix signal 15. Sent by `kill <pid>`.
-)
+logger = get_logger(__name__)
+
+WS_URI_MAP = {
+    "kraken": "wss://ws-auth.kraken.com"
+}
+
 
 class BaseStrategy():
     """
@@ -46,8 +46,8 @@ class BaseStrategy():
     where self.execution is an instance subclassing BaseExecution
     """
 
-    def __init__(self, exchange: str, pair: str, timeframe: int, volume: int):
-        self.exchange = exchange
+    def __init__(self, exchange: str, pair: list, timeframe: int, volume: int):
+        self.exchange = exchange.lower()
         self.pair = pair
         self.timeframe = timeframe
         self.volume = volume
@@ -71,30 +71,90 @@ class BaseStrategy():
 
         self._long_conditions = []
 
-        self._id = random.getrandbits(32)
+        self.strat_id = random.getrandbits(32)
         self._name = self.__class__.__name__
 
+        self._ws_uri = WS_URI_MAP[self.exchange]
 
-    async def register(self):
+        self.ws = None
+        self.ws_token = None
+
+        self.execution = None
+
+
+
+    # ================================================================================
+    # ==== SETUP
+    # ================================================================================
+
+
+    async def subscribe_to_ws(self, ping_interval: int = 10, ping_timeout: int = 30):
+        """Subscribe to websocket.
+        """
+
+        feeds = ["addOrder", "cancelOrder"]
+
+        self.ws = await websockets.connect(uri=self._ws_uri,
+                                           ping_interval=ping_interval,
+                                           ping_timeout=ping_timeout
+                                           )
+
+        self.ws_token = await self.api.get_websocket_auth_token()
+
+        for feed in feeds:
+            try:
+                data = {"event": "subscribe", "subscription": {"name": feed, "token": self.ws_token['token']}}
+                payload = ujson.dumps(data)
+                await self.ws.send(payload)
+                await asyncio.sleep(0.1)
+
+            except Exception as e:
+                log_exception(logger, e)
+
+
+    async def close(self):
+        """Close websocket connection
+        """
+        try:
+            # await self.ws.wait_closed()
+            await self.ws.close()
+        except Exception as e:
+            log_exception(logger, e)
+
+
+    async def register_to_db(self):
         """register strategy into db
         check if strategy table contains our strategy
         if not, create it
+
+        also bind strat runner ws to strat instance
         """
         check = await Strategy.filter(name=self._name).values()
         if not check:
-            print(f"Strategy : {self._name} --- Add to Db")
-            await Strategy.create(id=self._id,
+            logger.info(f"Strategy : {self._name} --- Add to Db")
+            await Strategy.create(id=self.strat_id,
                                   name=self._name,
                                   )
         else:
-            print(f"Strategy : {self._name} --- Already in DB")
+            logger.info(f"Strategy : {self._name} --- Already in DB")
+
+
+    async def get_decimal_precision(self):
+        """check price and volume decimal precision allowed by exchange api
+        """
+        pass
 
 
 
-
-    # ========================================
+    # ================================================================================
     # ==== DATA
-    # ========================================
+    # ================================================================================
+
+    #!  This should actually be read from cache, feed processor/handler should already have calculated
+    #!  some data points like price quote, available volume etc etc for use by strategy and execution modules
+
+    #!  If OHLC is a problem maybe we can poll this one via rest api
+
 
     async def setup_df(self):
         self.df = await self.get_ohlc()
@@ -125,9 +185,9 @@ class BaseStrategy():
 
 
 
-    # ========================================
+    # ================================================================================
     # ==== INDICATOR
-    # ========================================
+    # ================================================================================
 
 
     def add_indicator(self, *args, func, source, **kwargs):
@@ -152,9 +212,8 @@ class BaseStrategy():
         try:
             result = func(self.df[source], **kwargs)
         except Exception as e:
-            print(stackprinter.format(e, style="darkbg2"))
-
-        i=0
+            log_exception(logger, e)
+        i = 0
         func_name = str(func.__name__)
         try:
             if isinstance(result, tuple):
@@ -165,14 +224,13 @@ class BaseStrategy():
             else:
                 self.df[func_name] = result
         except Exception as e:
-            print(stackprinter.format(e, style="darkbg2"))
+            log_exception(logger, e)
 
 
 
-
-    # ========================================
+    # ================================================================================
     # ==== CROSS UP
-    # ========================================
+    # ================================================================================
 
 
     def add_crossup(self, col1: str, col2: str):
@@ -203,9 +261,9 @@ class BaseStrategy():
 
 
 
-    # ========================================
+    # ================================================================================
     # ==== CROSS DOWN
-    # ========================================
+    # ================================================================================
 
 
     def add_crossdown(self, col1: str, col2: str):
@@ -235,9 +293,9 @@ class BaseStrategy():
 
 
 
-    # ========================================
+    # ================================================================================
     # ==== CROSS OVER
-    # ========================================
+    # ================================================================================
 
 
     def add_crossover(self, col: str, value: float):
@@ -259,9 +317,9 @@ class BaseStrategy():
 
 
 
-    #========================================
+    #================================================================================
     # ==== CROSS UNDER
-    #========================================
+    #================================================================================
 
 
     def add_crossunder(self, col: str, value: float):
@@ -283,9 +341,9 @@ class BaseStrategy():
 
 
 
-    # ========================================
+    # ================================================================================
     # ==== LONG
-    # ========================================
+    # ================================================================================
 
     def long_condition(self):
         pass
@@ -303,7 +361,7 @@ class BaseStrategy():
 
 
     # def calculate_long_condition(self):
-    #     return 
+    #     return
     #     for i in self._long_conditions:
     #         self.df = self.long(i[0])
 
@@ -314,9 +372,9 @@ class BaseStrategy():
 
 
 
-    # ========================================
+    # ================================================================================
     # ==== TICK
-    # ========================================
+    # ================================================================================
 
 
     def user_tick(self):
