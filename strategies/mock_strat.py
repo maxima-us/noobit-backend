@@ -11,7 +11,9 @@ class MockStrat(BaseStrategy):
     def __init__(self, exchange, pair, timeframe, volume):
         super().__init__(exchange, pair, timeframe, volume)
         #!  for now we only accept one execution
-        self.execution = Execution(exchange, pair, self.ws, self.ws_token, self.strat_id, 0.1)
+        self.execution_models = {
+            "limit_chase": Execution(exchange, pair, self.ws, self.ws_token, self.strat_id, 0.1)
+        }
 
 
     def user_setup(self):
@@ -34,7 +36,7 @@ class MockStrat(BaseStrategy):
 
         if last["long"]:
             print("We go long !")
-            self.execution.add_long_order(total_vol=0.0234567)
+            self.execution_models["limit_chase"].add_long_order(total_vol=0.0234567)
 
         if last["short"]:
             print("We go short !")

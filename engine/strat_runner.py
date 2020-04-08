@@ -52,15 +52,20 @@ class StratRunner():
             try:
                 await strat.register_to_db()
                 await strat.subscribe_to_ws()
+                logger.warn(strat.ws)
+                logger.warn(strat.ws_token)
             except Exception as e:
                 log_exception(logger, e)
 
-            if strat.execution:
-                try:
-                    await strat.execution.setup()
-                    self.tasks.extend(strat.execution.redis_tasks)
-                except Exception as e:
-                    log_exception(logger, e)
+            if strat.execution_models:
+                for _key, model in strat.execution_models.items():
+                    try:
+                        await model.setup()
+                        self.tasks.extend(model.redis_tasks)
+                        logger.warn(model.ws)
+                        logger.warn(model.ws_token)
+                    except Exception as e:
+                        log_exception(logger, e)
 
             self.tasks.append(strat.main_loop())
 
@@ -68,7 +73,8 @@ class StratRunner():
     def shutdown_strats(self):
         for strat in self.strats:
             strat.should_exit = True
-            strat.execution.should_exit = True
+            for _key, model in strat.execution_models.items():
+                model.should_exit = True
 
 
     async def main(self):

@@ -47,6 +47,7 @@ class LimitChaseExecution():
         self.pair_decimals = pair_decimals
 
         # how long an order should be allowed to stay alive before we cancel it
+        # convert from seconds to nanoseconds (kraken timestamp is in nanoseconds)
         self.order_life = 0.1 * 10**9
 
         # self.state = {self.pair:{"side": None,
@@ -114,7 +115,9 @@ class LimitChaseExecution():
         self.redis_tasks.append(self.on_order_update())
         self.redis_tasks.append(self.on_trade_update())
         self.redis_tasks.append(self.on_spread_update())
-        self.redis_tasks.append(self.print_state())
+        # self.redis_tasks.append(self.print_state())
+        self.redis_tasks.append(self.place_order())
+        self.redis_tasks.append(self.cancel_order())
 
 
 
@@ -166,6 +169,7 @@ class LimitChaseExecution():
                 else:
                     state = current_state[pair]
                     logger.info(state["spread"])
+                    # prevent blocking
                     await asyncio.sleep(0)
         except Exception as e:
             log_exception(logger, e)
@@ -177,9 +181,16 @@ class LimitChaseExecution():
         """
         pair = self.pair
 
-        while True:
-            info = self.state.current[pair]
+        async for current_state in self.state:
+            if self.should_exit:
+                break
+
+            info = current_state[pair]
+
+            # no total volume = no orders passed => skip
             if info["volume"]["total"] == 0:
+                # prevent blocking
+                await asyncio.sleep(0)
                 continue
 
             remaining_vol = info["volume"]["total"] - info["volume"]["executed"]
@@ -187,12 +198,12 @@ class LimitChaseExecution():
 
                 ask = info["spread"]["best_ask"]
                 bid = info["spread"]["best_bid"]
-                # we need to make sure we will not crossing the spread
+                # we need to make sure to not cross the spread
                 spread = abs(ask-bid)
 
                 if info["side"] == "buy":
                     side = "buy"
-                    # max price precision for kraken is 0.1 usd
+                    # max price precision for kraken btcusd is 0.1 usd
                     if spread > self.pair_decimals:
                         price = bid + self.pair_decimals
                     else:
@@ -201,7 +212,7 @@ class LimitChaseExecution():
 
                 else:
                     side = "sell"
-                    # max price precision for kraken is 0.1 usd
+                    # max price precision for kraken btcusd is 0.1 usd
                     if spread > self.pair_decimals:
                         price = ask - self.pair_decimals
                     else:
@@ -210,7 +221,7 @@ class LimitChaseExecution():
 
                 data = {
                     "event": "addOrder",
-                    "token": self.ws_token,     # we need to get this from strat instance that Exec is binded to
+                    "token": self.ws_token["token"],     # we need to get this from strat instance that Exec is binded to
                     "userref": self.strat_id,    # we need to get this from strat instance that Exec is binded to
                     "ordertype": "limit",
                     "type": side,
@@ -221,6 +232,7 @@ class LimitChaseExecution():
                 payload = ujson.dumps(data)
                 resp = self.ws.send(payload)
                 logger.info(resp)
+                await asyncio.sleep(0)
 
 
     async def cancel_order(self):
@@ -231,10 +243,18 @@ class LimitChaseExecution():
         """
         # kraken returns timestamp in nanoseconds
         current_ts = time.time_ns()
-
         pair = self.pair
-        while not self.should_exit:
-            info = self.state.current[pair]
+
+        async for current_state in self.state:
+            if self.should_exit:
+                break
+
+            info = current_state[pair]
+
+            if not info["orders"]["open"]:
+                await asyncio.sleep(0)
+                continue
+
             for order_id, timestamp in info["orders"]["open"]:
                 if current_ts - timestamp > self.order_life:
 
@@ -245,6 +265,7 @@ class LimitChaseExecution():
                     }
                     payload = ujson.dumps(data)
                     self.ws.send(payload)
+            await asyncio.sleep(0)
 
 
 

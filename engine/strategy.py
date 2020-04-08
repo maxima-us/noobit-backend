@@ -53,10 +53,7 @@ class BaseStrategy():
         self.volume = volume
 
         self.api = rest_api_map[exchange]()
-        if settings.SESSION:
-            self.api.session = settings.SESSION
-        else:
-            self.api.session = httpx.AsyncClient()   # or settings.SESSION if not None
+        self.api.session = httpx.AsyncClient()   # or settings.SESSION if not None
 
         self.df = None
 
@@ -79,7 +76,7 @@ class BaseStrategy():
         self.ws = None
         self.ws_token = None
 
-        self.execution = None
+        self.execution_models = {}
 
 
 
@@ -110,6 +107,14 @@ class BaseStrategy():
 
             except Exception as e:
                 log_exception(logger, e)
+
+        for _key, model in self.execution_models.items():
+            await self.setup_execution_ws(model)
+
+
+    async def setup_execution_ws(self, execution_instance):
+        execution_instance.ws = self.ws
+        execution_instance.ws_token = self.ws_token
 
 
     async def close(self):
