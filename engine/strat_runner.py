@@ -6,7 +6,7 @@ import uvloop
 from tortoise import Tortoise
 
 from structlogger import get_logger, log_exception
-from engine.strategy import BaseStrategy
+from engine.base import BaseStrategy
 
 logger = get_logger(__name__)
 

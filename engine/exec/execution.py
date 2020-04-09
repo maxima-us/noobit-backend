@@ -48,7 +48,10 @@ class LimitChaseExecution():
 
         # how long an order should be allowed to stay alive before we cancel it
         # convert from seconds to nanoseconds (kraken timestamp is in nanoseconds)
-        self.order_life = 0.1 * 10**9
+        if order_life is None:
+            self.order_life = 0.1 * 10**9
+        else:
+            self.order_life = order_life
 
         # self.state = {self.pair:{"side": None,
         #                          "volume": {"total": 0, "executed": 0},
@@ -175,7 +178,7 @@ class LimitChaseExecution():
             log_exception(logger, e)
 
 
-    async def place_order(self):
+    async def place_order(self, testing: bool=False):
         """
         place an order over the ws connection with exchange
         """
@@ -219,24 +222,30 @@ class LimitChaseExecution():
                         price = ask
                     leverage = 4
 
-                data = {
-                    "event": "addOrder",
-                    "token": self.ws_token["token"],     # we need to get this from strat instance that Exec is binded to
-                    "userref": self.strat_id,    # we need to get this from strat instance that Exec is binded to
-                    "ordertype": "limit",
-                    "type": side,
-                    "pair": pair.replace("-", "/").upper(),
-                    "volume": remaining_vol,
-                    "leverage": leverage
-                }
-                payload = ujson.dumps(data)
-                resp = self.ws.send(payload)
-                logger.info(resp)
+                try:
+                    data = {
+                        "event": "addOrder",
+                        "token": self.ws_token["token"],     # we need to get this from strat instance that Exec is binded to
+                        "userref": self.strat_id,    # we need to get this from strat instance that Exec is binded to
+                        "ordertype": "limit",
+                        "type": side,
+                        "pair": pair.replace("-", "/").upper(),
+                        "volume": remaining_vol,
+                    }
+                    payload = ujson.dumps(data)
+                    await self.ws.send(payload)
+
+                except Exception as e:
+                    log_exception(logger, e)
+
                 await asyncio.sleep(0)
 
 
-    async def cancel_order(self):
+            if testing:
+                break
 
+
+    async def cancel_order(self):
         """
         cancel all orders that are older than a treshold
         compare current time with posted timestamp

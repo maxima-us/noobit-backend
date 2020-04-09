@@ -1,8 +1,6 @@
 import asyncio
-from decimal import Decimal
-from typing import Optional, Union
-from models.data_models.api import (AccountBalance, Ohlc, OpenOrders, ClosedOrders, Orderbook, Spread, Ticker,
-                                    TradeBalance, Trades, UserTrades, OpenPositions)
+from models.data_models.api import (AccountBalance, OpenOrders, ClosedOrders,
+                                    TradeBalance, UserTrades, OpenPositions)
 from pydantic import ValidationError
 import pytest
 import pandas as pd

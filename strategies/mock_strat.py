@@ -1,7 +1,7 @@
 import talib
 
-from engine.strategy import BaseStrategy
-from engine.execution import LimitChaseExecution as Execution
+from engine.base import BaseStrategy
+from engine.exec.execution import LimitChaseExecution as Execution
 
 
 

@@ -6,7 +6,6 @@ import ujson
 import websockets
 
 
-from server import settings
 from structlogger import get_logger, log_exception
 from exchanges.mappings import rest_api_map
 from models.orm_models import Strategy
@@ -18,7 +17,7 @@ WS_URI_MAP = {
 }
 
 
-class BaseStrategy():
+class StratBase():
     """
     Syntax should be similar to Tradingview
     How we would like to call it :
