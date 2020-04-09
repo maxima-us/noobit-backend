@@ -1,8 +1,4 @@
-import logging
-
 import httpx
-from pydantic import ValidationError
-from starlette.responses import HTMLResponse
 from starlette.testclient import TestClient
 
 from server.main_app import app

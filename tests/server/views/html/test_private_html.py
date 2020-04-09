@@ -1,8 +1,4 @@
-import logging
-
 import httpx
-from pydantic import ValidationError
-from starlette.responses import HTMLResponse
 from starlette.testclient import TestClient
 
 from server.main_app import app
@@ -29,7 +25,7 @@ def test_get_trade_balance():
 
 def test_get_open_orders():
     response = api.get("/html/private/open_orders/kraken")
-    assert response.status_code == 200 
+    assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
 
 

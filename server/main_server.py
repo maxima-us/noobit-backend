@@ -89,7 +89,7 @@ from server import settings
 from server.db_utils.balance import startup_balance_table, record_new_balance_update
 from server.db_utils.strategy import startup_strategy_table
 from server.db_utils.update_from_ws import update_user_trades, update_user_orders, update_public_trades, update_public_spread
-from server.startup.monit import startup_monit
+from server.app_startup.monit import startup_monit
 from server.monitor.heartbeat import Heartbeat
 
 

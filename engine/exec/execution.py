@@ -5,6 +5,7 @@ import aioredis
 import ujson
 
 from structlogger import get_logger, log_exception
+from models.data.send.websockets import AddOrder, CancelOrder
 
 logger = get_logger(__name__)
 
@@ -232,7 +233,14 @@ class LimitChaseExecution():
                         "pair": pair.replace("-", "/").upper(),
                         "volume": remaining_vol,
                     }
-                    payload = ujson.dumps(data)
+
+                    try:
+                        validated = AddOrder(**data)
+                        validated_data = validated.dict()
+                    except Exception as e:
+                        log_exception(logger, e)
+
+                    payload = ujson.dumps(validated_data)
                     await self.ws.send(payload)
 
                 except Exception as e:

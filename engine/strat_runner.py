@@ -37,7 +37,7 @@ class StratRunner():
         #  also specify the app name of "models"
         #  which contain models from "app.models"
         await Tortoise.init(db_url="sqlite://fastapi.db",
-                            modules={"models": ["models.orm_models"]},
+                            modules={"models": ["models.orm"]},
                             )
         # Generate the schema
         await Tortoise.generate_schemas()

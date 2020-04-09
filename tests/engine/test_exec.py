@@ -4,9 +4,11 @@ import pytest
 import httpx
 import websockets
 import ujson
+from pydantic import ValidationError
 
 from exchanges.mappings import rest_api_map
 from engine.exec.execution import LimitChaseExecution
+from models.data.send.websockets import AddOrder
 
 # ================================================================================
 # ==== FIXTURES
@@ -71,18 +73,25 @@ async def test_place_and_cancel_orders(exec_model):
         "type": "buy",
         "pair": "XBT/USD",
         "volume": "0.021",
-        "price": "1000"
+        "price": 1000
     }
+    try:
+        validated = AddOrder(**data)
+        validated_data = validated.dict()
+    except ValidationError as e:
+        logging.error(e)
 
-    payload = ujson.dumps(data)
+    payload = ujson.dumps(validated_data)
     await exec_model.ws.send(payload)
 
     add_resp = await exec_model.ws.recv()
     add_resp = ujson.loads(add_resp)
 
 
-    assert add_resp["status"] == "ok", add_resp["errorMessage"]
-    assert add_resp["event"] == "addOrderStatus", add_resp["errorMessage"]
+    error_msg = f"\n{payload}\n{add_resp.get('errorMessage')}"
+
+    assert add_resp["status"] == "ok", error_msg
+    assert add_resp["event"] == "addOrderStatus", error_msg
 
     try:
         txid = add_resp["txid"]

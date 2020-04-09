@@ -3,12 +3,10 @@ from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 
 from server import settings
-from server.startup.register_client import register_session
-from server.startup.register_orm import register_tortoise
-from server.views import cache, html, json, items, users, fastapi_users
+from server.app_startup.register_client import register_session
+from server.app_startup.register_orm import register_tortoise
+from server.views import cache, html, json
 
-#! skip register kafka for use with aiokafka
-# from kafka.register_kafka import register_kafka
 
 # TODO      copy paste code from minigryph: at startup should initialize all exchange classes
 # TODO      from abstract factory and store them in settings file
@@ -37,7 +35,7 @@ app.add_middleware(
 register_tortoise(
     app=app,
     db_url="sqlite://fastapi.db",
-    modules={"models": ["models.orm_models"]},
+    modules={"models": ["models.orm"]},
     generate_schemas=True,
     )
 
@@ -54,11 +52,6 @@ register_session(
 router = APIRouter()
 
 
-# Test Routers
-app.include_router(router, prefix="/tasks")
-app.include_router(items.router)
-app.include_router(users.router, prefix="/users", tags=["users"])
-app.include_router(fastapi_users.router, prefix="/users", tags=["users"])
 
 # Routers we want to actually use in production
 app.include_router(cache.account.router, prefix="/cache", tags=["cached_data"])

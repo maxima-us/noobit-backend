@@ -4,11 +4,10 @@ from exchanges.mappings import rest_api_map
 
 router = APIRouter()
 
-#! Shoud we pass pair list as path parameter of query parameter
-#! ==> queried like "domain/endpoint/pair" or "domain/endpoint?pair=..."
 
 # ================================================================================
 # ==== Private User Trading
+# ================================================================================
 
 
 @router.post('/place_order/{exchange}', response_class=UJSONResponse)
@@ -59,8 +58,6 @@ async def cancel_order(exchange: str,
     return response
 
 
-#! Write Function to cancell all orders at once
-#! Also write function to exit all positions at once
 
 @router.post('/cancel_all_orders/{exchange}', response_class=UJSONResponse)
 async def cancel_all_orders(exchange: str,

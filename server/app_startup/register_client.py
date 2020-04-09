@@ -20,5 +20,5 @@ def register_session(
 
     @app.on_event('shutdown')
     async def close_session():
-        await settings.SESSION.aclose() 
+        await settings.SESSION.aclose()
         logging.info("Closed HTTPX Session")

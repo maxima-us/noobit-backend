@@ -2,7 +2,7 @@ import logging
 
 import stackprinter
 
-from models.orm_models.strategy import Strategy
+from models.orm import Strategy
 
 
 async def startup_strategy_table():

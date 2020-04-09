@@ -5,7 +5,7 @@ import ujson
 import stackprinter
 
 from server import settings
-from models.orm_models import Order, Trade
+from models.orm import Order, Trade
 
 
 async def update_user_orders(exchange, message):
@@ -13,17 +13,14 @@ async def update_user_orders(exchange, message):
 
     try:
 
-            # raw message will be tuple of format :
-            #        (b'data:update:kraken:openOrders',
-            #         b'[{"OURTBZ-BO9CD-MHTOA6":{"status":"canceled","cost":"0.00000",
+            # raw message will be of format :
+            #         b'{"OURTBZ-BO9CD-MHTOA6":{"status":"canceled","cost":"0.00000",
             #                                            "vol_exec":"0.00000000","fee":"0.00000",
             #                                            "avg_price":"0.00000"}
-            #            }]
-            #          )
+            #            }
 
             #  or
-            #     (b'data:update:kraken:openOrders',
-            #      b'[{"OUZTAZ-BO7AD-MDSOA6":{"avg_price":"0.00000","cost":"0.00000",
+            #      b'{"OUZTAZ-BO7AD-MDSOA6":{"avg_price":"0.00000","cost":"0.00000",
             #                                         "descr":{"close":null,"leverage":null,
             #                                                  "order":"buy 10.00000000 XBT\\/USD @ limit 10.00000",
             #                                                   "ordertype":"limit","pair":"XBT\\/USD","price":"10.00000",
@@ -32,13 +29,10 @@ async def update_user_orders(exchange, message):
             #                                          "oflags":"fciq","opentm":"1584396450.270295","refid":null,"starttm":null,
             #                                          "status":"pending","stopprice":"0.00000","userref":0,
             #                                          "vol":"10.00000000","vol_exec":"0.00000000"}
-            #         }]
-            #       )
+            #         }
 
             # or
-            #      (b'data:update:kraken:openOrders',
-            #       b'[{"OUZTAZ-BO7AD-MDSOA6":{"status":"open"}}]
-            #       )
+            #       b'{"OUZTAZ-BO7AD-MDSOA6":{"status":"open"}}
 
         if message is None:
             return
@@ -95,9 +89,8 @@ async def update_user_orders(exchange, message):
 async def update_user_trades(exchange, message):
 
     try:
-        # raw message will be tuple of format
-        #       (b'data:update:kraken:openOrders',
-        #        b'[{"TDLH43-DVQXD-2KHVYY": {"cost": "1000000.00000",
+        # raw message will be of format
+        #        b'{"TDLH43-DVQXD-2KHVYY": {"cost": "1000000.00000",
         #                                    "fee": "600.00000",
         #                                    "margin": "0.00000",
         #                                    "ordertxid": "TDLH43-DVQXD-2KHVYY",
@@ -109,8 +102,8 @@ async def update_user_trades(exchange, message):
         #                                    "type": "buy",
         #                                    "vol": "1000000000.00000000"
         #                                    }
-        #          }]
-        #        )
+        #          }
+
         if message is None:
             return
 

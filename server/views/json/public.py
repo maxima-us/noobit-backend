@@ -9,11 +9,10 @@ from exchanges.mappings import rest_api_map
 
 router = APIRouter()
 
-#! Shoud we pass pair list as path parameter of query parameter
-#! ==> queried like "domain/endpoint/pair" or "domain/endpoint?pair=..."
 
 # ================================================================================
 # ==== Public Exchange Data
+# ================================================================================
 
 
 @router.get('/pairs/{exchange}', response_class=UJSONResponse)

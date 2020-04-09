@@ -1,4 +1,3 @@
-from typing import Dict
 import logging
 
 import httpx
@@ -7,7 +6,7 @@ from starlette.testclient import TestClient
 
 from server.main_app import app
 from server import settings
-from models.data_models.api import AccountBalance, TradeBalance, OpenOrders, ClosedOrders, UserTrades, OpenPositions
+from models.data.receive.api import AccountBalance, TradeBalance, OpenOrders, ClosedOrders, UserTrades, OpenPositions
 
 
 api = TestClient(app)

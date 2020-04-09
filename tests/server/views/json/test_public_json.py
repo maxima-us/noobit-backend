@@ -1,4 +1,3 @@
-from typing import Dict
 import logging
 
 import httpx
@@ -7,7 +6,7 @@ from starlette.testclient import TestClient
 
 from server.main_app import app
 from server import settings
-from models.data_models.api import Ohlc, Orderbook, Ticker, Trades, Spread
+from models.data.receive.api import Ohlc, Orderbook, Ticker, Trades, Spread
 
 
 api = TestClient(app)
@@ -29,7 +28,7 @@ def test_get_ticker():
 
     only_data_as_key = len(response.json())==1 and list(response.json().keys())==["data"]
     assert not only_data_as_key, response.json()
-    
+
     try:
         account_balance = Ticker(data=response.json())
     except ValidationError as e:
@@ -44,7 +43,7 @@ def test_get_ohlc():
 
     only_data_and_last_as_keys = len(response.json())==2 and list(response.json().keys())==["data", "last"]
     assert not only_data_and_last_as_keys, response.json()
-    
+
     try:
         account_balance = Ohlc(data=response.json(), last=0)
     except ValidationError as e:
@@ -71,7 +70,7 @@ def test_get_trades():
 
     only_data_and_last_as_keys = len(response.json())==2 and list(response.json().keys())==["data", "last"]
     assert not only_data_and_last_as_keys, response.json()
-    
+
     try:
         account_balance = Trades(data=response.json(), last=0)
     except ValidationError as e:

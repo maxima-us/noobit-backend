@@ -11,4 +11,3 @@ from starlette.templating import Jinja2Templates
 templates = Jinja2Templates(directory="templates")
 
 # just for better readability when we will import into main.py
-from .users import fastapi_users 

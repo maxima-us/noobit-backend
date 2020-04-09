@@ -4,8 +4,7 @@ import ujson
 import stackprinter
 
 from server import settings
-from models.orm_models.balance import Balance
-from models.orm_models.exchange import Exchange
+from models.orm import Balance, Exchange
 from exchanges.mappings import rest_api_map
 
 # need to make this dynamic too
@@ -30,7 +29,7 @@ def aggregate_open_positions(response: dict):
                   "volume": {"long": {}, "short": {}}
                   }
 
-    for pos_id, pos_info in response.items():
+    for _pos_id, pos_info in response.items():
         pair = pos_info["pair"]
         side = pos_info["type"]
         if side == "buy":
@@ -116,7 +115,6 @@ async def record_new_balance_update(event: str):
             account_value=account_value,
             margin=margin_level,
             exposure=0
-
         )
 
         logging.warning(f"Balance : New event {event} for exchange {exchange_name} - db record inserted")

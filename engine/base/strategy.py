@@ -8,7 +8,7 @@ import websockets
 
 from structlogger import get_logger, log_exception
 from exchanges.mappings import rest_api_map
-from models.orm_models import Strategy
+from models.orm import Strategy
 
 logger = get_logger(__name__)
 

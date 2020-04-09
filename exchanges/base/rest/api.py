@@ -8,8 +8,8 @@ import stackprinter
 from pydantic import ValidationError
 import pandas as pd
 
-from models.data_models.api import (Ticker, Ohlc, Orderbook, Trades, Spread, AccountBalance,
-                                    TradeBalance, OpenOrders, ClosedOrders, UserTrades, OpenPositions)
+from models.data.receive.api import (Ticker, Ohlc, Orderbook, Trades, Spread, AccountBalance,
+                                     TradeBalance, OpenOrders, ClosedOrders, UserTrades, OpenPositions)
 
 
 class BaseRestAPI(ABC):

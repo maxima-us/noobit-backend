@@ -7,8 +7,8 @@ import ujson
 import stackprinter
 from pydantic import ValidationError
 
-from models.data_models.websockets import HeartBeat, SubscriptionStatus, SystemStatus
-from models.data_models.websockets import OpenOrders, OwnTrades
+from models.data.receive.websockets import (HeartBeat, SubscriptionStatus, SystemStatus,
+                                            OpenOrders, OwnTrades)
 
 
 # needs to be named exactly as the channel name from the exchange

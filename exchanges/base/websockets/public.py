@@ -6,8 +6,8 @@ import ujson
 from pydantic import ValidationError
 
 from structlogger import get_logger, log_exception
-from models.data_models.websockets import HeartBeat, SubscriptionStatus, SystemStatus
-from models.data_models.websockets import Ticker, Trade, Spread, Book
+from models.data.receive.websockets import (HeartBeat, SubscriptionStatus, SystemStatus,
+                                            Ticker, Trade, Spread, Book)
 
 
 logger = get_logger(__name__)

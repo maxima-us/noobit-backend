@@ -1,6 +1,6 @@
 import asyncio
-from models.data_models.api import (AccountBalance, OpenOrders, ClosedOrders,
-                                    TradeBalance, UserTrades, OpenPositions)
+from models.data.receive.api import (AccountBalance, OpenOrders, ClosedOrders,
+                                     TradeBalance, UserTrades, OpenPositions)
 from pydantic import ValidationError
 import pytest
 import pandas as pd
@@ -126,9 +126,11 @@ async def test_get_closed_orders_as_pandas(api):
 
     assert isinstance(resp, pd.DataFrame)
 
-    cols = ["refid", "userref", "status", "opentm", "starttm", "expiretm", "descr",
-    "vol", "vol_exec", "cost", "fee", "price", "stopprice", "limitprice", "misc",
-    "oflags", "closetm", "reason"]
+    cols = [
+        "refid", "userref", "status", "opentm", "starttm", "expiretm", "descr",
+        "vol", "vol_exec", "cost", "fee", "price", "stopprice", "limitprice",
+        "misc", "oflags", "closetm", "reason"
+    ]
     #if trades=true we need to append trades to cols
 
     assert sorted(resp.columns.values.tolist()) == sorted(cols)
@@ -150,9 +152,10 @@ async def test_get_user_trades_as_pandas(api):
     resp = await api.get_user_trades_as_pandas()
     assert isinstance(resp, pd.DataFrame)
 
-    cols = ["pair", "time", "type", "ordertype", "price",
-    "cost", "fee", "vol", "margin", "misc", "ordertxid",
-    "posstatus", "postxid"
+    cols = [
+        "pair", "time", "type", "ordertype", "price",
+        "cost", "fee", "vol", "margin", "misc", "ordertxid",
+        "posstatus", "postxid"
     ]
 
     assert sorted(resp.columns.values.tolist()) == sorted(cols)
@@ -180,10 +183,11 @@ async def test_get_open_positions_as_pandas(api):
     if resp.empty:
         return
 
-    cols = ["pair", "time", "type", "ordertype", "cost",
-    "fee", "vol", "vol_closed", "margin", "value", "net",
-    "misc", "oflags", "ordertxid", "posstatus", "rollovertm",
-    "terms"
+    cols = [
+        "pair", "time", "type", "ordertype", "cost",
+        "fee", "vol", "vol_closed", "margin", "value", "net",
+        "misc", "oflags", "ordertxid", "posstatus", "rollovertm",
+        "terms"
     ]
 
     assert sorted(resp.columns.values.tolist()) == sorted(cols)
@@ -211,11 +215,11 @@ async def st_place_order(api):
 @pytest.mark.asyncio
 async def tst_cancel_order(api):
     place = await api.place_order(pair=["XRP-USD"],
-                                side="buy",
-                                ordertype="limit",
-                                price=float(0.1),
-                                volume=float(100),
-                                )
+                                  side="buy",
+                                  ordertype="limit",
+                                  price=float(0.1),
+                                  volume=float(100),
+                                  )
 
     txid = place["txid"]
 
