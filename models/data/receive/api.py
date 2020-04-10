@@ -413,6 +413,15 @@ class UserTradesEntry(TypedDict):
     fee: Decimal
     margin: Optional[Decimal] = None
     misc: Optional[Any] = None
+    poststatus: Optional[Literal["open", "closed"]]
+    cprice: Optional[Decimal]
+    ccost: Optional[Decimal]
+    cfee: Optional[Decimal]
+    cvol: Optional[Decimal]
+    cmargin: Optional[Decimal]
+    net: Optional[Decimal]
+    # list of what? not clear in doc
+    trades: list
 
 
 
@@ -434,6 +443,17 @@ class UserTrades(BaseModel):
             margin = initial margin (quote currency)
             misc = comma delimited list of miscellaneous info
                 closing = trade closes all or part of a position
+
+            If the trade opened a position, the follow fields are also present in the trade info:
+
+            posstatus = position status (open/closed)
+            cprice = average price of closed portion of position (quote currency)
+            ccost = total cost of closed portion of position (quote currency)
+            cfee = total fee of closed portion of position (quote currency)
+            cvol = total fee of closed portion of position (quote currency)
+            cmargin = total margin freed in closed portion of position (quote currency)
+            net = net profit/loss of closed portion of position (quote currency, quote currency scale)
+            trades = list of closing trades for position (if available)
     """
     data: Dict[str, UserTradesEntry]
 

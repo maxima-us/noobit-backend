@@ -129,9 +129,8 @@ async def test_get_closed_orders_as_pandas(api):
     cols = [
         "refid", "userref", "status", "opentm", "starttm", "expiretm", "descr",
         "vol", "vol_exec", "cost", "fee", "price", "stopprice", "limitprice",
-        "misc", "oflags", "closetm", "reason"
+        "misc", "oflags", "closetm", "reason", "trades"
     ]
-    #if trades=true we need to append trades to cols
 
     assert sorted(resp.columns.values.tolist()) == sorted(cols)
 
@@ -155,7 +154,8 @@ async def test_get_user_trades_as_pandas(api):
     cols = [
         "pair", "time", "type", "ordertype", "price",
         "cost", "fee", "vol", "margin", "misc", "ordertxid",
-        "posstatus", "postxid"
+        "posstatus", "postxid", "cprice", "ccost", "cfee",
+        "cvol", "cmargin", "net", "trades"
     ]
 
     assert sorted(resp.columns.values.tolist()) == sorted(cols)
