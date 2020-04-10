@@ -5,6 +5,7 @@ import hashlib
 import base64
 import hmac
 import os
+import asyncio
 from collections import deque
 
 import logging
@@ -13,6 +14,7 @@ import requests
 from dotenv import load_dotenv
 
 from server import settings
+from models.exceptions.rest_api import ExchangeUnavailableException
 from .endpoints_map import mapping
 from ...base.rest.api import BaseRestAPI
 
@@ -132,17 +134,6 @@ class KrakenRestAPI(BaseRestAPI):
         # input that needs to be passed in as comma delimited list:
         # pair, txid, asset
         else:
-            if "asset" in data.keys():
-                pass
-                # convert normalized asset to exchange format
-                # if data["asset"].lower() in ["usd", "eur"]:
-                #     kraken_asset = f"Z{data['asset'].upper()}"
-
-                # else:
-                #     kraken_asset = f"Z{data['asset'].upper()}"
-
-                # data["asset"] = kraken_asset
-
 
             # Store for later as we can not delete key during iteration
             invalid_keys = []
@@ -150,13 +141,13 @@ class KrakenRestAPI(BaseRestAPI):
             for key in data.keys():
 
                 # Convert to valid string
-                if data[key] == True|False:
+                if isinstance(data[key], bool):
                     data[key] = str(data[key]).lower()
 
-                # Skip if value is None or [] or {}
-                if (not data[key]) or (data[key] is None):
+                # Skip if value is None or [] or {} BUT don't skip if 0
+                if (data[key] == []) or (data[key] == {}) or (data[key] is None):
                     invalid_keys.append(key)
-                    logging.debug(f"Passed empty value for : {key}")
+                    logging.info(f"Passed empty value for : {key}")
                     continue
 
                 elif key in ["asset", "pair", "txid"]:
@@ -166,7 +157,7 @@ class KrakenRestAPI(BaseRestAPI):
                     # in case we forgot to pass a list
                     if not isinstance(data[key], list):
                         data[key] = [data[key]]
-                        logging.debug("Please pass single pair as a list")
+                        logging.info("Please pass single pair as a list")
 
 
                     # convert normalized pair to exchange format / data["pair"] is a list
@@ -233,18 +224,37 @@ class KrakenRestAPI(BaseRestAPI):
 
         return response
 
-    def _handle_response_errors(self, response):
+
+    async def _handle_response_errors(self, response):
+        # dict is empty
         if not response:
-            logging.error("Response returned None")
-            return None
+            logging.error("Response|Error: Value is None")
+            return {"valid": True, "value": None}
+
         if response["error"]:
-            logging.warning(f"Error with request : {response['error']}\n{12*' '}Request URL : {self.response.url}\n{12*' '}With data : {self.response.data}")
-            #! if error is : ['EGeneral:Temporary lockout'] we need to wait
+
             if response["error"] == ['EOrder:Insufficient funds']:
-                logging.warning("Insufficent funds to place order")
-            return None
+                logging.error("Response|Error: Insufficent funds to place order")
+                return {"valid": True, "value": None}
+
+            elif response["error"] in ["EService:Unavailable", "EService:Busy"]:
+                logging.error("Response|Error: Exchange unavailable")
+                await asyncio.sleep(60)
+                return {"valid": False, "value": None}
+
+            elif response["error"] == ["EGeneral:Temporary lockout"]:
+                logging.error("Response|Error: Locked out")
+                await asyncio.sleep(60)
+                return {"valid": False, "value": None}
+
+            else:
+                try:
+                    logging.error(f"Error with request : {response['error']}\n{12*' '}Request URL : {self.response.url}\n{12*' '}With data : {self.response.data}")
+                except Exception as e:
+                    logging.error(stackprinter.format(e, style="darkbg2"))
+
         else:
-            return response["result"]
+            return {"valid": True, "value": response["result"]}
 
 
 
@@ -408,6 +418,8 @@ class KrakenRestAPI(BaseRestAPI):
         """
 
         data = {"pair": pair, "since": since}
+        # we should use the private endpoint since this will mainly be used to
+        # aggregate historical trade data, so we dont get rate limited as easily
         response = await self.query_public(method="trades",
                                            data=data,
                                            retries=retries

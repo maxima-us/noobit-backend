@@ -2,6 +2,7 @@
 from abc import ABC, abstractmethod
 import time
 import logging
+import asyncio
 
 import ujson
 import stackprinter
@@ -151,7 +152,7 @@ class BaseRestAPI(ABC):
 
 
     @abstractmethod
-    def _handle_response_errors(self, response):
+    async def _handle_response_errors(self, response):
         '''Input response has to be json object.
         Needs to return none if there is an error and the data if there was no error.
         '''
@@ -215,11 +216,10 @@ class BaseRestAPI(ABC):
         if self.response.status_code not in (200, 201, 202):
             self.response.raise_for_status()
 
-        logging.debug(f"API Request for url : {self.response.url}")
+        logging.info(f"API Request URL: {self.response.url}")
 
         # return self.response.json(**self._json_options)
 
-        # we return text so it is easier to replace pairs and currencies to standard format
         resp_str = self.response.text
         normalized_resp = self._normalize_response(resp_str)
         normalized_resp = ujson.loads(normalized_resp)
@@ -248,16 +248,22 @@ class BaseRestAPI(ABC):
         method_endpoint = self.public_methods[method]
         method_path = f"{self.public_endpoint}/{method_endpoint}"
 
-        resp = await self._query(endpoint=method_path,
-                                 data=data,
-                                 private=False,
-                                 timeout=timeout,
-                                 retries=retries
-                                 )
 
-        result = self._handle_response_errors(resp)
-        if result is not None:
-            return result
+        result = {"valid": False, "value": None}
+
+        while not result["valid"]:
+
+            resp = await self._query(endpoint=method_path,
+                                        data=data,
+                                        private=False,
+                                        timeout=timeout,
+                                        retries=retries
+                                        )
+
+            result = await self._handle_response_errors(response=resp)
+
+
+        return result["value"]
 
 
 
@@ -289,19 +295,24 @@ class BaseRestAPI(ABC):
             'API-Sign': self._sign(data, method_path)
         }
 
-        resp = await self._query(endpoint=method_path,
-                                 data=data,
-                                 headers=headers,
-                                 private=True,
-                                 timeout=timeout,
-                                 retries=retries
-                                 )
+        result = {"valid": False, "value": None}
 
-        self._rotate_api_keys()
+        while not result["valid"]:
 
-        result = self._handle_response_errors(resp)
-        if result is not None:
-            return result
+            resp = await self._query(endpoint=method_path,
+                                    data=data,
+                                    headers=headers,
+                                    private=True,
+                                    timeout=timeout,
+                                    retries=retries
+                                    )
+
+            self._rotate_api_keys()
+
+            result = await self._handle_response_errors(response=resp)
+
+
+        return result["value"]
 
 
 
@@ -850,7 +861,8 @@ class BaseRestAPI(ABC):
         raise NotImplementedError
 
 
-    async def get_closed_orders(self, offset: int = 0,
+    async def get_closed_orders(self,
+                                offset: int = 0,
                                 trades: bool = False,
                                 userref: int = None,
                                 start: int = None,
@@ -870,7 +882,8 @@ class BaseRestAPI(ABC):
             logging.error(e)
 
 
-    async def get_closed_orders_as_pandas(self, offset: int = 0,
+    async def get_closed_orders_as_pandas(self,
+                                          offset: int = 0,
                                           trades: bool = False,
                                           userref: int = None,
                                           start: int = None,
@@ -1012,3 +1025,36 @@ class BaseRestAPI(ABC):
             # not well documented
             # should we write a close_position(pos_id) method ?
             pass
+
+
+
+
+    # ========================================
+    # ==== GET HISTORICAL OHLC
+
+
+    async def get_historical_ohlc(self, pair: list, timeframe: int):
+        """
+        kraken does not provide historical ohlc data
+        ==> aggregate all historical trades into ohlc
+        """
+
+        most_recent_trades = await self.get_trades(pair=pair)
+        most_recent_last = most_recent_trades["last"]
+
+        aggregated_trades = []
+
+        since = 0
+        while since < most_recent_last:
+            trades = await self.get_trades(pair=pair, since=since)
+            since = trades["last"]
+            aggregated_trades.extend(trades["data"])
+            # otherwise we will get rate limited
+            await asyncio.sleep(2)
+
+        return aggregated_trades
+
+
+
+
+
