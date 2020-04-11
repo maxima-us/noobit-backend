@@ -320,7 +320,7 @@ class LimitChaseExecution():
             new_trade = ujson.loads(json)
             logger.info(new_trade)
 
-            for order_id, trade_info in new_trade.items():
+            for _order_id, trade_info in new_trade.items():
                 pair = trade_info["pair"]
                 pair = pair.replace("/", "-").lower()
                 executed_volume = trade_info["vol"]

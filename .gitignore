@@ -133,3 +133,8 @@ data/*
 
 # db files
 *.db
+*.db-shm
+*.db-wal
+
+# csv files
+*.csv

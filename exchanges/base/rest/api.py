@@ -1033,26 +1033,77 @@ class BaseRestAPI(ABC):
     # ==== GET HISTORICAL OHLC
 
 
-    async def get_historical_ohlc(self, pair: list, timeframe: int):
+    async def write_historical_trades_to_csv(self, pair: list):
         """
         kraken does not provide historical ohlc data
         ==> aggregate all historical trades into ohlc
         """
 
+
+
+        file_path = f"{self.exchange.lower()}_{pair[0]}_historical_trade_data.csv"
+
+        # init
+        since = 0
+        count = 0
+
+        # verify data validity
+        try:
+            df = pd.read_csv(file_path,
+                             names=["price", "volume", "time", "side", "type", "misc"],
+                            #  header=None,
+                            #  skiprows=1
+                             )
+            # logging.info(df.head(10))
+            logging.info(df.tail(10))
+            # logging.info(df.dtypes)
+
+            # get index for row with highest timestamp
+            max_ts = df["time"].max()
+            [max_ts_index] = df.index[df["time"] == max_ts].tolist()
+
+            # drop row where index > max_ts_index
+            # (means they were wrongly appended to file)
+            df = df[(df["time"] < max_ts) & (df.index < max_ts_index)]
+
+            # overwrite
+            df.to_csv(path_or_buf=file_path,
+                      mode="w",
+                      header=False,
+                      index=False
+                      )
+
+            since = int(df["time"].iloc[-1] * 10**9)
+            # logging.info(df.head(10))
+            logging.info(df.tail(10))
+            logging.info(f"Last trade entry written to csv for date : {pd.to_datetime(since)}")
+        except FileNotFoundError as e:
+            logging.warning("CSV file does not exist")
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
+
+
+        logging.info(f"since: {since} --- type: {type(since)}")
+
         most_recent_trades = await self.get_trades(pair=pair)
         most_recent_last = most_recent_trades["last"]
 
-        aggregated_trades = []
-
-        since = 0
         while since < most_recent_last:
             trades = await self.get_trades(pair=pair, since=since)
+            trades_df = pd.DataFrame(trades["data"])
+            trades_df.to_csv(path_or_buf=file_path,
+                             mode="a",
+                             header=False,
+                             index=False)
+            count += len(trades["data"])
             since = trades["last"]
-            aggregated_trades.extend(trades["data"])
             # otherwise we will get rate limited
             await asyncio.sleep(2)
 
-        return aggregated_trades
+        return {"count": count}
+
+
+
 
 
 

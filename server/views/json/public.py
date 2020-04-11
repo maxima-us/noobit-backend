@@ -80,6 +80,15 @@ async def get_spread(exchange: str,
 
 
 
+@router.get("/aggregate_historical_trades/{exchange}")
+async def aggregate_historical_trades(exchange: str,
+                                pair: str = Query(..., title="Dash Separated Pair", maxlength=9)
+                                ):
+    api = rest_api_map[exchange]()
+    response = await api.write_historical_trades_to_csv(pair=[pair])
+    return response
+
+
 
 #! COME BACK TO THIS, WEBSOCKET BELOW DOESNT WORK AS INTENDED YET
 
