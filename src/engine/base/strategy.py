@@ -432,3 +432,17 @@ class StratBase():
             return True
 
         return False
+
+
+
+
+    # ================================================================================
+    # ==== BACKTESTER
+    # ================================================================================
+
+
+    async def backtest(self):
+        """
+        fetch all historical data as pandas, mask signals, pass to backtrader
+        """
+        pass

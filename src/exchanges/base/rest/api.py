@@ -6,12 +6,14 @@ import asyncio
 
 import ujson
 import stackprinter
+from structlogger import get_logger
 from pydantic import ValidationError
 import pandas as pd
 
 from models.data.receive.api import (Ticker, Ohlc, Orderbook, Trades, Spread, AccountBalance,
                                      TradeBalance, OpenOrders, ClosedOrders, UserTrades, OpenPositions)
 
+custom_logger = get_logger(__name__)
 
 class BaseRestAPI(ABC):
     """Abstract Baseclass for Rest APIs.
@@ -249,9 +251,9 @@ class BaseRestAPI(ABC):
         method_path = f"{self.public_endpoint}/{method_endpoint}"
 
 
-        result = {"valid": False, "value": None}
+        result = {"accept": False, "value": None}
 
-        while not result["valid"]:
+        while not result["accept"]:
 
             resp = await self._query(endpoint=method_path,
                                         data=data,
@@ -295,9 +297,9 @@ class BaseRestAPI(ABC):
             'API-Sign': self._sign(data, method_path)
         }
 
-        result = {"valid": False, "value": None}
+        result = {"accept": False, "value": None}
 
-        while not result["valid"]:
+        while not result["accept"]:
 
             resp = await self._query(endpoint=method_path,
                                     data=data,
@@ -1039,9 +1041,7 @@ class BaseRestAPI(ABC):
         ==> aggregate all historical trades into ohlc
         """
 
-
-
-        file_path = f"{self.exchange.lower()}_{pair[0]}_historical_trade_data.csv"
+        file_path = f"data/{self.exchange.lower()}_{pair[0]}_historical_trade_data.csv"
 
         # init
         since = 0
@@ -1088,24 +1088,24 @@ class BaseRestAPI(ABC):
         most_recent_trades = await self.get_trades(pair=pair)
         most_recent_last = most_recent_trades["last"]
 
-        while since < most_recent_last:
-            trades = await self.get_trades(pair=pair, since=since)
-            trades_df = pd.DataFrame(trades["data"])
-            trades_df.to_csv(path_or_buf=file_path,
-                             mode="a",
-                             header=False,
-                             index=False)
-            count += len(trades["data"])
-            since = trades["last"]
-            # otherwise we will get rate limited
-            await asyncio.sleep(2)
+        try:
+            while since < most_recent_last:
+                trades = await self.get_trades(pair=pair, since=since)
+                trades_df = pd.DataFrame(trades["data"])
+                trades_df.to_csv(path_or_buf=file_path,
+                                 mode="a",
+                                 header=False,
+                                 index=False
+                                 )
+                count += len(trades["data"])
+                since = trades["last"]
+                # otherwise we will get rate limited
+                await asyncio.sleep(2)
+                custom_logger.info(f"count : {count}")
+                custom_logger.info(pd.to_datetime(int(since)))
+        except KeyboardInterrupt:
+            pass
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
 
         return {"count": count}
-
-
-
-
-
-
-
-

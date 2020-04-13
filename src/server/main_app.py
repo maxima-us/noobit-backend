@@ -34,7 +34,7 @@ app.add_middleware(
 
 register_tortoise(
     app=app,
-    db_url="sqlite://fastapi.db",
+    db_url="sqlite://data/fastapi.db",
     modules={"models": ["models.orm"]},
     generate_schemas=True,
     )

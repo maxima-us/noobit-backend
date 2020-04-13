@@ -14,7 +14,6 @@ import requests
 from dotenv import load_dotenv
 
 from server import settings
-from models.exceptions.rest_api import ExchangeUnavailableException
 from .endpoints_map import mapping
 from ...base.rest.api import BaseRestAPI
 
@@ -229,23 +228,29 @@ class KrakenRestAPI(BaseRestAPI):
         # dict is empty
         if not response:
             logging.error("Response|Error: Value is None")
-            return {"valid": True, "value": None}
+            return {"accept": True, "value": None}
 
+        # response returns error message
+        # valid means wether or not we accept the response as is or we want to retry
         if response["error"]:
 
             if response["error"] == ['EOrder:Insufficient funds']:
                 logging.error("Response|Error: Insufficent funds to place order")
-                return {"valid": True, "value": None}
+                return {"accept": True, "value": None}
 
-            elif response["error"] in ["EService:Unavailable", "EService:Busy"]:
+            elif response["error"] in [["EService:Unavailable"], ["EService:Busy"]]:
                 logging.error("Response|Error: Exchange unavailable")
                 await asyncio.sleep(60)
-                return {"valid": False, "value": None}
+                return {"accept": False, "value": None}
 
             elif response["error"] == ["EGeneral:Temporary lockout"]:
                 logging.error("Response|Error: Locked out")
                 await asyncio.sleep(60)
-                return {"valid": False, "value": None}
+                return {"accept": False, "value": None}
+
+            elif response["error"] == ["EAPI:Rate limit exceeded"]:
+                logging.error("Response|Error: Rate Limit Exceeded")
+                return {"accept": True, "value": None}
 
             else:
                 try:
@@ -254,7 +259,7 @@ class KrakenRestAPI(BaseRestAPI):
                     logging.error(stackprinter.format(e, style="darkbg2"))
 
         else:
-            return {"valid": True, "value": response["result"]}
+            return {"accept": True, "value": response["result"]}
 
 
 

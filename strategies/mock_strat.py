@@ -1,7 +1,7 @@
 import talib
 
 from engine.base import BaseStrategy
-from engine.exec.execution import LimitChaseExecution as Execution
+from engine.exec.execution import LimitChaseExecution
 
 
 
@@ -12,7 +12,7 @@ class MockStrat(BaseStrategy):
         super().__init__(exchange, pair, timeframe, volume)
         #!  for now we only accept one execution
         self.execution_models = {
-            "limit_chase": Execution(exchange, pair, self.ws, self.ws_token, self.strat_id, 0.1)
+            "limit_chase": LimitChaseExecution(exchange, pair, self.ws, self.ws_token, self.strat_id, 0.1)
         }
 
 

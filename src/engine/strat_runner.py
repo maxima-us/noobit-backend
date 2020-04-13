@@ -36,7 +36,7 @@ class StratRunner():
         # Here we create a SQLite DB using file "db.sqlite3"
         #  also specify the app name of "models"
         #  which contain models from "app.models"
-        await Tortoise.init(db_url="sqlite://fastapi.db",
+        await Tortoise.init(db_url="sqlite://data/fastapi.db",
                             modules={"models": ["models.orm"]},
                             )
         # Generate the schema
@@ -99,21 +99,25 @@ class StratRunner():
         try:
             loop.run_until_complete(self.main())
 
-
-
         except KeyboardInterrupt:
             self.shutdown_strats()
             print("Keyboard Interrupt")
 
-
         finally:
             loop = asyncio.get_event_loop()
             tasks = asyncio.all_tasks(loop)
+
             logger.info("Initiating shutdown")
             for task in tasks:
                 task.cancel()
+                try:
+                    loop.run_until_complete(task)
+                except asyncio.CancelledError:
+                    logger.info(f'{task} is now cancelled')
+
             logger.info("Closing Db connections")
             loop.run_until_complete(self.shutdown_tortoise())
+
             logger.info("Stopping Event Loop")
             loop.stop()
             logger.info("Closing Event Loop")
