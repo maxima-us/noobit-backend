@@ -4,9 +4,9 @@ import httpx
 from pydantic import ValidationError
 from starlette.testclient import TestClient
 
-from server.main_app import app
-from server import settings
-from models.data.receive.api import Ohlc, Orderbook, Ticker, Trades, Spread
+from noobit.server.main_app import app
+from noobit.server import settings
+from noobit.models.data.receive.api import Ohlc, Orderbook, Ticker, Trades, Spread
 
 
 api = TestClient(app)
