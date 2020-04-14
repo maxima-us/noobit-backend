@@ -1,10 +1,12 @@
 import asyncio
-from models.data.receive.api import (AccountBalance, OpenOrders, ClosedOrders,
-                                     TradeBalance, UserTrades, OpenPositions)
+import logging
+
 from pydantic import ValidationError
 import pytest
 import pandas as pd
-import logging
+
+from noobit.models.data.receive.api import (AccountBalance, OpenOrders, ClosedOrders,
+                                            TradeBalance, UserTrades, OpenPositions)
 
 
 
@@ -17,7 +19,7 @@ import logging
 @pytest.fixture
 def api():
     import httpx
-    from exchanges.mappings import rest_api_map
+    from noobit.exchanges.mappings import rest_api_map
 
     test_api = rest_api_map["kraken"]()
     test_api.session = httpx.AsyncClient()
@@ -202,12 +204,12 @@ async def test_get_open_positions_as_pandas(api):
 @pytest.mark.asyncio
 async def st_place_order(api):
     resp = await api.place_order(pair=["XRP-USD"],
-                                side="buy",
-                                ordertype="limit",
-                                price=float(0.1),
-                                volume=float(100),
-                                validate=True
-                                )
+                                 side="buy",
+                                 ordertype="limit",
+                                 price=float(0.1),
+                                 volume=float(100),
+                                 validate=True
+                                 )
 
     assert resp["descr"]["order"] == 'buy 100.00000000 XRPUSD @ limit 0.10000'
 

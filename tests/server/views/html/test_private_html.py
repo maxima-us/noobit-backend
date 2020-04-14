@@ -1,8 +1,8 @@
 import httpx
 from starlette.testclient import TestClient
 
-from server.main_app import app
-from server import settings
+from noobit.server.main_app import app
+from noobit.server import settings
 
 api = TestClient(app)
 

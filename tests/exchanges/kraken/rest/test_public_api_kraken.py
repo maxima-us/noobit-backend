@@ -1,10 +1,11 @@
 from decimal import Decimal
-from models.data.receive.api import (AccountBalance, Ohlc, OpenOrders, ClosedOrders, Orderbook, Spread, Ticker,
-                                     TradeBalance, Trades, UserTrades, OpenPositions)
+import logging
+
 from pydantic import ValidationError
 import pytest
 import pandas as pd
-import logging
+
+from noobit.models.data.receive.api import (Ohlc, Orderbook, Spread, Ticker, Trades)
 
 
 
@@ -17,7 +18,7 @@ import logging
 @pytest.fixture
 def api():
     import httpx
-    from exchanges.mappings import rest_api_map
+    from noobit.exchanges.mappings import rest_api_map
 
     test_api = rest_api_map["kraken"]()
     test_api.session = httpx.AsyncClient()

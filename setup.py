@@ -15,7 +15,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='noobit-backend',  # Required
+    name='noobit',  # Required
     version='0.0.0',  # Required
     description='Backend to crypto trading framework NooBit',  # Optional
     long_description=long_description,  # Optional
@@ -52,9 +52,10 @@ setup(
     ],
     entry_points={  # Optional
         'console_scripts': [
-            'noobit-aggregate=cli:aggregate_historical_trades',
-            'noobit-feedhandler=cli:run_feedhandler',
-            'noobit-server=cli:run_server'
+            'noobit-aggregate=noobit.cli:aggregate_historical_trades',
+            'noobit-feedhandler=noobit.cli:run_feedhandler',
+            'noobit-server=noobit.cli:run_server',
+            'noobit-add-keys=noobit_user.cli:open_env_file'
         ],
     },
 )

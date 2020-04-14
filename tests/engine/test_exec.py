@@ -6,9 +6,9 @@ import websockets
 import ujson
 from pydantic import ValidationError
 
-from exchanges.mappings import rest_api_map
-from engine.exec.execution import LimitChaseExecution
-from models.data.send.websockets import AddOrder
+from noobit.exchanges.mappings import rest_api_map
+from noobit.engine.exec.execution import LimitChaseExecution
+from noobit.models.data.send.websockets import AddOrder
 
 # ================================================================================
 # ==== FIXTURES
