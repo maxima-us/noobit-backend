@@ -71,7 +71,8 @@ def run_stratrunner(strategy, exchange, pair, timeframe, volume):
     strat_file_path = f"{strat_dir_path}.{strategy}"
     strategy = import_module(strat_file_path)
 
-    strat = strategy.MockStrat(exchange, [pair], timeframe, volume)
+    # every strat file needs to define the strategy class
+    strat = strategy.Strategy(exchange, [pair], timeframe, volume)
 
     runner = StratRunner(strats=[strat])
     runner.run()

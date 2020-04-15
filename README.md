@@ -4,6 +4,12 @@
 # NooBit Backend
 
 ## Installation
+
+```console
+git clone https://github.com/maxima-us/noobit-backend
+python setup.py develop
+```
+
 For Ta-Lib install please see their doc
 
 ## Processes
@@ -25,36 +31,101 @@ Handle signals and execution logic (not implemented yet)
 ### Credentials and environment variables
 
 For each exchange, you will need to provide an .env file with a list of API keys.
-Place them in the same folder as the one containing the exchange rest api code.
-For Kraken for ex : noobit-backend/exchanges/kraken/rest/.env
+To open the env file (ide will default to vscode):
+```console
+noobit-add-keys --exchange=<exchange_name> --ide=<ide>
+```
+
 Make sure to follow the following format (env key for API KEY needs to at least contain <exchange_name> and "API_KEY",
 env key for API SECRET needs to at least contain <exchange_name> and "API_SECRET") :
 ```python
-KRAKEN_BTC_USD_API_KEY=[YOUR KEY]
-KRAKEN_BTC_USD_API_SECRET=[YOUR SECRET]
-KRAKEN_BTC_EUR_API_KEY=[YOUR KEY]
-KRAKEN_BTC_EUR_API_SECRET=[YOUR SECRET]
+KRAKEN_BTC_USD_API_KEY=<YOUR KEY>
+KRAKEN_BTC_USD_API_SECRET=<YOUR SECRET>
+
+#or
+
+KRAKEN_1_API_KEY=<YOUR KEY>
+KRAKEN_1_API_SECRET=<YOUR SECRET>
+```
+
+### Write your strategy
+Strategies are only used to generate signals, execution of orders is handled by execution models that user needs to define
+
+User Strategies should be placed into noobit_user/strategies folder
+You should define a Strategy class that subclasses BaseStrategy and defines all methods in the following template:
+```python
+from noobit.engine.base import BaseStrategy
+from noobit.engine.exec.execution import LimitChaseExecution
+
+
+class Strategy(BaseStrategy):
+    """
+    Name needs to be "Strategy"
+    Needs to subclass BaseStrategy
+
+    Define execution_models to place and cancel orders
+    Add indicators to self.df in user_setup
+    Refer to self.df for ohlc values
+    """
+
+    def __init__(self, exchange, pair, timeframe, volume):
+        super().__init__(exchange, pair, timeframe, volume)
+        #!  for now we only accept one execution
+        self.execution_models = {
+            "limit_chase": LimitChaseExecution(exchange, pair, self.ws, self.ws_token, self.strat_id, 0.1)
+        }
+
+
+    def user_setup(self):
+        self.add_indicator(func=talib.MAMA, source="close", fastlimit=0.5, slowlimit=0.05)
+        self.add_indicator(func=talib.RSI, source="close", timeperiod=14)
+        self.add_crossup("MAMA0", "MAMA1")
+        self.add_crossdown("MAMA0", "MAMA1")
+
+
+    def long_condition(self):
+        self.df["long"] = (self.df["RSI"] < 70) & (self.df["CROSSUP_MAMA0_MAMA1"])
+
+
+    def short_condition(self):
+        self.df["short"] = (self.df["RSI"] > 30) & (self.df["CROSSDOWN_MAMA0_MAMA1"])
+
+
+    def user_tick(self):
+        last = self.df.iloc[-2]
+
+        if last["long"]:
+            print("We go long !")
+            self.execution_models["limit_chase"].add_long_order(total_vol=0.0234567)
+
+        if last["short"]:
+            print("We go short !")
+            # self.execution.add_short_orde(total_vol=0.0234567)
 ```
 
 ### Launch
 
-From within noobit-backend folder :
 
 To start api server:
-```python
-python start_server.py
+```console
+noobit-server --help
 ```
 
-To start websocket feed handler (publish all incoming websocket data to appropriate redis channel) :
-```python
-python start_feedhandler.py
+To start feed handler:
+```console
+noobit-feedhandler --help
+```
+
+To start strat runner:
+```console
+noobit-stratruner --help
 ```
 
 ### Testing
 
-From within noobit-backend folder :
+From within main folder :
 ```python
-python -m pytest -vv
+pytest tests
 ```
 
 ## To Do

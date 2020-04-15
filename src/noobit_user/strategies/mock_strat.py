@@ -4,7 +4,8 @@ from noobit.engine.base import BaseStrategy
 from noobit.engine.exec.execution import LimitChaseExecution
 
 
-class MockStrat(BaseStrategy):
+# in every strategy file we need to define a Strategy class for cli endpoint to work
+class Strategy(BaseStrategy):
 
 
     def __init__(self, exchange, pair, timeframe, volume):
