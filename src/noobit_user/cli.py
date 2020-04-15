@@ -9,10 +9,15 @@ import noobit.exchanges
 
 @click.command()
 @click.option("--exchange", default="kraken", help="Lowercase exchange")
-def open_env_file(exchange):
+@click.option("--ide",
+              default="code",
+              help='Name of ID (only supports vim and vscode so far)',
+              type=click.Choice(["vim", "code"], case_sensitive=False)
+              )
+def open_env_file(exchange, ide):
     dir_path = os.path.dirname(noobit.exchanges.__file__)
     full_path = f"{dir_path}/{exchange}/rest/.env"
-    subprocess.call(['vim', full_path])
+    subprocess.call([ide, full_path])
 
 
 

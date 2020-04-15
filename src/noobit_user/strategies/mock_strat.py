@@ -1,7 +1,7 @@
 import talib
 
-from engine.base import BaseStrategy
-from engine.exec.execution import LimitChaseExecution
+from noobit.engine.base import BaseStrategy
+from noobit.engine.exec.execution import LimitChaseExecution
 
 
 class MockStrat(BaseStrategy):

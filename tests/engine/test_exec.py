@@ -5,10 +5,11 @@ import httpx
 import websockets
 import ujson
 from pydantic import ValidationError
+import stackprinter
 
 from noobit.exchanges.mappings import rest_api_map
 from noobit.engine.exec.execution import LimitChaseExecution
-from noobit.models.data.send.websockets import AddOrder
+from noobit.models.data.send.websockets import AddOrder, CancelOrder
 
 # ================================================================================
 # ==== FIXTURES
@@ -103,13 +104,25 @@ async def test_place_and_cancel_orders(exec_model):
         "token": exec_model.ws_token["token"],
         "txid": [txid]
     }
-    payload = ujson.dumps(data)
 
+    try:
+        validated = CancelOrder(**data)
+        validated_data = validated.dict()
+    except ValidationError as e:
+        logging.error(e)
+
+    payload = ujson.dumps(data)
     await exec_model.ws.send(payload)
+
     cancel_resp = await exec_model.ws.recv()
     cancel_resp = ujson.loads(cancel_resp)
 
+    try:
+        status = cancel_resp["status"]
+    except Exception as e:
+        logging.error(f'payload: {payload}')
+        logging.error(stackprinter.format(e, style="darkbg2"))
 
-
-    assert cancel_resp["status"] == "ok", cancel_resp["errorMessage"]
-    assert cancel_resp["event"] == "cancelOrderStatus", cancel_resp["errorMessage"]
+    error_msg = f"\n{payload}\n{cancel_resp.get('errorMessage')}"
+    assert cancel_resp["status"] == "ok", error_msg
+    assert cancel_resp["event"] == "cancelOrderStatus", error_msg

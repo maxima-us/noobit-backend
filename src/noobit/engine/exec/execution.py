@@ -1,3 +1,4 @@
+from pydantic import ValidationError
 import time
 import asyncio
 
@@ -237,6 +238,8 @@ class LimitChaseExecution():
                     try:
                         validated = AddOrder(**data)
                         validated_data = validated.dict()
+                    except ValidationError as e:
+                        log_exception(logger, e)
                     except Exception as e:
                         log_exception(logger, e)
 
@@ -280,7 +283,17 @@ class LimitChaseExecution():
                         "token": self.ws_token,
                         "txid": order_id
                     }
-                    payload = ujson.dumps(data)
+
+
+                    try:
+                        validated = CancelOrder(**data)
+                        validated_data = validated.dict()
+                    except ValidationError as e:
+                        log_exception(logger, e)
+                    except Exception as e:
+                        log_exception(logger, e)
+
+                    payload = ujson.dumps(validated_data)
                     self.ws.send(payload)
             await asyncio.sleep(0)
 

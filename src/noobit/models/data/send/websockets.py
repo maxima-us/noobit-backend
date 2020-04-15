@@ -31,4 +31,10 @@ class AddOrder(BaseModel):
 
 
 class CancelOrder(BaseModel):
-    pass
+    """
+    kraken : https://docs.kraken.com/websockets/#message-cancelOrder
+    """
+    event: Literal["cancelOrder"]
+    token: str
+    reqid: Optional[int] = 1
+    txid: List[str]

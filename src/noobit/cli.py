@@ -1,8 +1,10 @@
 import asyncio
+from importlib import import_module
 
 import click
 import httpx
 
+from noobit.engine.strat_runner import StratRunner
 from noobit.logging.structlogger import get_logger, log_exception
 from noobit.exchanges.mappings import rest_api_map
 from noobit.processor.feed_handler import FeedHandler
@@ -59,13 +61,20 @@ def run_server(host, port, auto_reload):
 
 
 @click.command()
+@click.option("--strategy", help="Name of Strategy")
 @click.option("--exchange", default="kraken", help="Lowercase exchange")
-@click.option("-pair", help="List of dash-separated lowercase pairs")
+@click.option("--pair", help="List of dash-separated lowercase pairs")
 @click.option("--timeframe", help="TimeFrame in minutes")
 @click.option("--volume", default=0, help="Volume in lots")
-def run_stratrunner(exchange, pair, timeframe, volume):
-    pass
+def run_stratrunner(strategy, exchange, pair, timeframe, volume):
+    strat_dir_path = "noobit_user.strategies"
+    strat_file_path = f"{strat_dir_path}.{strategy}"
+    strategy = import_module(strat_file_path)
 
+    strat = strategy.MockStrat(exchange, [pair], timeframe, volume)
+
+    runner = StratRunner(strats=[strat])
+    runner.run()
 
 
 

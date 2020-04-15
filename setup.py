@@ -52,9 +52,12 @@ setup(
     ],
     entry_points={  # Optional
         'console_scripts': [
+            # noobit main module
             'noobit-aggregate=noobit.cli:aggregate_historical_trades',
             'noobit-feedhandler=noobit.cli:run_feedhandler',
             'noobit-server=noobit.cli:run_server',
+            'noobit-stratrunner=noobit.cli:run_stratrunner',
+            # noobit user module
             'noobit-add-keys=noobit_user.cli:open_env_file'
         ],
     },
