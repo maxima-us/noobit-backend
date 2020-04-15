@@ -19,7 +19,7 @@ For Ta-Lib install please see their doc
 Based on Uvicorn and FastAPI\
 OpenAPI interface accessible at localhost:8000/docs\
 Interfaces with sqlite db via Tortoise ORM\
-Listens to redis channels to automatically update db\
+Listens to redis channels to automatically update db
 
 **Feed Handler** :\
 Receive data from websocket, sort and publish to appropriate redis channels
@@ -51,10 +51,10 @@ KRAKEN_1_API_SECRET=<YOUR SECRET>
 ```
 
 ### Write your strategy
-Strategies are only used to generate signals, execution of orders is handled by execution models that user needs to define
+Strategies are only used to generate signals, execution of orders is handled by execution models that users need to define.
 
-User Strategies should be placed into noobit_user/strategies folder
-You should define a Strategy class that subclasses BaseStrategy and defines all methods in the following template:
+User Strategies should be placed into noobit_user/strategies folder.\
+Strategy class should subclasses BaseStrategy and define all methods like in the following template:
 ```python
 from noobit.engine.base import BaseStrategy
 from noobit.engine.exec.execution import LimitChaseExecution
