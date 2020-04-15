@@ -12,19 +12,21 @@ python setup.py develop
 
 For Ta-Lib install please see their doc
 
+
 ## Processes
 
-**API Server** :
-Based on Uvicorn and FastAPI
-OpenAPI interface accessible at localhost:8000/docs
-Interfaces with sqlite db via Tortoise ORM
-Listens to redis channels to automatically update db
+**API Server** :\
+Based on Uvicorn and FastAPI\
+OpenAPI interface accessible at localhost:8000/docs\
+Interfaces with sqlite db via Tortoise ORM\
+Listens to redis channels to automatically update db\
 
-**Feed Handler** :
+**Feed Handler** :\
 Receive data from websocket, sort and publish to appropriate redis channels
 
-**Trading Engine** :
+**Trading Engine** :\
 Handle signals and execution logic (not implemented yet)
+
 
 ## Usage
 
@@ -118,7 +120,7 @@ noobit-feedhandler --help
 
 To start strat runner:
 ```console
-noobit-stratruner --help
+noobit-stratrunner --help
 ```
 
 ### Testing
