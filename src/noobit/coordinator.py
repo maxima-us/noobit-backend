@@ -48,12 +48,12 @@ def run_producer():
 
 
 if __name__ == '__main__':
-   
+
     # original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
     # pool = multiprocessing.Pool(2)
     # signal.signal(signal.SIGINT, original_sigint_handler)
 
-    
+
 
     # try:
     #     pool.apply_async(consumer.run)
@@ -72,6 +72,6 @@ if __name__ == '__main__':
 
     consumer_process.start()
     producer_process.start()
-    
+
     consumer_process.join()
     producer_process.join()

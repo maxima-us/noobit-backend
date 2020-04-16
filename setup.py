@@ -58,7 +58,8 @@ setup(
             'noobit-server=noobit.cli:run_server',
             'noobit-stratrunner=noobit.cli:run_stratrunner',
             # noobit user module
-            'noobit-add-keys=noobit_user.cli:open_env_file'
+            'noobit-add-keys=noobit_user.cli:open_env_file',
+            'noobit-add-strategy=noobit_user.cli:create_user_strategy'
         ],
     },
 )
