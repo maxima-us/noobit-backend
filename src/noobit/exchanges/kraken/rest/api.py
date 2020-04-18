@@ -52,15 +52,16 @@ class KrakenRestAPI(BaseRestAPI):
 
 
         self._load_all_env_keys()
-        self.normalize = self._load_normalize_map()
-        self.to_kraken_format = {v:k for k, v in self.normalize.items()}
+        self.to_standard_format = self._load_normalize_map()
+        self.to_exchange_format = {v:k for k, v in self.to_standard_format.items()}
+        self.exchange_pair_specs = self._load_pair_specs_map()
 
 
 
 
-    # ================================================================================
     # ================================================================================
     # ==== AUTHENTICATION
+    # ================================================================================
 
 
     def _load_all_env_keys(self):
@@ -86,6 +87,7 @@ class KrakenRestAPI(BaseRestAPI):
 
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
+
 
 
     def _sign(self, data: dict, urlpath: str):
@@ -115,8 +117,8 @@ class KrakenRestAPI(BaseRestAPI):
 
 
     # ================================================================================
-    # ================================================================================
     # ==== UTILS
+    # ================================================================================
 
 
     def _cleanup_input_data(self, data: dict):
@@ -163,7 +165,7 @@ class KrakenRestAPI(BaseRestAPI):
                     if key == "pair":
                         kraken_pairs = []
                         for pair in data[key]:
-                            kraken_pairs.append(self.to_kraken_format[pair.upper()])
+                            kraken_pairs.append(self.to_exchange_format[pair.upper()])
 
                         data[key] = kraken_pairs
 
@@ -182,6 +184,18 @@ class KrakenRestAPI(BaseRestAPI):
         return data
 
 
+
+    def _request_kraken_asset_pairs(self):
+        base_url = mapping[self.exchange]["base_url"]
+        public_endpoint = mapping[self.exchange]["public_endpoint"]
+        method_endpoint = mapping[self.exchange]["public_methods"]["tradable_pairs"]
+        response = requests.get(f"{base_url}{public_endpoint}/{method_endpoint}")
+        response = response.json()
+
+        return response
+
+
+
     def _load_normalize_map(self):
         """Map kraken format assets or pair to standardized format assets or pair.
 
@@ -192,11 +206,8 @@ class KrakenRestAPI(BaseRestAPI):
         Note:
             We can't use query public because it will cause a recursion error
         """
-        base_url = mapping[self.exchange]["base_url"]
-        public_endpoint = mapping[self.exchange]["public_endpoint"]
-        method_endpoint = mapping[self.exchange]["public_methods"]["tradable_pairs"]
-        response = requests.get(f"{base_url}{public_endpoint}/{method_endpoint}")
-        response = response.json()
+        response = self._request_kraken_asset_pairs()
+
         pair_map = {k:v["wsname"].replace("/", "-") for k, v in response["result"].items() if ".d" not in k}
 
         asset_map = {}
@@ -213,15 +224,35 @@ class KrakenRestAPI(BaseRestAPI):
         return pair_map
 
 
+    def _load_pair_specs_map(self):
+        """
+        Map standard format pairs to their specs (decima places of price and volume as well as available leverage)
+        Needed to check if we do not pass incorrect values when placing orders
+        """
+        response = self._request_kraken_asset_pairs()
+
+        pair_specs = {
+            v["wsname"].replace("/", "-"): {
+                "volume_decimals": v["lot_decimals"],
+                "price_decimals": v["pair_decimals"],
+                "leverage_available": v["leverage_sell"]
+            }
+            for k, v in response["result"].items() if ".d" not in k}
+
+        return pair_specs
+
+
+
     def _normalize_response(self, response: str):
         # if not resp["error"]:
         #     fiat_list = ["usd", "USD", "eur", "EUR"]
-        #     return {self.normalize[k]:v for k,v in resp["result"].items() if any(fiat in k for fiat in fiat_list)}
-        for k, v in self.normalize.items():
+        #     return {self.to_standard_format[k]:v for k,v in resp["result"].items() if any(fiat in k for fiat in fiat_list)}
+        for k, v in self.to_standard_format.items():
             if k in response:
                 response = response.replace(k, v)
 
         return response
+
 
 
     async def _handle_response_errors(self, response):
@@ -265,18 +296,18 @@ class KrakenRestAPI(BaseRestAPI):
 
 
     # ================================================================================
-    # ================================================================================
     # ==== USER API QUERIES
 
 
-    # ====== Public Methods
-    # ========================================
+    # ================================================================================
+    # ====== PUBLIC REQUESTS
+    # ================================================================================
 
 
     async def get_mapping(self) -> dict:
         """Mapping of exchange format asset or pairs to standardized format asset or pairs.
         """
-        return self.normalize
+        return self.to_standard_format
 
 
 
@@ -484,8 +515,9 @@ class KrakenRestAPI(BaseRestAPI):
 
 
 
-    # ====== Private Methods
-    # ========================================
+    # ================================================================================
+    # ====== PRIVATE REQUESTS
+    # ================================================================================
 
 
     async def get_raw_account_balance(self, retries: int = 0) -> dict:
@@ -803,6 +835,18 @@ class KrakenRestAPI(BaseRestAPI):
         # df = pd.DataFrame.from_dict(response, orient="index")
         # return df
         return response
+
+
+    async def get_raw_order_info(self, txid: str, trades: bool = True, userref: int = None, retries: int = 0):
+        """
+        Result: dict of {ordertxid : orders info}
+        """
+        data = {"txid": [txid], "trades": trades, "userref": userref}
+        response = await self.query_private(method="order_info",
+                                            data=data,
+                                            retries=retries
+                                            )
+        return response[txid]
 
 
 

@@ -11,7 +11,7 @@ import pandas as pd
 
 from noobit.logging.structlogger import get_logger
 from noobit.models.data.receive.api import (Ticker, Ohlc, Orderbook, Trades, Spread,
-                                            AccountBalance, TradeBalance, OpenOrders,
+                                            AccountBalance, TradeBalance, Order, OpenOrders,
                                             ClosedOrders, UserTrades, OpenPositions)
 
 custom_logger = get_logger(__name__)
@@ -31,7 +31,9 @@ class BaseRestAPI(ABC):
             self.response = None
             self._json_options = {}
             self._load_all_env_keys()
-            self.normalize = self._load_normalize_map()
+            self.from_exchange_format = self._load_normalize_map()
+            self.to_exchange_format = {v:k for k, v in self.normalize.items()}
+            self.exchange_pair_info = self._load_pair_info_map()
     """
 
 
@@ -55,8 +57,8 @@ class BaseRestAPI(ABC):
 
 
     # ================================================================================
-    # ================================================================================
     # ==== AUTHENTICATION
+    # ================================================================================
 
 
     @abstractmethod
@@ -111,8 +113,8 @@ class BaseRestAPI(ABC):
 
 
     # ================================================================================
-    # ================================================================================
     # ==== UTILS
+    # ================================================================================
 
 
     async def retry(self, *, func: object, retry_attempts: int = 0, **kwargs):
@@ -129,6 +131,8 @@ class BaseRestAPI(ABC):
                     logging.warning(u'[RETRY REQUEST] - This time failed.  Trying Again.')
                     time.sleep(0.1)
 
+
+
     @abstractmethod
     def _load_normalize_map(self):
         '''Instantiate instance variable self.pair_map as dict.
@@ -142,16 +146,30 @@ class BaseRestAPI(ABC):
 
 
 
+    @abstractmethod
+    def _load_pair_specs_map(self):
+        '''Instantiate instance variable self.pair_info as dict.
+
+        keys : exchange format
+        value : standard format
+
+        eg for kraken : {"xxbtzusd": {"price_decimals": 0.1, "volume_decimals": 0.1}}
+        '''
+        raise NotImplementedError
+
+
 
     @abstractmethod
     def _cleanup_input_data(self, data: dict):
         raise NotImplementedError
 
 
+
     @abstractmethod
     def _normalize_response(self, response: str):
         '''Input response has to be json string to make it easier to replace values.'''
         raise NotImplementedError
+
 
 
     @abstractmethod
@@ -985,6 +1003,26 @@ class BaseRestAPI(ABC):
         validated_response = await self.get_open_positions(txid, show_pnl, retries)
         df = pd.DataFrame.from_dict(validated_response["data"], orient="index")
         return df
+
+
+    async def get_raw_order_info(self, *args, **kwargs):
+        raise NotImplementedError
+
+
+    async def get_order_info(self, txid: str, trades: bool = True, userref: int = None):
+        """
+        Get order info for a single txid
+        """
+        response = await self.get_raw_order_info(txid, trades, userref)
+        try:
+            # Order is not a pydantic model but a TypedDict
+            # We do not need to call .dict()
+            order_info = Order(**response)
+            return order_info
+        except ValidationError as e:
+            logging.warning("Please check that raw method returns the correct type")
+            logging.error(e)
+
 
 
 
