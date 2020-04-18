@@ -15,8 +15,8 @@ logger = get_logger(__name__)
 
 
 @click.command()
-@click.option("--exchange", default="kraken", help="Lowercase exchange")
-@click.option("--pair", help="Dash-separated lowercase pair")
+@click.option("--exchange", "-e", default="kraken", help="Lowercase exchange")
+@click.option("--pair", "-p", help="Dash-separated lowercase pair")
 def aggregate_historical_trades(exchange, pair):
     api = rest_api_map[exchange]()
     api.session = httpx.AsyncClient()
@@ -29,10 +29,10 @@ def aggregate_historical_trades(exchange, pair):
 
 
 @click.command()
-@click.option("--exchanges", default=["kraken"], help="List of lowercase exchanges")
-@click.option("--pairs", default=["XBT/USD", "ETH/USD"], help="List of slash-separated uppercase pairs")
-@click.option("--private_feeds", default=["ownTrades", "openOrders"], help="List of private feeds to subscribe to")
-@click.option("--public_feeds", default=["trade", "spread"], help="List of public feeds to subscribe to")
+@click.option("--exchanges", "-e", multiple=True, default=["kraken"], help="List of lowercase exchanges")
+@click.option("--pairs", "-p", multiple=True, default=["XBT/USD", "ETH/USD"], help="Slash-separated uppercase pairs")
+@click.option("--private_feeds", "-prf", multiple=True, default=["ownTrades", "openOrders"], help="Private feeds to subscribe to")
+@click.option("--public_feeds", "-pbf", multiple=True, default=["trade", "spread"], help="Public feeds to subscribe to")
 def run_feedhandler(exchanges, pairs, private_feeds, public_feeds):
     try:
         fh = FeedHandler(exchanges=exchanges,
@@ -47,9 +47,9 @@ def run_feedhandler(exchanges, pairs, private_feeds, public_feeds):
 
 
 @click.command()
-@click.option("--host", default="localhost", help="Host adress")
-@click.option("--port", default=8000, help="Host port")
-@click.option("--auto_reload", default=False, help="Auto-reload (bool)")
+@click.option("--host", "-h", default="localhost", help="Host adress")
+@click.option("--port", "-p", default=8000, help="Host port")
+@click.option("--auto_reload", "-ar", default=False, help="Auto-reload (bool)")
 def run_server(host, port, auto_reload):
     try:
         main_server.run("noobit.server.main_app:app", host=host, port=port, reload=auto_reload)
@@ -61,11 +61,11 @@ def run_server(host, port, auto_reload):
 
 
 @click.command()
-@click.option("--strategy", help="Name of Strategy")
-@click.option("--exchange", default="kraken", help="Lowercase exchange")
-@click.option("--pair", help="List of dash-separated lowercase pairs")
-@click.option("--timeframe", help="TimeFrame in minutes")
-@click.option("--volume", default=0, help="Volume in lots")
+@click.option("--strategy", "-s", help="Name of Strategy")
+@click.option("--exchange", "e", default="kraken", help="Lowercase exchange")
+@click.option("--pair", "-p", help="Dash-separated lowercase pairs")
+@click.option("--timeframe", "-tf", help="TimeFrame in minutes")
+@click.option("--volume", "-v", default=0, help="Volume in lots")
 def run_stratrunner(strategy, exchange, pair, timeframe, volume):
     strat_dir_path = "noobit_user.strategies"
     strat_file_path = f"{strat_dir_path}.{strategy}"
