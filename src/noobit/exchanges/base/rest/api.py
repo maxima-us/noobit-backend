@@ -33,7 +33,7 @@ class BaseRestAPI(ABC):
             self._load_all_env_keys()
             self.from_exchange_format = self._load_normalize_map()
             self.to_exchange_format = {v:k for k, v in self.normalize.items()}
-            self.exchange_pair_info = self._load_pair_info_map()
+            self.exchange_pair_specs = self._load_pair_specs_map()
     """
 
 
@@ -1036,9 +1036,11 @@ class BaseRestAPI(ABC):
         raise NotImplementedError
 
 
+
     @abstractmethod
     async def cancel_order(self, *args, **kwargs):
         raise NotImplementedError
+
 
 
     async def cancel_all_orders(self, retries: int = 0):
@@ -1052,6 +1054,7 @@ class BaseRestAPI(ABC):
             count += 1
             id_list.append(order_id)
         return {"canceled": id_list, "count": count}
+
 
 
     async def close_all_positions(self, retries: int = 0):
@@ -1070,8 +1073,9 @@ class BaseRestAPI(ABC):
 
 
 
-    # ========================================
-    # ==== GET HISTORICAL OHLC
+    # ================================================================================
+    # ==== WRITE ALL HISTORICAL OHLC TO CSV
+    # ================================================================================
 
 
     async def write_historical_trades_to_csv(self, pair: list):

@@ -6,6 +6,7 @@ import base64
 import hmac
 import os
 import asyncio
+from decimal import Decimal
 from collections import deque
 
 import logging
@@ -224,6 +225,7 @@ class KrakenRestAPI(BaseRestAPI):
         return pair_map
 
 
+
     def _load_pair_specs_map(self):
         """
         Map standard format pairs to their specs (decima places of price and volume as well as available leverage)
@@ -233,9 +235,9 @@ class KrakenRestAPI(BaseRestAPI):
 
         pair_specs = {
             v["wsname"].replace("/", "-"): {
-                "volume_decimals": v["lot_decimals"],
-                "price_decimals": v["pair_decimals"],
-                "leverage_available": v["leverage_sell"]
+                "volume_decimals": (v["lot_decimals"]),
+                "price_decimals": (v["pair_decimals"]),
+                "leverage_available": (v["leverage_sell"])
             }
             for k, v in response["result"].items() if ".d" not in k}
 
@@ -921,6 +923,21 @@ class KrakenRestAPI(BaseRestAPI):
                 close = conditional close order description (if conditional close set)
             txid = array of transaction ids for order (if order was added successfully)
         """
+        pair = pair[0].upper()
+
+        try:
+            price_decimals = Decimal(self.exchange_pair_specs[pair]["price_decimals"])
+            price = Decimal(price).quantize(10**-price_decimals)
+
+            if price2:
+                price2 = Decimal(price2).quantize(10**-price_decimals)
+
+            volume_decimals = Decimal(self.exchange_pair_specs[pair]["volume_decimals"])
+            volume = Decimal(volume).quantize(10**-volume_decimals)
+
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
+
 
         data = {
             "pair": pair,
@@ -936,12 +953,17 @@ class KrakenRestAPI(BaseRestAPI):
             "userref": userref,
             "validate": validate
         }
+
+        msg = f"price decimals : {self.exchange_pair_specs[pair]['price_decimals']}"
+        logging.info(msg)
+
         response = await self.query_private(method="place_order",
                                             data=data,
                                             retries=retries
                                             )
 
         return response
+
 
 
     async def cancel_order(self, txid: str, retries: int = 0):
