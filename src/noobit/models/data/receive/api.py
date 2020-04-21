@@ -21,15 +21,15 @@ class TickerItem(TypedDict):
     """Ticker Data Model
     """
 
-    ask: List[Decimal]
-    bid: List[Decimal]
+    ask: Tuple[Decimal, Decimal, Decimal]
+    bid: Tuple[Decimal, Decimal, Decimal]
     open: Decimal
-    high: List[Decimal]
-    low: List[Decimal]
-    close: List[Decimal]
-    volume: List[Decimal]
-    vwap: List[Decimal] = None
-    trades: List[Decimal] = None
+    high: Tuple[Decimal, Decimal]
+    low: Tuple[Decimal, Decimal]
+    close: Tuple[Decimal, Decimal]
+    volume: Tuple[Decimal, Decimal]
+    vwap: Tuple[Decimal, Decimal] = None
+    trades: Tuple[Decimal, Decimal] = None
 
 
 class Ticker(BaseModel):
@@ -211,7 +211,7 @@ class TradeBalance(BaseModel):
 # ====== Orders
 
 
-class OpenOrdersItem(TypedDict):
+class Order(TypedDict):
     """
     Result: array of order info in open array with txid as the key
 
@@ -271,6 +271,13 @@ class OpenOrdersItem(TypedDict):
     misc: Optional[Any] = None
     oflags: Any
     trades: Any
+
+
+class ClosedOrder(Order):
+
+    closetm: Decimal
+    reason: Optional[Any] = None
+
 
 class OpenOrders(BaseModel):
     """Open Orders data model
@@ -319,11 +326,11 @@ class OpenOrders(BaseModel):
         trades = array of trade ids related to order (if trades info requested and data available)
     """
     # tortoise ORM can not json serialize Decimal
-    data: Dict[str, OpenOrdersItem]
+    data: Dict[str, Order]
 
 
 
-class ClosedOrdersItem(TypedDict):
+class ClosedOrders(BaseModel):
     """
     Result: array of order info in open array with txid as the key
 
@@ -369,29 +376,8 @@ class ClosedOrdersItem(TypedDict):
         closetm = unix timestamp of when order was closed
         reason = additional info on status (if any)
     """
-    refid: str
-    userref: str
-    status: Literal["pending", "open", "closed", "canceled", "expired"]
-    opentm: Decimal
-    starttm: Decimal
-    expiretm: Decimal
-    descr: dict
-    vol: Decimal
-    vol_exec: Decimal
-    cost: Decimal
-    fee: Decimal
-    price: Optional[Decimal] = None
-    stopprice: Optional[Decimal] = None
-    limitprice: Optional[Decimal] = None
-    misc: Optional[Any] = None
-    oflags: Any
-    trades: Any
-    closetm: Decimal
-    reason: Optional[Any] = None
-
-class ClosedOrders(BaseModel):
     # tortoise ORM can not json serialize Decimal
-    data: Dict[str, ClosedOrdersItem]
+    data: Dict[str, ClosedOrder]
 
 
 
@@ -411,6 +397,7 @@ class UserTradesEntry(TypedDict):
     price: Decimal
     cost: Decimal
     fee: Decimal
+    vol: Decimal
     margin: Optional[Decimal] = None
     misc: Optional[Any] = None
     poststatus: Optional[Literal["open", "closed"]]

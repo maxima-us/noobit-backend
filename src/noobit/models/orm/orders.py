@@ -9,36 +9,42 @@ from .strategy import Strategy
 class Order(models.Model):
 
     # ==== FROM GRYPHON
-    order_id = fields.IntField(pk=True, unique=True)
-    unique_id = fields.UUIDField(unique=True)           # setting to default does not work
-    exchange_id = fields.ForeignKeyField("models.Exchange")
-    exchange_order_id = fields.CharField(max_length=20, unique=True)
+    # order_id = fields.IntField(unique=True)
+    order_id = fields.CharField(pk=True, max_length=30)
+    unique_id = fields.UUIDField()           # setting to default does not work
+    exchange_id = fields.ForeignKeyField("models.Exchange", related_name="orders")
+    pair = fields.CharField(max_length=10)
 
     status = fields.CharField(max_length=30, default="pending")
-    order_type = fields.CharField(max_length=30)
-    order_side = fields.CharField(max_length=5)
-
-    time_created = fields.BigIntField(default=datetime.datetime.utcnow().timestamp())                             #should be unix timestamp
-    time_executed = fields.BigIntField(null=True)
-
-    pair = fields.CharField(max_length=10)
-    volume = fields.FloatField()
-    filled = fields.FloatField()
-    price = fields.FloatField(null=True)
-    price2 = fields.FloatField(null=True)
-    leverage = fields.SmallIntField(null=True)
+    type = fields.CharField(max_length=30)
+    side = fields.CharField(max_length=5)
 
     start_time = fields.BigIntField(null=True)
     expire_time = fields.BigIntField(null=True)
+    time_created = fields.BigIntField(default=datetime.datetime.utcnow().timestamp())                             #should be unix timestamp
+    time_executed = fields.BigIntField(null=True)
+
+    volume_total = fields.FloatField()
+    volume_filled = fields.FloatField()
+    # limit entry price
+    price_limit = fields.FloatField(null=True)
+    # take profit price
+    price_tp = fields.FloatField(null=True)
+    # stop loss price
+    price_sl = fields.FloatField(null=True)
+    # average fill price for order
+    price_avg_fill = fields.FloatField(null=True)
+    leverage = fields.SmallIntField(null=True)
+
 
     strategy_id: fields.ForeignKeyRelation[Strategy] = fields.ForeignKeyField("models.Strategy",
                                                                               related_name="order",
-                                                                              to_field="strategy_id",
+                                                                              to_field="id",
                                                                               from_field="order"
                                                                               )
 
     # trades  = relatinship ... ??? how to handle in tortoise
-    trade = fields.ReverseRelation["models.Trade"]
+    # trade = fields.ReverseRelation["models.Trade"]
 
 
     def __str__(self) -> str:

@@ -22,11 +22,12 @@ class Balance(models.Model):
     margin = fields.FloatField(default=0)
     exposure = fields.JSONField(null=True)
 
-    exchange: fields.ForeignKeyRelation[Exchange] = fields.ForeignKeyField("models.Exchange",
-                                                                           related_name="balance",
-                                                                           to_field="name",
-                                                                           from_field="exchange"
-                                                                           )
+    # exchange: fields.ForeignKeyRelation[Exchange] = fields.ForeignKeyField("models.Exchange",
+    #                                                                        related_name="balance",
+    #                                                                        to_field="name",
+    #                                                                        from_field="exchange"
+    #                                                                        )
+    exchange = fields.ForeignKeyField("models.Exchange", related_name="balance")
 
     def __str__(self) -> str:
         return f"Exchange {self.exchange}: {self.holdings}"

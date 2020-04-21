@@ -5,10 +5,11 @@ from tortoise import fields, models
 
 class Exchange(models.Model):
 
-    exchange_id = fields.IntField(pk=True, unique=True)
+    exchange_id = fields.IntField(pk=True)
     name = fields.CharField(max_length=20)
 
-    balance = fields.ReverseRelation["models.Balance"]
+    # balance = fields.ReverseRelation["models.Balance"]
+    # trade = fields.ReverseRelation["models.Trade"]
 
     def __str__(self) -> str:
         return f"Exchange {self.name}: ID#{self.exchange_id}"
