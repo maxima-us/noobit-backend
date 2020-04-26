@@ -1,8 +1,8 @@
-from typing import Tuple
+from typing import Tuple, List
 from decimal import Decimal
 from datetime import datetime
 
-from typing_extensions import Literal
+from typing_extensions import Literal, TypedDict
 from pydantic import BaseModel, conint, constr
 
 
@@ -80,6 +80,7 @@ TIMESTAMP = datetime
 
 # tuple of <price>, <volume>
 ASK = Tuple[Decimal, Decimal]
+
 BID = Tuple[Decimal, Decimal]
 
 
@@ -92,6 +93,22 @@ BID = Tuple[Decimal, Decimal]
 
 # tuple of <best bid>, <best ask>, <timestamp>
 SPREAD = Tuple[Decimal, Decimal, Decimal]
+
+
+
+
+# ================================================================================
+# ====== FILLS
+# ================================================================================
+
+class Fill(TypedDict):
+    fillExecID: str
+    fillPx: Decimal
+    fillQty: Decimal
+    noFills: int
+
+
+FILLS = List[Fill]
 
 
 
