@@ -10,8 +10,12 @@ from pydantic import BaseModel
 from noobit.models.data.base.types import ORDERSTATUS, ORDERTYPE, ORDERSIDE, PERCENT, PAIR, TIMESTAMP
 
 
+# FIX ExecutionReport : https://www.onixs.biz/fix-dictionary/5.0.sp2/msgType_8_8.html
+
+
 
 class Order(BaseModel):
+
 
     # FIX Definition:
     #   Unique identifier for Order as assigned by sell-side (broker, exchange, ECN).
@@ -19,20 +23,6 @@ class Order(BaseModel):
     #   Firms which accept multi-day orders should consider embedding a date
     #   within the OrderID field to assure uniqueness across days.
     orderID: str
-
-    # FIX Definition:
-    #   Unique identifier for Order as assigned by the buy-side (institution, broker, intermediary etc.)
-    #   (identified by SenderCompID (49) or OnBehalfOfCompID (5) as appropriate).
-    #   Uniqueness must be guaranteed within a single trading day.
-    #   Firms, particularly those which electronically submit multi-day orders, trade globally
-    #   or throughout market close periods, should ensure uniqueness across days, for example
-    #   by embedding a date within the ClOrdID field.
-    clOrdID: str
-
-    # FIX Definition:
-    #   Account mnemonic as agreed between buy and sell sides, e.g. broker and institution
-    #   or investor/intermediary and fund manager.
-    account: str
 
     # FIX Definition:
     #   Ticker symbol. Common, "human understood" representation of the security.
@@ -56,9 +46,32 @@ class Order(BaseModel):
     #   Order type
     ordType: ORDERTYPE
 
+    # Fix Definition: https://fixwiki.org/fixwiki/ExecInst
+    #   Instructions for order handling
+    execInst: str
+
+
+    # ================================================================================
+
+
+    # FIX Definition:
+    #   Unique identifier for Order as assigned by the buy-side (institution, broker, intermediary etc.)
+    #   (identified by SenderCompID (49) or OnBehalfOfCompID (5) as appropriate).
+    #   Uniqueness must be guaranteed within a single trading day.
+    #   Firms, particularly those which electronically submit multi-day orders, trade globally
+    #   or throughout market close periods, should ensure uniqueness across days, for example
+    #   by embedding a date within the ClOrdID field.
+    clOrdID: str
+
+    # FIX Definition:
+    #   Account mnemonic as agreed between buy and sell sides, e.g. broker and institution
+    #   or investor/intermediary and fund manager.
+    account: str
+
     # FIX Definition: https://fixwiki.org/fixwiki/CashMargin
     #   Identifies whether an order is a margin order or a non-margin order.
-    cashMargin: str
+    #   One of: [Cash, MarginOpen, MarginClose]
+    cashMargin: Literal["cash", "marginOpen", "marginClose"]
 
     # CCXT equivalence: status
     # FIX Definition: https://fixwiki.org/fixwiki/OrdStatus
@@ -123,10 +136,15 @@ class Order(BaseModel):
     # OrderQty, CashOrderQty or OrderPercent (in the case of CIV).
     # ================================================================================
 
-    # Optional quantity to display in the book.
-    # Use 0 for a fully hidden order.
+
+    # Bitmex Documentation (FIX Definition is very unclear):
+    #   Optional quantity to display in the book.
+    #   Use 0 for a fully hidden order.
     displayQty: Decimal
 
+    # CCXT equivalence: cost
+    # FIX Definition: https://fixwiki.org/fixwiki/GrossTradeAmt
+    #   Total amount traded (i.e. quantity * price) expressed in units of currency.
     grossTradeAmt: Decimal
 
     # CCXT equivalence: amount
@@ -181,6 +199,9 @@ class Order(BaseModel):
 
     # ================================================================================
 
+
+    # FIX Definition:
+    fills: FILLS
 
     # CCXT equivalence: fee
     # FIX Definition: https://fixwiki.org/fixwiki/Commission
