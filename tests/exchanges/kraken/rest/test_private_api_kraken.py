@@ -1,10 +1,12 @@
 import asyncio
 import logging
+from decimal import Decimal
 
 from pydantic import ValidationError
 import pytest
 import pandas as pd
 
+import stackprinter
 from noobit.models.data.receive.api import (AccountBalance, OpenOrders, ClosedOrders,
                                             TradeBalance, UserTrades, OpenPositions)
 
@@ -202,16 +204,38 @@ async def test_get_open_positions_as_pandas(api):
 
 
 @pytest.mark.asyncio
-async def st_place_order(api):
-    resp = await api.place_order(pair=["XRP-USD"],
-                                 side="buy",
-                                 ordertype="limit",
-                                 price=float(0.1),
-                                 volume=float(100),
-                                 validate=True
-                                 )
+async def test_place_order(api):
+    vol = float(200/3)
+    try:
+        resp = await api.place_order(pair=["XRP-USD"],
+                                     side="buy",
+                                     ordertype="limit",
+                                     price=0.17987665,
+                                     volume=vol,
+                                     validate=True
+                                     )
+    except Exception as e:
+        logging.error(stackprinter.format(e, style="darkbg2"))
 
-    assert resp["descr"]["order"] == 'buy 100.00000000 XRPUSD @ limit 0.10000'
+    # we only get a response like :
+    #   resp = {'descr': {'order': 'buy 66.66666667 XRPUSD @ limit 0.17988'}}
+
+    try:
+        side, volume, pair, _, ordertype, price = resp["descr"]["order"].split(" ")
+    except Exception as e:
+        logging.error(stackprinter.format(e, style="darkbg2"))
+
+    price_decimals = api.exchange_pair_specs["XRP-USD"]["price_decimals"]
+    volume_decimals = api.exchange_pair_specs["XRP-USD"]["volume_decimals"]
+
+    logging.error(resp)
+
+    assert side == "buy"
+    assert ordertype == "limit"
+    assert float(price) == round(0.17987665, price_decimals)
+    assert float(price) == 0.17988
+    assert float(volume) == round(vol, volume_decimals)
+
 
 
 @pytest.mark.asyncio

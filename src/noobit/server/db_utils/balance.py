@@ -106,16 +106,19 @@ async def record_new_balance_update(event: str):
         await redis.set(f"db:balance:margin_level:{exchange_name}", ujson.dumps(margin_level))
         await redis.set(f"db:balance:positions_unrealized:{exchange_name}", ujson.dumps(positions_pnl))
 
-        await Balance.create(
-            exchange_id=exchange_id,
-            event=event,
-            holdings=holdings,
-            positions=positions_vol,
-            positions_unrealized=positions_pnl,
-            account_value=account_value,
-            margin=margin_level,
-            exposure=0
-        )
+        try:
+            await Balance.create(
+                exchange_id=exchange_id,
+                event=event,
+                holdings=holdings,
+                positions=positions_vol,
+                positions_unrealized=positions_pnl,
+                account_value=account_value,
+                margin=margin_level,
+                # exposure=0
+            )
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
 
         logging.warning(f"Balance : New event {event} for exchange {exchange_name} - db record inserted")
 

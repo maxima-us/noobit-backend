@@ -87,6 +87,8 @@ import ujson
 import aioredis
 
 from noobit.server import settings
+from noobit.server.db_utils.exchange import startup_exchange_table
+from noobit.server.db_utils.trades import startup_trades_table
 from noobit.server.db_utils.balance import startup_balance_table, record_new_balance_update
 from noobit.server.db_utils.strategy import startup_strategy_table
 from noobit.server.db_utils.update_from_ws import update_user_trades, update_user_orders, update_public_trades, update_public_spread
@@ -177,7 +179,6 @@ class Server:
             self.sub_map = sub_map
 
 
-    #! this is the part we need to replace in backend.main
     def run(self, sockets=None):
         self.config.setup_event_loop()
         loop = asyncio.get_event_loop()
@@ -350,9 +351,10 @@ class Server:
 
 
     async def startup_db(self):
-        await startup_balance_table()
+        await startup_exchange_table()
         await record_new_balance_update(event="startup")
         await startup_strategy_table()
+        # await startup_trades_table()
 
 
 
@@ -370,9 +372,17 @@ class Server:
 
         for key, channel_name in self.sub_map.items():
             subd_chan = await self.aioredis_pool.psubscribe(channel_name)
-            # subscription always returns a list
+            # subscription always returns a list of channels
             self.subscribed_channels[key] = subd_chan[0]
-            self.redis_tasks.append(self.consume_from_channel(key, subd_chan[0]))
+            # self.redis_tasks.append(self.consume_from_channel(key, subd_chan[0]))
+            if key == "public_trade_updates":
+                self.redis_tasks.append(self.consume_public_trades(subd_chan[0]))
+            if key == "public_spread_updates":
+                self.redis_tasks.append(self.consume_public_spread(subd_chan[0]))
+            if key == "user_trade_updates":
+                self.redis_tasks.append(self.consume_user_trades(subd_chan[0]))
+            if key == "user_order_updates":
+                self.redis_tasks.append(self.consume_user_orders(subd_chan[0]))
 
         logger.debug(f"redis tasks : {self.redis_tasks}")
         logger.debug(f"subscribed channels : {self.subscribed_channels}")
@@ -402,6 +412,38 @@ class Server:
 
             if key == "public_spread_updates":
                 await update_public_spread(exchange="kraken", message=message)
+
+
+    async def consume_public_trades(self, channel):
+        async for _chan, message in channel.iter():
+            if self.should_exit:
+                break
+
+            await update_public_trades(exchange="kraken", message=message)
+
+
+    async def consume_public_spread(self, channel):
+        async for _chan, message in channel.iter():
+            if self.should_exit:
+                break
+
+            await update_public_spread(exchange="kraken", message=message)
+
+
+    async def consume_user_trades(self, channel):
+        async for _chan, message in channel.iter():
+            if self.should_exit:
+                break
+
+            await update_user_trades(exchange="kraken", message=message)
+
+
+    async def consume_user_orders(self, channel):
+        async for _chan, message in channel.iter():
+            if self.should_exit:
+                break
+
+            await update_user_orders(exchange="kraken", message=message)
 
 
 

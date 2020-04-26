@@ -6,6 +6,7 @@ import stackprinter
 
 from noobit.server import settings
 from noobit.models.orm import Order, Trade
+from noobit.exchanges.mappings import rest_api_map
 
 
 async def update_user_orders(exchange, message):
@@ -42,38 +43,49 @@ async def update_user_orders(exchange, message):
 
         for order_id, order_info in new_order.items():
 
+
             if order_info["status"] == "pending":
 
                 # we receive a userref from the order passed that should correspond to the strat that placed it
                 # if we did not receive one then we must assume it was a discretionary trade (which correponds to id=0 in strat db table)
 
                 strat_id = order_info.get("userref", 0)
+                pair = order_info["descr"]["pair"].replace("/", "-")
 
-
-                await Order.create(exchange_id_id=settings.EXCHANGE_IDS_FROM_NAME[exchange],
-                                   exchange_order_id=order_id,
-                                   strategy_id_id=strat_id,
-                                   order_type=order_info["descr"]["ordertype"],
-                                   order_side=order_info["descr"]["type"],
-                                   pair=order_info["descr"]["pair"].replace("/", "-"),
-                                   price=order_info["descr"]["price"],
-                                   price2=order_info["descr"]["price2"],
-                                   leverage=order_info["descr"]["leverage"],
-                                   volume=order_info["vol"],
-                                   filled=order_info["vol_exec"],
-                                   fill_price=order_info["avg_price"],
-                                   open_time=order_info["opentm"],
+                await Order.create(order_id=order_id,
+                                   pair=pair,
+                                   type=order_info["descr"]["ordertype"],
+                                   side=order_info["descr"]["type"],
+                                   open_time=10,
                                    start_time=order_info["starttm"],
                                    expire_time=order_info["expiretm"],
-                                   unique_id=uuid.uuid4().hex
+                                   volume_total=order_info["vol"],
+                                   volume_filled=order_info["vol_exec"],
+                                   price_limit=order_info["descr"]["price"],
+                                   price2=order_info["descr"]["price2"],
+                                   leverage=order_info["descr"]["leverage"],
+                                   fill_price=order_info["avg_price"],
+                                   strategy_id_id=strat_id,
                                    )
                 logging.info(f"Order : {order_id} is pending - db records created")
 
-            if order_info["status"] == "open":
 
+            if order_info["status"] == "open":
                 filled = order_info.get("vol_exec", 0)
 
-                await Order.filter(exchange_order_id=order_id).update(status="open", filled=filled)
+                # for market order the price we receive from the api is = 0
+                # therefore we set price to the ticker price at current time
+                if order_info["descr"]["ordertype"] == "market":
+                    api = rest_api_map[exchange]()
+                    api.session = settings.SESSION
+                    ticker = await api.get_ticker([pair])
+                    price = ticker["data"][pair]["close"]
+                    await Order.filter(exchange_order_id=order_id).update(status="open", filled=filled, price=price)
+
+                else:
+                    await Order.filter(exchange_order_id=order_id).update(status="open", filled=filled)
+
+
                 logging.info(f"Order : {order_id} is open - db records updated")
 
             if order_info["status"] == "canceled":

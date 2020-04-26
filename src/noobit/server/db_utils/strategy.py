@@ -17,9 +17,10 @@ async def startup_strategy_table():
 
             try:
                 await Strategy.create(
-                    id=0,
+                    strategy_id=0,
                     name="discretionary",
-                    type="discretionary"
+                    type="discretionary",
+                    description="a catch-all strategy for all trades that are not placed by one of our strategies"
                 )
 
             except Exception as e:

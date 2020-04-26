@@ -5,7 +5,9 @@ from tortoise import fields, models
 
 class Exchange(models.Model):
 
-    exchange_id = fields.IntField(pk=True)
+    # primary key
+    id = fields.SmallIntField(pk=True, generated=False)
+
     name = fields.CharField(max_length=20)
 
     # balance = fields.ReverseRelation["models.Balance"]

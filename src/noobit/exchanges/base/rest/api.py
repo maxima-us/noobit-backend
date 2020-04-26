@@ -183,8 +183,8 @@ class BaseRestAPI(ABC):
 
 
     # ================================================================================
-    # ================================================================================
     # ==== BASE QUERY METHODS
+    # ================================================================================
 
 
     async def _query(self, endpoint, data: dict, private: bool, headers=None, timeout=None, json=None, retries=0):
@@ -237,7 +237,7 @@ class BaseRestAPI(ABC):
         if self.response.status_code not in (200, 201, 202):
             self.response.raise_for_status()
 
-        logging.info(f"API Request URL: {self.response.url}")
+        logging.debug(f"API Request URL: {self.response.url}")
 
         # return self.response.json(**self._json_options)
 

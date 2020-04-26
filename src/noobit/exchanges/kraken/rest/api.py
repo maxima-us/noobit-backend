@@ -285,6 +285,11 @@ class KrakenRestAPI(BaseRestAPI):
                 logging.error("Response|Error: Rate Limit Exceeded")
                 return {"accept": True, "value": None}
 
+            elif response["error"] == ["EGeneral:Invalid arguments:volume"]:
+                _, msg, arg = response["error"][0].split(":")
+                logging.error(f"Response|Error: {msg} : {arg} ")
+                return {"accept": True, "value": None}
+
             else:
                 try:
                     logging.error(f"Error with request : {response['error']}\n{12*' '}Request URL : {self.response.url}\n{12*' '}With data : {self.response.data}")

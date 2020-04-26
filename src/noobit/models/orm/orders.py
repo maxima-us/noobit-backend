@@ -1,6 +1,5 @@
-import datetime
+import time
 from tortoise import fields, models
-from .strategy import Strategy
 
 #!  on startup we need to audit order table, to see if we are up to date
 #!  also log performance (meaning delta between initial func call and end)
@@ -8,25 +7,33 @@ from .strategy import Strategy
 
 class Order(models.Model):
 
-    # ==== FROM GRYPHON
-    # order_id = fields.IntField(unique=True)
-    order_id = fields.CharField(pk=True, max_length=30)
-    unique_id = fields.UUIDField()           # setting to default does not work
-    exchange_id = fields.ForeignKeyField("models.Exchange", related_name="orders")
-    pair = fields.CharField(max_length=10)
+    # surrogate primary key
+    spk = fields.SmallIntField(pk=True, generated=True)
 
+    # id of order (dependant on exchange)
+    # avoid calling any parameter "id": tortoise reserves it for primary keys
+    order_id = fields.CharField(max_length=30)
+    pair = fields.CharField(max_length=10)
+    # status of order (pending, open, cancelled, filled)
     status = fields.CharField(max_length=30, default="pending")
+    # type of order (market, limit, takeprofit, stoploss)
     type = fields.CharField(max_length=30)
+    # side or order (long, short)
     side = fields.CharField(max_length=5)
 
-    start_time = fields.BigIntField(null=True)
-    expire_time = fields.BigIntField(null=True)
-    time_created = fields.BigIntField(default=datetime.datetime.utcnow().timestamp())                             #should be unix timestamp
+    time_open = fields.BigIntField()
+    time_start = fields.BigIntField(null=True)
+    time_expire = fields.BigIntField(null=True)
+    # time at which the order was recorded in the db
+    time_recorded = fields.BigIntField(default=time.time_ns())
+    # time at which order has been completely filled
     time_executed = fields.BigIntField(null=True)
 
+    # total volume of the order
     volume_total = fields.FloatField()
+    # volume that was filled so far
     volume_filled = fields.FloatField()
-    # limit entry price
+    # limit entry price (if market than it will be 0)
     price_limit = fields.FloatField(null=True)
     # take profit price
     price_tp = fields.FloatField(null=True)
@@ -37,11 +44,14 @@ class Order(models.Model):
     leverage = fields.SmallIntField(null=True)
 
 
-    strategy_id: fields.ForeignKeyRelation[Strategy] = fields.ForeignKeyField("models.Strategy",
-                                                                              related_name="order",
-                                                                              to_field="id",
-                                                                              from_field="order"
-                                                                              )
+    # foreign key relationships (must contain suffix "_id")
+    exchange = fields.ForeignKeyField("models.Exchange")
+    strategy = fields.ForeignKeyField("models.Strategy")
+    # strategy_id: fields.ForeignKeyRelation[Strategy] = fields.ForeignKeyField("models.Strategy",
+    #                                                                           related_name="order",
+    #                                                                           to_field="id",
+    #                                                                           from_field="order"
+    #                                                                           )
 
     # trades  = relatinship ... ??? how to handle in tortoise
     # trade = fields.ReverseRelation["models.Trade"]
