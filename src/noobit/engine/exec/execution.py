@@ -46,6 +46,7 @@ class LimitChaseExecution():
 
         # decimal precision allowed for given pair
         # see kraken doc : https://support.kraken.com/hc/en-us/articles/360001389366-Price-and-volume-decimal-precision
+        #! we should get this at init of strat like for api
         self.pair_decimals = pair_decimals
 
         # how long an order should be allowed to stay alive before we cancel it
