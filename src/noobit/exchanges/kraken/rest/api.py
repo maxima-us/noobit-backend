@@ -57,6 +57,9 @@ class KrakenRestAPI(BaseRestAPI):
         self.to_exchange_format = {v:k for k, v in self.to_standard_format.items()}
         self.exchange_pair_specs = self._load_pair_specs_map()
 
+        settings.SYMBOL_MAP_TO_EXCHANGE[self.exchange.upper()] = self.to_exchange_format
+        settings.SYMBOL_MAP_TO_STANDARD[self.exchange.upper()] = self.to_standard_format
+
 
 
 
@@ -208,9 +211,13 @@ class KrakenRestAPI(BaseRestAPI):
             We can't use query public because it will cause a recursion error
         """
         response = self._request_kraken_asset_pairs()
-
+        # {XXBTZUSD: XBT-USD}
         pair_map = {k:v["wsname"].replace("/", "-") for k, v in response["result"].items() if ".d" not in k}
+        # {XBTUSD: XBT-USD}
+        pair_map_2 = {v["altname"]:v["wsname"].replace("/", "-") for k, v in response["result"].items() if ".d" not in k}
+        pair_map.update(pair_map_2)
 
+        # {XXBT: XBT, ZUSD: USD}
         asset_map = {}
         for k, v in response["result"].items():
             if ".d" not in k:
@@ -228,7 +235,7 @@ class KrakenRestAPI(BaseRestAPI):
 
     def _load_pair_specs_map(self):
         """
-        Map standard format pairs to their specs (decima places of price and volume as well as available leverage)
+        Map standard format pairs to their specs (decimal places of price and volume as well as available leverage)
         Needed to check if we do not pass incorrect values when placing orders
         """
         response = self._request_kraken_asset_pairs()

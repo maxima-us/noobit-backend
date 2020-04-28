@@ -321,12 +321,12 @@ class BaseRestAPI(ABC):
         while not result["accept"]:
 
             resp = await self._query(endpoint=method_path,
-                                    data=data,
-                                    headers=headers,
-                                    private=True,
-                                    timeout=timeout,
-                                    retries=retries
-                                    )
+                                     data=data,
+                                     headers=headers,
+                                     private=True,
+                                     timeout=timeout,
+                                     retries=retries
+                                     )
 
             self._rotate_api_keys()
 

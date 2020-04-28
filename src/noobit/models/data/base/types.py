@@ -80,9 +80,10 @@ TIMESTAMP = datetime
 
 # tuple of <price>, <volume>
 ASK = Tuple[Decimal, Decimal]
+ASKS = List[ASK]
 
 BID = Tuple[Decimal, Decimal]
-
+BIDS = List[BID]
 
 
 

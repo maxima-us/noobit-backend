@@ -17,6 +17,17 @@ SERVER = None
 REDIS = redis.Redis(host='localhost', port=6379, db=0)
 AIOREDIS_POOL = None
 
+# HTTPX Session ==> should be sent to cache
+SESSION = None
+
+# Dict containing mapping from exchange to unified pair/asset format
+SYMBOL_MAP_TO_EXCHANGE = {}
+SYMBOL_MAP_TO_STANDARD = {}
+
+
+# ================================================================================
+
+
 # Strategy to run ==> what if we want to run multiple strategies at the same time ?
 #                 ==> we will need to find a way to share the ws data
 # STRAT = strats.mesa
@@ -49,8 +60,6 @@ ASYNCIO_TASKS = []
 # Kafka Consumer
 CONSUMER = None
 
-# HTTPX Session ==> should be sent to cache
-SESSION = None
 
 # App root path
 # HOME = os.environ["APP_PATH"]

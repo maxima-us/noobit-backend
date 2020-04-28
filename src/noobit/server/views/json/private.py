@@ -86,6 +86,28 @@ async def get_trade_ledger(exchange: str):
     pass
 
 
+
+
+
+# ================================================================================
+# ==== NEW API
+# ================================================================================
+
+@router.get('/new_api/open_orders/{exchange}', response_class=UJSONResponse)
+async def new_api_get_open_orders(exchange: str):
+    api = rest_api_map["new_kraken"]()
+
+    response = await api.get_open_orders(mode="to_list")
+    return response
+
+
+
+# ================================================================================
+# ==== UNDECIDED
+# ================================================================================
+
+
+
 #! do we even need to set this as an api endpoint or do we just need the request for the bot ?
 @router.get('/ws_token/{exchange}', response_class=UJSONResponse)
 async def get_websocket_auth_token(exchange: str,

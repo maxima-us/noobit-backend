@@ -1,13 +1,12 @@
-from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime
+from typing import Dict, Optional, List
 from decimal import Decimal
 
-from typing_extensions import Literal, TypedDict
+from typing_extensions import Literal
 from pydantic import BaseModel
 
 
 
-from noobit.models.data.base.types import ORDERSTATUS, ORDERTYPE, ORDERSIDE, PERCENT, PAIR, TIMESTAMP
+from noobit.models.data.base.types import ORDERSTATUS, ORDERTYPE, ORDERSIDE, PERCENT, PAIR, TIMESTAMP, FILLS
 
 
 # FIX ExecutionReport : https://www.onixs.biz/fix-dictionary/5.0.sp2/msgType_8_8.html
@@ -15,6 +14,9 @@ from noobit.models.data.base.types import ORDERSTATUS, ORDERTYPE, ORDERSIDE, PER
 
 
 class Order(BaseModel):
+
+
+    # ================================================================================
 
 
     # FIX Definition:
@@ -48,7 +50,7 @@ class Order(BaseModel):
 
     # Fix Definition: https://fixwiki.org/fixwiki/ExecInst
     #   Instructions for order handling
-    execInst: str
+    execInst: Optional[str]
 
 
     # ================================================================================
@@ -61,12 +63,12 @@ class Order(BaseModel):
     #   Firms, particularly those which electronically submit multi-day orders, trade globally
     #   or throughout market close periods, should ensure uniqueness across days, for example
     #   by embedding a date within the ClOrdID field.
-    clOrdID: str
+    clOrdID: Optional[str]
 
     # FIX Definition:
     #   Account mnemonic as agreed between buy and sell sides, e.g. broker and institution
     #   or investor/intermediary and fund manager.
-    account: str
+    account: Optional[str]
 
     # FIX Definition: https://fixwiki.org/fixwiki/CashMargin
     #   Identifies whether an order is a margin order or a non-margin order.
@@ -90,7 +92,7 @@ class Order(BaseModel):
     #   Code to identify reason for order rejection.
     #   Note: Values 3, 4, and 5 will be used when rejecting an order due to
     #   pre-allocation information errors.
-    ordRejReason: str
+    ordRejReason: Optional[str]
 
 
     # ================================================================================
@@ -99,18 +101,18 @@ class Order(BaseModel):
     # FIX Definition: https://fixwiki.org/fixwiki/TimeInForce
     #   Specifies how long the order remains in effect.
     #   Absence of this field is interpreted as DAY.
-    timeInForce: str
+    timeInForce: Optional[str]
 
     # CCXT equivalence: lastTradeTimestamp
     # FIX Definition: https://fixwiki.org/fixwiki/TransactTime
     #   Timestamp when the business transaction represented by the message occurred.
-    transactTime: TIMESTAMP
+    transactTime: Optional[TIMESTAMP]
 
     # CCXT equivalence: timestamp
     # FIX Definition: https://fixwiki.org/fixwiki/SendingTime
     #   Time of message transmission (
     #   always expressed in UTC (Universal Time Coordinated, also known as "GMT")
-    sendingTime: TIMESTAMP
+    sendingTime: Optional[TIMESTAMP]
 
     # FIX Definition: https://fixwiki.org/fixwiki/EffectiveTime
     #   Time the details within the message should take effect
@@ -120,12 +122,12 @@ class Order(BaseModel):
     # FIX Definition: https://fixwiki.org/fixwiki/ValidUntilTime
     #   Indicates expiration time of indication message
     #   (always expressed in UTC)
-    validUntilTime: TIMESTAMP
+    validUntilTime: Optional[TIMESTAMP]
 
     # FIX Definition: https://fixwiki.org/fixwiki/ExpireTime
     #   Time/Date of order expiration
     #   (always expressed in UTC)
-    expireTime: TIMESTAMP
+    expireTime: Optional[TIMESTAMP]
 
 
     # ================================================================================
@@ -140,7 +142,7 @@ class Order(BaseModel):
     # Bitmex Documentation (FIX Definition is very unclear):
     #   Optional quantity to display in the book.
     #   Use 0 for a fully hidden order.
-    displayQty: Decimal
+    displayQty: Optional[Decimal]
 
     # CCXT equivalence: cost
     # FIX Definition: https://fixwiki.org/fixwiki/GrossTradeAmt
@@ -165,7 +167,7 @@ class Order(BaseModel):
     #       from sales to be re-invested.
     #   The executing broker, intermediary or fund manager is responsible for converting
     #       and calculating OrderQty (38) in shares/units for subsequent messages.
-    orderPercent: PERCENT
+    orderPercent: Optional[PERCENT]
 
     # CCXT equivalence: filled
     # FIX Definition: https://fixwiki.org/fixwiki/CumQty
@@ -194,14 +196,14 @@ class Order(BaseModel):
 
     # FIX Definition: https://fixwiki.org/fixwiki/AvgPx
     #   Calculated average price of all fills on this order.
-    avgPX: Decimal
+    avgPx: Decimal
 
 
     # ================================================================================
 
 
     # FIX Definition:
-    fills: FILLS
+    fills: Optional[FILLS]
 
     # CCXT equivalence: fee
     # FIX Definition: https://fixwiki.org/fixwiki/Commission
@@ -214,14 +216,15 @@ class Order(BaseModel):
 
     # FIX Definition: https://fixwiki.org/fixwiki/TargetStrategy
     #   The target strategy of the order
-    targetStrategy: str
+    targetStrategy: Optional[str]
 
     # FIX Definition: https://fixwiki.org/fixwiki/TargetStrategyParameters
     #   Field to allow further specification of the TargetStrategy
     #   Usage to be agreed between counterparties
-    targetStrategyParameters: Dict
+    targetStrategyParameters: Optional[dict]
 
 
+# Bitmex Response
 # {
 #     "orderID": "string",
 #     "clOrdID": "string",
@@ -257,3 +260,11 @@ class Order(BaseModel):
 #     "transactTime": "2020-04-24T15:22:43.111Z",
 #     "timestamp": "2020-04-24T15:22:43.111Z"
 #   }
+
+
+class OrdersList(BaseModel):
+    data: List[Order]
+
+
+class OrdersByID(BaseModel):
+    data: Dict[str, Order]

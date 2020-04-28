@@ -65,6 +65,9 @@ class _OrdersPydantic(BaseModel):
 #================================================================================
 #================================================================================
 
+pydord = OrderPydantic(price='130.44')
+print(pydord)
+
 order = Order(price=130.33442534325)._validate()
 print(order)
 
