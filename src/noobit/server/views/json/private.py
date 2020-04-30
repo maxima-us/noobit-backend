@@ -95,11 +95,23 @@ async def get_trade_ledger(exchange: str):
 
 @router.get('/new_api/open_orders/{exchange}', response_class=UJSONResponse)
 async def new_api_get_open_orders(exchange: str):
-    api = rest_api_map["new_kraken"]()
+
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
 
     response = await api.get_open_orders(mode="to_list")
     return response
 
+
+
+@router.get('/new_api/order/{exchange}/{order_id}', response_class=UJSONResponse)
+async def new_api_get_order_by_id(exchange: str, order_id: str):
+
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_order(mode="to_list", orderID=order_id)
+    return response
 
 
 # ================================================================================

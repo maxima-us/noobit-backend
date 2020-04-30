@@ -59,10 +59,10 @@ class APIAbc(ABC):
         raise NotImplementedError
 
 
-
-    @abstractmethod
-    async def _handle_response_errors(self, response):
-        '''Input response has to be json object.
-        Needs to return none if there is an error and the data if there was no error.
-        '''
-        raise NotImplementedError
+    # ! should be handled at base class level, with method defined in the parser
+    # @abstractmethod
+    # async def _handle_response_errors(self, response):
+    #     '''Input response has to be json object.
+    #     Needs to return none if there is an error and the data if there was no error.
+    #     '''
+    #     raise NotImplementedError

@@ -11,7 +11,7 @@ class KrakenRequestParser(BaseRequestParser):
 
     def order(self,
               mode: Literal["all", "open", "closed", "by_id"],
-              symbol: PAIR,
+              symbol: Optional[PAIR] = None,
               orderID: Optional[Any] = None,
               clOrdID: Optional[int] = None
               ):

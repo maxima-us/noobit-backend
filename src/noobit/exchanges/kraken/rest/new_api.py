@@ -1,4 +1,7 @@
-"""Kraken Rest API
+"""New Format of our exchange Rest API
+
+No query methods are defined here, instead we just define them abstractely in the base class
+and define response and request parsers in noobit.models.data
 """
 import urllib
 import hashlib
@@ -16,7 +19,6 @@ import stackprinter
 import requests
 from dotenv import load_dotenv
 
-from noobit.server import settings
 # import noobit.models.data.response.parse.kraken as parse_resp
 # import noobit.models.data.request.parse.kraken as parse_req
 from noobit.models.data.response.parse.kraken import KrakenResponseParser
@@ -47,6 +49,8 @@ class KrakenRestAPI(BaseRestAPI):
 
     def __init__(self):
 
+        #! SETTLE FOR A FORMAT FOR ALL PAIRS AND EXCHANGE NAMES
+        #! Maybe it is better to capitalize everything  since most exchanges seem to want capital pairs
         self.exchange = "Kraken"
         self.base_url = mapping[self.exchange]["base_url"]
         self.public_endpoint = mapping[self.exchange]["public_endpoint"]
@@ -54,16 +58,6 @@ class KrakenRestAPI(BaseRestAPI):
         self.public_methods = mapping[self.exchange]["public_methods"]
         self.private_methods = mapping[self.exchange]["private_methods"]
 
-        #  this block can be set in the base class
-        # self._load_all_env_keys()
-        # self.to_standard_format = self._load_normalize_map()
-        # self.to_exchange_format = {v:k for k, v in self.to_standard_format.items()}
-        # self.exchange_pair_specs = self._load_pair_specs_map()
-        # self.session = settings.SESSION
-        # self.response = None
-        # self._json_options = {}
-        # settings.SYMBOL_MAP_TO_EXCHANGE[self.exchange.upper()] = self.to_exchange_format
-        # settings.SYMBOL_MAP_TO_STANDARD[self.exchange.upper()] = self.to_standard_format
 
         self.response_parser = KrakenResponseParser()
         self.request_parser = KrakenRequestParser()
@@ -154,7 +148,7 @@ class KrakenRestAPI(BaseRestAPI):
                 {<XXBTZUSD>:<XBT-USD>, <XXBT>:<XBT>}
 
         Note:
-            We can't use query public because it will cause a recursion error
+            We can't use query_public method because it will cause a recursion error so we use the requests module
         """
         response = self._request_kraken_asset_pairs()
         # {XXBTZUSD: XBT-USD}
@@ -198,46 +192,77 @@ class KrakenRestAPI(BaseRestAPI):
 
 
 
-    async def _handle_response_errors(self, response):
+    # async def _handle_response_errors(self, response):
+
+
+        # !!!!!!
+        # ! Handle errors a bit more like CCXT:
+        # !     we basically would parse the error message and map it to a unified error type
+        #!      how we handle that unified error would be defined in the base class
+        #!      e.g : {
+        #!          "EOrder:Insufficient funds": "InsufficientFundsError",
+        #!          "EService:Unavailable": "ExchangeUnavailableError",
+        #!          "EService:Busy": "ExchangeUnavailableError"
+        #!      }
+        # !!!!!!
+
+
+        # CCXT ERRORS for example:
+        # 'exceptions': {
+        #         'EQuery:Invalid asset pair': BadSymbol,  # {"error":["EQuery:Invalid asset pair"]}
+        #         'EAPI:Invalid key': AuthenticationError,
+        #         'EFunding:Unknown withdraw key': ExchangeError,
+        #         'EFunding:Invalid amount': InsufficientFunds,
+        #         'EService:Unavailable': ExchangeNotAvailable,
+        #         'EDatabase:Internal error': ExchangeNotAvailable,
+        #         'EService:Busy': ExchangeNotAvailable,
+        #         'EQuery:Unknown asset': ExchangeError,
+        #         'EAPI:Rate limit exceeded': DDoSProtection,
+        #         'EOrder:Rate limit exceeded': DDoSProtection,
+        #         'EGeneral:Internal error': ExchangeNotAvailable,
+        #         'EGeneral:Temporary lockout': DDoSProtection,
+        #         'EGeneral:Permission denied': PermissionDenied,
+
+
         # dict is empty
-        if not response:
-            logging.error("Response|Error: Value is None")
-            return {"accept": True, "value": None}
+        # if not response:
+        #     logging.error("Response|Error: Value is None")
+        #     return {"accept": True, "value": None}
 
-        # response returns error message
-        # valid means wether or not we accept the response as is or we want to retry
-        if response["error"]:
+        # # response returns error message
+        # # valid means wether or not we accept the response as is or we want to retry
+        # if response["error"]:
 
-            if response["error"] == ['EOrder:Insufficient funds']:
-                logging.error("Response|Error: Insufficent funds to place order")
-                return {"accept": True, "value": None}
+        #     if response["error"] == ['EOrder:Insufficient funds']:
+        #         logging.error("Response|Error: Insufficent funds to place order")
+        #         return {"accept": True, "value": None}
 
-            elif response["error"] in [["EService:Unavailable"], ["EService:Busy"]]:
-                logging.error("Response|Error: Exchange unavailable")
-                await asyncio.sleep(60)
-                return {"accept": False, "value": None}
+        #     elif response["error"] in [["EService:Unavailable"], ["EService:Busy"]]:
+        #         logging.error("Response|Error: Exchange unavailable")
+        #         await asyncio.sleep(60)
+        #         return {"accept": False, "value": None}
 
-            elif response["error"] == ["EGeneral:Temporary lockout"]:
-                logging.error("Response|Error: Locked out")
-                await asyncio.sleep(60)
-                return {"accept": False, "value": None}
+        #     elif response["error"] == ["EGeneral:Temporary lockout"]:
+        #         logging.error("Response|Error: Locked out")
+        #         await asyncio.sleep(60)
+        #         return {"accept": False, "value": None}
 
-            elif response["error"] == ["EAPI:Rate limit exceeded"]:
-                logging.error("Response|Error: Rate Limit Exceeded")
-                return {"accept": True, "value": None}
+        #     elif response["error"] == ["EAPI:Rate limit exceeded"]:
+        #         logging.error("Response|Error: Rate Limit Exceeded")
+        #         return {"accept": True, "value": None}
 
-            elif response["error"] == ["EGeneral:Invalid arguments"]:
-                logging.error(f"Response|Error: Invalid arguments")
-                return {"accept": True, "value": None}
+        #     elif response["error"] == ["EGeneral:Invalid arguments"]:
+        #         logging.error(f"Response|Error: Invalid arguments")
+        #         return {"accept": True, "value": None}
 
-            else:
-                try:
-                    logging.error(f"Error with request : {response['error']}\n{12*' '}Request URL : {self.response.url}\n{12*' '}With data : {self.response.data}")
-                except Exception as e:
-                    logging.error(stackprinter.format(e, style="darkbg2"))
+        #     else:
+        #         try:
+        #             logging.error(f"Error with request : {response['error']}\n{12*' '}Request URL : {self.response.url}\n{12*' '}With data : {self.response.data}")
+        #         except Exception as e:
+        #             logging.error(stackprinter.format(e, style="darkbg2"))
 
-        else:
-            return {"accept": True, "value": response["result"]}
+        # else:
+        #     return {"accept": True, "value": response["result"]}
 
 
 
@@ -263,81 +288,6 @@ class KrakenRestAPI(BaseRestAPI):
     # ====== PRIVATE REQUESTS
     # ================================================================================
 
-
-    # async def get_order(self,
-    #                     mode: Literal["to_list", "by_id"],
-    #                     orderID: str,
-    #                     clOrdID: Optional[int] = None,
-    #                     retries: int = 1
-    #                     ):
-    #     """Get a single order
-    #         mode (str): Parse response to list or index by order id
-    #         orderID: ID of the order to query (ID as assigned by broker)
-    #         clOrdID (str): Restrict results to given ID
-    #     """
-    #     data = parse_req.order(mode, orderID, clOrdID)
-
-    #     response = await self.query_private(method="order_info", data=data, retries=retries)
-    #     # parse to order response model and validate
-    #     parsed_response = parse_resp.order_response(response=response, mode=mode)
-
-    #     return parsed_response
-
-
-
-
-    # async def get_open_orders(self,
-    #                           mode: Literal["to_list", "by_id"],
-    #                           symbol: Optional[str] = None,
-    #                           clOrdID: Optional[int] = None,
-    #                           retries: int = 1
-    #                           ):
-    #     """Get open orders.
-
-    #     Args:
-    #         mode (str): Parse response to list or index by order id
-    #         symbol (str): Instrument symbol
-    #         clOrdID (str): Restrict results to given ID
-
-    #     Returns:
-    #         open orders
-    #     """
-
-    #     data = parse_req.open_orders(mode, symbol, clOrdID)
-
-    #     response = await self.query_private(method="open_orders", data=data, retries=retries)
-    #     # parse to order response model and validate
-    #     parsed_response = parse_resp.order_response(response=response, mode=mode)
-
-    #     return parsed_response
-
-
-
-
-    # async def get_closed_orders(self,
-    #                             mode: Literal["to_list", "by_id"],
-    #                             symbol: Optional[str] = None,
-    #                             clOrdID: Optional[int] = None,
-    #                             retries: int = 1
-    #                             ):
-    #     """Get closed orders.
-
-    #     Args:
-    #         symbol (str): Instrument symbol
-    #         clOrdID (str): Restrict results to given ID
-    #         mode (str): Parse response to list or index by order id
-
-    #     Returns:
-    #         closed orders
-    #     """
-
-    #     data = parse_req.closed_orders(mode, symbol, clOrdID)
-
-    #     response = await self.query_private(method="closed_orders", data=data, retries=retries)
-    #     # parse to order response model and validate
-    #     parsed_response = parse_resp.order_response(response=response, mode=mode)
-
-    #     return parsed_response
 
 
 

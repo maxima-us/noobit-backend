@@ -11,3 +11,7 @@ class BaseResponseParser(ABC):
     @abstractmethod
     def order(self, response, mode):
         raise NotImplementedError
+
+    @abstractmethod
+    def handle_errors(self, response, endpoint, data):
+        raise NotImplementedError

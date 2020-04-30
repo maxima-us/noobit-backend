@@ -1,8 +1,231 @@
+"""Lets just copy the file defining base errors from CCXT for now"""
+
+error_hierarchy = {
+    'BaseError': {
+        'UndefinedError': {},
+        'ExchangeError': {
+            'AuthenticationError': {
+                'PermissionDenied': {},
+                'AccountSuspended': {},
+                'InvalidSignature': {},
+            },
+            'ArgumentsRequired': {},
+            'BadRequest': {
+                'BadSymbol': {},
+            },
+            'BadResponse': {
+                'NullResponse': {},
+            },
+            'InsufficientFunds': {},
+            'InvalidAddress': {
+                'AddressPending': {},
+            },
+            'InvalidOrder': {
+                'OrderNotFound': {},
+                'OrderNotCached': {},
+                'CancelPending': {},
+                'OrderImmediatelyFillable': {},
+                'OrderNotFillable': {},
+                'DuplicateOrderId': {},
+            },
+            'NotSupported': {},
+            'Deprecated': {},
+        },
+        'NetworkError': {
+            'DDoSProtection': {
+                'RateLimitExceeded': {},
+            },
+            'ExchangeNotAvailable': {
+                'OnMaintenance': {},
+            },
+            'InvalidNonce': {},
+            'RequestTimeout': {},
+        },
+    },
+}
+
+
+class BaseError(Exception):
+
+    def __init__(self, raw_error: str, endpoint: str, data: dict):
+        self.raw_error = raw_error
+        self.exception = self.__class__.__name__
+        self.endpoint = endpoint
+        self.data = data
+        self.accept = True
+        self.sleep = None
+
+        msg = f"EXCEPTION:{self.exception}\n{14*' '}Endpoint: {self.endpoint}\n{14*' '}With Arguments: {self.data}"
+        super().__init__(msg)
+
+
+class UndefinedError(BaseError):
+    """Meant to catch all exceptions that are not defined in the parser.
+    Useful if all error types are not documented, like for Kraken's API.
+    (All Noobit exceptions still return the raw unparsed error message)
+    """
+    pass
+
+
+class ExchangeError(BaseError):
+    pass
+
+
+class AuthenticationError(ExchangeError):
+    pass
+
+
+class PermissionDenied(AuthenticationError):
+    pass
+
+
+class AccountSuspended(AuthenticationError):
+    pass
+
+
+class InvalidSignature(AuthenticationError):
+    pass
+
+class ArgumentsRequired(ExchangeError):
+    pass
+
+
+class BadRequest(ExchangeError):
+    pass
+
+
+class BadSymbol(BadRequest):
+    accept = True
+    sleep = 10
+
+
+class BadResponse(ExchangeError):
+    pass
+
+
+class NullResponse(BadResponse):
+    pass
+
+
+class InsufficientFunds(ExchangeError):
+    pass
+
+
+class InvalidAddress(ExchangeError):
+    pass
+
+
+class AddressPending(InvalidAddress):
+    pass
+
+
+class InvalidOrder(ExchangeError):
+    pass
+
+
+class OrderNotFound(InvalidOrder):
+    pass
+
+
+class OrderNotCached(InvalidOrder):
+    pass
+
+
+class CancelPending(InvalidOrder):
+    pass
+
+
+class OrderImmediatelyFillable(InvalidOrder):
+    pass
+
+
+class OrderNotFillable(InvalidOrder):
+    pass
+
+
+class DuplicateOrderId(InvalidOrder):
+    pass
+
+
+class NotSupported(ExchangeError):
+    pass
+
+
+class Deprecated(ExchangeError):
+    pass
+
+
+class NetworkError(BaseError):
+    pass
+
+
+class DDoSProtection(NetworkError):
+    accept = False
+    sleep = 60
+
+class RateLimitExceeded(DDoSProtection):
+    accept = False
+    sleep = 60
+
+
+class ExchangeNotAvailable(NetworkError):
+    accept = False
+    sleep = 60
+
+
+class OnMaintenance(ExchangeNotAvailable):
+    pass
+
+
+class InvalidNonce(NetworkError):
+    pass
+
+
+class RequestTimeout(NetworkError):
+    accept = False
+    sleep = 60
+
+
+__all__ = [
+    'error_hierarchy',
+    'UndefinedError',
+    'ExchangeError',
+    'AuthenticationError',
+    'PermissionDenied',
+    'AccountSuspended',
+    'InvalidSignature',
+    'ArgumentsRequired',
+    'BadRequest',
+    'BadSymbol',
+    'BadResponse',
+    'NullResponse',
+    'InsufficientFunds',
+    'InvalidAddress',
+    'AddressPending',
+    'InvalidOrder',
+    'OrderNotFound',
+    'OrderNotCached',
+    'CancelPending',
+    'OrderImmediatelyFillable',
+    'OrderNotFillable',
+    'DuplicateOrderId',
+    'NotSupported',
+    'Deprecated',
+    'NetworkError',
+    'DDoSProtection',
+    'RateLimitExceeded',
+    'ExchangeNotAvailable',
+    'OnMaintenance',
+    'InvalidNonce',
+    'RequestTimeout'
+]
+
+
+# ================================================================================
 
 
 
-
-
+# FIX Protocol Error Messages
 
 ERROR = {
 

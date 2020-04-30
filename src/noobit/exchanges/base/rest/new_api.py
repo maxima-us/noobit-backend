@@ -4,7 +4,7 @@ import time
 import logging
 import asyncio
 from collections import deque
-from typing import Optional
+from typing import Optional, Union
 from typing_extensions import Literal
 
 import ujson
@@ -23,23 +23,7 @@ from noobit.models.data.response.order import OrdersList, OrdersByID
 custom_logger = get_logger(__name__)
 
 class APIBase():
-    """Abstract Baseclass for Rest APIs.
-
-    Notes:
-        Example Init for Kraken:
-            self.exchange = "Kraken"
-            self.base_url = mapping[self.exchange]["base_url"]
-            self.public_endpoint = mapping[self.exchange]["public_endpoint"]
-            self.private_endpoint = mapping[self.exchange]["private_endpoint"]
-            self.public_methods = mapping[self.exchange]["public_methods"]
-            self.private_methods = mapping[self.exchange]["private_methods"]
-            self.session = settings.SESSION
-            self.response = None
-            self._json_options = {}
-            self._load_all_env_keys()
-            self.from_exchange_format = self._load_normalize_map()
-            self.to_exchange_format = {v:k for k, v in self.normalize.items()}
-            self.exchange_pair_specs = self._load_pair_specs_map()
+    """Baseclass for Rest APIs.
     """
 
     env_keys_dq = deque()
@@ -82,23 +66,6 @@ class APIBase():
     # ================================================================================
 
 
-    # @abstractmethod
-    # def _load_all_env_keys(self):
-    #     '''Load all API keys from env file into a deque.
-
-    #     Notes:
-    #         In .env file, keys should contain :
-    #             API Key : <exchange-name> & "key"
-    #             API Secret : <exchange-name> & "secret"
-    #     '''
-    #     raise NotImplementedError
-
-
-    # @abstractmethod
-    # def _sign(self, data: dict, urlpath: str):
-    #     raise NotImplementedError
-
-
     @classmethod
     def _set_class_var(cls, value):
         if not cls.env_keys_dq:
@@ -119,6 +86,7 @@ class APIBase():
             return self.env_keys_dq[0][0]
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
+
 
     def current_secret(self):
         """env secret we are currently using"""
@@ -160,52 +128,24 @@ class APIBase():
 
 
 
-    # @abstractmethod
-    # def _load_normalize_map(self):
-    #     '''Instantiate instance variable self.pair_map as dict.
-
-    #     keys : exchange format
-    #     value : standard format
-
-    #     eg for kraken : {"XXBTZUSD": "XBT-USD", "ZUSD": "USD"}
-    #     '''
-    #     raise NotImplementedError
+    async def _handle_response_errors(self, response, endpoint, data):
+        try:
+            result = self.response_parser.handle_errors(response, endpoint, data)
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
 
 
+        if isinstance(result["value"], Exception):
 
-    # @abstractmethod
-    # def _load_pair_specs_map(self):
-    #     '''Instantiate instance variable self.pair_info as dict.
+            # result["value"] returns one of our custom error classes here
+            exception = result["value"]
+            logging.error(exception)
+            if exception.sleep:
+                await asyncio.sleep(exception.sleep)
+            return result
 
-    #     keys : exchange format
-    #     value : standard format
-
-    #     eg for kraken : {"XBT-USD": {"price_decimals": 0.1, "volume_decimals": 0.1}}
-    #     '''
-    #     raise NotImplementedError
-
-
-
-    # @abstractmethod
-    # def _cleanup_input_data(self, data: dict):
-    #     raise NotImplementedError
-
-
-
-    # @abstractmethod
-    # def _normalize_response(self, response: str):
-    #     '''Input response has to be json string to make it easier to replace values.'''
-    #     raise NotImplementedError
-
-
-
-    # @abstractmethod
-    # async def _handle_response_errors(self, response):
-    #     '''Input response has to be json object.
-    #     Needs to return none if there is an error and the data if there was no error.
-    #     '''
-    #     raise NotImplementedError
-
+        else:
+            return result
 
 
 
@@ -214,23 +154,24 @@ class APIBase():
     # ================================================================================
 
 
-    async def _query(self, endpoint, data: dict, private: bool, headers=None, timeout=None, retries=0):
+    async def _query(self, endpoint, data: dict, private: bool, headers: dict = None, timeout: Union[float, int] = None, retries: int = 0):
         """ Low-level query handling.
-        .. note::
+
+        Args:
+            endpoint (str): API URL path sans host
+            data (dict): API request parameters
+            headers (dict): HTTPS headers (optional)
+            timeout (float): if not None, exception will be thrown after timeout seconds if a response has not been received
+
+        Returns:
+            requests.Response.json: deserialized python object
+
+        Raises:
+            requests.HTTPError: if response status not successful
+
+        Note:
            Use :py:meth:`query_private` or :py:meth:`query_public`
            unless you have a good reason not to.
-        :param endpoint: API URL path sans host
-        :type endpoint: str
-        :param data: API request parameters
-        :type data: dict
-        :param headers: (optional) HTTPS headers
-        :type headers: dict
-        :param timeout: (optional) if not ``None``, a :py:exc:`requests.HTTPError`
-                        will be thrown after ``timeout`` seconds if a response
-                        has not been received
-        :type timeout: int or float
-        :returns: :py:meth:`requests.Response.json`-deserialised Python object
-        :raises: :py:exc:`requests.HTTPError`: if response status not successful
         """
 
         full_path = f"{self.base_url}{endpoint}"
@@ -263,7 +204,7 @@ class APIBase():
         if self.response.status_code not in (200, 201, 202):
             self.response.raise_for_status()
 
-        logging.debug(f"API Request URL: {self.response.url}")
+        logging.info(f"API Request URL: {self.response.url}")
 
         # return self.response.json(**self._json_options)
 
@@ -276,7 +217,7 @@ class APIBase():
 
 
 
-    async def query_public(self, method, data=None, timeout=None, retries=0):
+    async def query_public(self, method: str, data: dict = None, timeout: Union[float, int] = None, retries: int = 0):
         """ Performs an API query that does not require a valid key/secret pair.
 
         Args:
@@ -298,6 +239,9 @@ class APIBase():
 
         result = {"accept": False, "value": None}
 
+        # retry while we have not accepted what the response returns
+        # handle_response_errors should return a dict of format {"accept": True, "value": response}
+        #! this is actually stupid as it may loop forever with no max retry number
         while not result["accept"]:
 
             resp = await self._query(endpoint=method_path,
@@ -307,24 +251,25 @@ class APIBase():
                                      retries=retries
                                      )
 
-            result = await self._handle_response_errors(response=resp)
+            result = await self._handle_response_errors(response=resp, endpoint=method_path, data=data)
 
 
         return result["value"]
 
 
 
-    async def query_private(self, method, data=None, timeout=None, retries=0):
+
+    async def query_private(self, method: str, data: dict = None, timeout: Union[float, int] = None, retries: int = 0):
         """ Performs an API query that requires a valid key/secret pair.
-        :param method: API method name
-        :type method: str
-        :param data: (optional) API request parameters
-        :type data: dict
-        :param timeout: (optional) if not ``None``, a :py:exc:`requests.HTTPError`
-                        will be thrown after ``timeout`` seconds if a response
-                        has not been received
-        :type timeout: int or float
-        :returns: :py:meth:`requests.Response.json`-deserialised Python object
+
+        Args:
+            method (str): API method name
+            data (dict): (optional) API request parameters
+            timeout (float) : (optional)
+                if not ``None``, throw Error after ``timeout`` seconds if no response
+
+        Returns:
+            response.json (dict) : deserialised Python object
         """
 
         if not self.current_key() or not self.current_secret():
@@ -356,7 +301,7 @@ class APIBase():
 
             self._rotate_api_keys()
 
-            result = await self._handle_response_errors(response=resp)
+            result = await self._handle_response_errors(response=resp, endpoint=method_path, data=data)
 
 
         return result["value"]
@@ -429,13 +374,18 @@ class APIBase():
             orderID: ID of the order to query (ID as assigned by broker)
             clOrdID (str): Restrict results to given ID
         """
-        data = self.request_parser.order("closed", orderID, clOrdID)
+        data = self.request_parser.order(mode="by_id", orderID=orderID, clOrdID=clOrdID)
 
+        #! what happens at this level if the low level query returns an errored response ???
+        #! we should only parse a query that has not errored
+        #! maybe error handler ["value"] key should return either Ok or Err like in result package
         response = await self.query_private(method="order_info", data=data, retries=retries)
-        # parse to order response model and validate
-        parsed_response = self.response_parser.order_response(response=response, mode=mode)
 
-        return parsed_response
+        if isinstance(response, Exception):
+            return response
+        else:
+            parsed_response = self.response_parser.order(response=response, mode=mode)
+            return parsed_response
 
 
 
@@ -480,6 +430,7 @@ class APIBase():
             return validated_data.data
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
+
 
 
 
