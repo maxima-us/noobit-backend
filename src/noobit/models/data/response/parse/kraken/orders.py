@@ -20,17 +20,6 @@ MAP_ORDER_STATUS = {
 # ================================================================================
 
 
-# def order_response(response, mode):
-#     if mode == "to_list":
-#         return parse_orders_to_list(response)
-
-#     if mode == "by_id":
-#         return parse_orders_by_id(response)
-
-
-# ================================================================================
-
-
 def parse_orders_to_list(response, symbol):
     """Parse open or closed orders into unified format and validate data against model.
 
@@ -49,7 +38,11 @@ def parse_orders_to_list(response, symbol):
         return OrdersList(data=[])
 
     # response["result"] from kraken will be indexed with "open" or "closed" key according to request
-    key = list(response.keys())[0]
+    try:
+        key = list(response.keys())[0]
+    except Exception as e:
+        logging.error(stackprinter.format(e, style="darkbg2"))
+
     if key == "open":
         response = response["open"]
     elif key == "closed":
@@ -61,47 +54,6 @@ def parse_orders_to_list(response, symbol):
 
     try:
         parsed_orders = [
-            # {
-            #     "orderID": key,
-            #     "symbol": map_to_standard[info["descr"]["pair"].upper()],
-            #     "currency": map_to_standard[info["descr"]["pair"].upper()].split("-")[1],
-            #     "side": info["descr"]["type"],
-            #     "ordType": info["descr"]["ordertype"],
-            #     "execInst": None,
-
-            #     "clOrdID": info["userref"],
-            #     "account": None,
-            #     "cashMargin": "cash" if (info["descr"]["leverage"] == "none") else "marginOpen",
-            #     "ordStatus": MAP_ORDER_STATUS[info["status"]],
-            #     "workingIndicator": True if (info["status"] in ["pending", "open"]) else False,
-            #     "ordRejReason": info.get("reason", None),
-
-            #     "timeInForce": None,
-            #     "transactTime": info.get("closetm", None),
-            #     "sendingTime": None,
-            #     "effectiveTime": info["opentm"],
-            #     "validUntilTime": None,
-            #     "expireTime": None if info["expiretm"] == 0 else info["expiretm"],
-
-            #     "displayQty": None,
-            #     "grossTradeAmt": info["cost"],
-            #     "orderQty": info["vol"],
-            #     "cashOrderQty": info["cost"],
-            #     "orderPercent": None,
-            #     "cumQty": info["vol_exec"],
-            #     "leavesQty": Decimal(info["vol"]) - Decimal(info["vol_exec"]),
-
-            #     "price": info["descr"]["price"],
-            #     "stopPx": info["stopprice"],
-            #     "avgPx": info["price"],
-
-            #     "fills": None,
-            #     "commission": info["fee"],
-
-            #     "targetStrategy": None,
-            #     "targetStrategyParameters": None
-            # }
-
             parse_single_order(key, info) for key, info in response.items()
         ]
 
@@ -140,48 +92,6 @@ def parse_orders_by_id(response, symbol):
 
     try:
         parsed_orders = {
-
-            # key:
-            # {
-            #     "orderID": key,
-            #     "symbol": map_to_standard[info["descr"]["pair"].upper()],
-            #     "currency": map_to_standard[info["descr"]["pair"].upper()].split("-")[1],
-            #     "side": info["descr"]["type"],
-            #     "ordType": info["descr"]["ordertype"],
-            #     "execInst": None,
-
-            #     "clOrdID": info["userref"],
-            #     "account": None,
-            #     "cashMargin": "cash" if (info["descr"]["leverage"] == "none") else "marginOpen",
-            #     "ordStatus": MAP_ORDER_STATUS[info["status"]],
-            #     "workingIndicator": True if (info["status"] in ["pending", "open"]) else False,
-            #     "ordRejReason": info.get("reason", None),
-
-            #     "timeInForce": None,
-            #     "transactTime": info.get("closetm", None),
-            #     "sendingTime": None,
-            #     "effectiveTime": info["opentm"],
-            #     "validUntilTime": None,
-            #     "expireTime": None if info["expiretm"] == 0 else info["expiretm"],
-
-            #     "displayQty": None,
-            #     "grossTradeAmt": info["cost"],
-            #     "orderQty": info["vol"],
-            #     "cashOrderQty": info["cost"],
-            #     "orderPercent": None,
-            #     "cumQty": info["vol_exec"],
-            #     "leavesQty": Decimal(info["vol"]) - Decimal(info["vol_exec"]),
-
-            #     "price": info["descr"]["price"],
-            #     "stopPx": info["stopprice"],
-            #     "avgPx": info["price"],
-
-            #     "fills": None,
-            #     "commission": info["fee"],
-
-            #     "targetStrategy": None,
-            #     "targetStrategyParameters": None
-            # }
 
             key: parse_single_order(key, info) for key, info in response.items()
         }
@@ -260,7 +170,7 @@ def parse_single_order(key, value):
 # EXAMPLE OF OPEN ORDERS RESPONSE:
 
 # {
-#     "OTCJDA-SZPUP-LZLOTQ": {
+#     "OTCJRA-SZYUP-LBLOTQ": {
 #         "refid": null,
 #         "userref": 0,
 #         "status": "open",
@@ -288,7 +198,7 @@ def parse_single_order(key, value):
 #         "oflags": "fciq"
 #     },
 
-#     "OS4GER-FIGDI-VWIUD7": {
+#     "OS5GER-FI6DI-VWXUD4": {
 #         "refid": null,
 #         "userref": 0,
 #         "status": "open",
@@ -316,7 +226,7 @@ def parse_single_order(key, value):
 #         "oflags": "fciq"
 #     },
 
-#     "O5ZDA6-EX2KN-KFUCZG": {
+#     "O5TYA6-EC2HN-KJ65ZG": {
 #         "refid": null,
 #         "userref": 0,
 #         "status": "open",
@@ -351,7 +261,7 @@ def parse_single_order(key, value):
 # EXAMPLE OF CLOSED ORDERS RESPONSE:
 
 # {
-#     "O6Z42Y-IJ4HM-3WCGHX": {
+#     "O6Z37Y-IJ8KM-3WTRHX": {
 #         "refid": null,
 #         "userref": 0,
 #         "status": "closed",
@@ -381,7 +291,7 @@ def parse_single_order(key, value):
 #         "oflags": "fciq"
 #     },
 
-#     "O2S6D7-BYRKN-72R4EB": {
+#     "O2A4D7-BYTBN-72R6CB": {
 #         "refid": null,
 #         "userref": 0,
 #         "status": "closed",
@@ -411,7 +321,7 @@ def parse_single_order(key, value):
 #         "oflags": "fciq"
 #     },
 
-#     "OOLTOF-IMEBY-VZKQFL": {
+#     "OOSVOF-IMYUY-VZ45FL": {
 #         "refid": null,
 #         "userref": null,
 #         "status": "canceled",
@@ -440,7 +350,7 @@ def parse_single_order(key, value):
 #         "misc": "",
 #         "oflags": "fciq"
 #     },
-#     "OFMIOZ-DQFW4-KF3TMV": {
+#     "OFEROZ-DQ6S4-KF78MV": {
 #         "refid": null,
 #         "userref": null,
 #         "status": "canceled",

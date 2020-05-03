@@ -1,4 +1,8 @@
+import logging
+
 from noobit.models.data.base.errors import *
+from noobit.models.data.base.errors import ErrorResult, OKResult
+from pydantic import ValidationError
 
 # see: https://support.kraken.com/hc/en-us/articles/360001491786-API-Error-Codes
 map_errors = {
@@ -59,22 +63,12 @@ def handle_error_messages(response, endpoint, data):
         # kraken error message is a list:  example response: {'error': ['EGeneral:Invalid arguments', ]}
         [kraken_error_msg] = response["error"]
         noobit_error = map_errors.get(kraken_error_msg, UndefinedError)(raw_error=kraken_error_msg, endpoint=endpoint, data=data)
-        return {
-            "accept": noobit_error.accept,
-            # "value": {
-            #     "endpoint": noobit_error.endpoint,
-            #     "data": noobit_error.data,
-            #     "sleep": noobit_error.sleep
-            # },
-            "value": noobit_error
-        }
-        # how do we handle the variable sleep time (for ex long sleep for rate limit)
-        # ONE EXAMPLE :
-        #   REPLACE     'EOrder:Rate limit exceeded': DDoSProtection
-        #   WITH        'EOrder:Rate limit exceeded': {"err": DDoSProtection, "sleep": 60}
-        # then in main file we will do:
-        #   handler = response_parser.errors(response)
-        #   logging.error(handler["err"])
-        #   await asyncio.sleep(handler["sleep"])
+
+        try:
+            error_result = ErrorResult(accept=noobit_error.accept, sleep=noobit_error.sleep, value=str(noobit_error))
+            return error_result
+        except ValidationError as e:
+            return ErrorResult(accept=True, value=str(e))
+
     else:
-        return {"accept": True, "value": response["result"]}
+        return OKResult(value=response["result"])

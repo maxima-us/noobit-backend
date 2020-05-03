@@ -4,7 +4,7 @@ import time
 import logging
 import asyncio
 from collections import deque
-from typing import Optional, Union
+from typing import Optional, Union, Any
 from typing_extensions import Literal
 
 import ujson
@@ -18,6 +18,8 @@ from noobit.models.data.receive.api import (Ticker, Ohlc, Orderbook, Trades, Spr
                                             AccountBalance, TradeBalance, Order, OpenOrders,
                                             ClosedOrders, UserTrades, OpenPositions)
 from noobit.models.data.response.order import OrdersList, OrdersByID
+from noobit.models.data.base.errors import ErrorHandlerResult, BaseError, OKResult, ErrorResult
+from noobit.models.data.response.trade import TradesList, TradesByID
 
 
 custom_logger = get_logger(__name__)
@@ -128,20 +130,43 @@ class APIBase():
 
 
 
-    async def _handle_response_errors(self, response, endpoint, data):
+    async def _handle_response_errors(self, response, endpoint, data) -> ErrorHandlerResult:
+
         try:
             result = self.response_parser.handle_errors(response, endpoint, data)
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
 
+        #! how can we type check this ? do we need to ?
+        #! raw response should not be type checked because we have no way of knowing types
+        #! exception should be type checked ?
+        #! ==> we basically want to make sure that user will return a dict of format {"accept": bool, "value": Any}
+        #! ==> should he return a dict or encapsulate the data in a object that will force type ??
+        # try:
+        #     logging.warning(result)
+        #     # validated_result = ErrorHandlerResult(**result)
+        #     validated_result = OKResult(result.dict())
+        # except ValidationError as e:
+        #     logging.error(e)
+        #     return ErrorResult(accept=True, value=str(e))
+        if not isinstance(result, ErrorHandlerResult):
+            error_msg = "Invalid Type: Result needs to be ErrorResult or OKResult"
+            logging.error(error_msg)
+            return ErrorResult(accept=True, value=error_msg)
 
-        if isinstance(result["value"], Exception):
 
+        # if isinstance(validated_result.value, BaseError):
+        if not result.is_ok:
             # result["value"] returns one of our custom error classes here
-            exception = result["value"]
-            logging.error(exception)
-            if exception.sleep:
-                await asyncio.sleep(exception.sleep)
+            # exception = result.value
+            logging.error(result.value)
+
+            #! We now return ErrorResult() and simply pass the string representation of our error to value
+            #! (instead of passing a dict and type checking here)
+            #! So we can not call attributes anymore ...
+            #! How do we solve this mess
+            if result.sleep:
+                await asyncio.sleep(result.sleep)
             return result
 
         else:
@@ -204,7 +229,7 @@ class APIBase():
         if self.response.status_code not in (200, 201, 202):
             self.response.raise_for_status()
 
-        logging.info(f"API Request URL: {self.response.url}")
+        logging.debug(f"API Request URL: {self.response.url}")
 
         # return self.response.json(**self._json_options)
 
@@ -259,7 +284,7 @@ class APIBase():
 
 
 
-    async def query_private(self, method: str, data: dict = None, timeout: Union[float, int] = None, retries: int = 0):
+    async def query_private(self, method: str, data: dict = None, timeout: Union[float, int] = None, retries: int = 0) -> Union[ErrorResult, OKResult]:
         """ Performs an API query that requires a valid key/secret pair.
 
         Args:
@@ -269,7 +294,7 @@ class APIBase():
                 if not ``None``, throw Error after ``timeout`` seconds if no response
 
         Returns:
-            response.json (dict) : deserialised Python object
+            noobit.ErrorHandlerResult
         """
 
         if not self.current_key() or not self.current_secret():
@@ -287,9 +312,9 @@ class APIBase():
             'API-Sign': self._sign(data, method_path)
         }
 
-        result = {"accept": False, "value": None}
+        result = ErrorResult(accept=False, value="")
 
-        while not result["accept"]:
+        while not result.accept:
 
             resp = await self._query(endpoint=method_path,
                                      data=data,
@@ -301,10 +326,11 @@ class APIBase():
 
             self._rotate_api_keys()
 
+            # returns an ErrorHandlerResult object
             result = await self._handle_response_errors(response=resp, endpoint=method_path, data=data)
 
 
-        return result["value"]
+        return result
 
 
 
@@ -368,7 +394,7 @@ class APIBase():
                         orderID: str,
                         clOrdID: Optional[int] = None,
                         retries: int = 1
-                        ):
+                        ) -> Union[list, dict, str]:
         """Get a single order
             mode (str): Parse response to list or index by order id
             orderID: ID of the order to query (ID as assigned by broker)
@@ -379,14 +405,25 @@ class APIBase():
         #! what happens at this level if the low level query returns an errored response ???
         #! we should only parse a query that has not errored
         #! maybe error handler ["value"] key should return either Ok or Err like in result package
+
+        # returns value attr of ErrorHandlerResult object
         response = await self.query_private(method="order_info", data=data, retries=retries)
 
-        if isinstance(response, Exception):
-            return response
-        else:
-            parsed_response = self.response_parser.order(response=response, mode=mode)
-            return parsed_response
+        # if response is None:
+        #     parsed_response = None
+        # elif isinstance(response, str) and "validation error" in response:
+        #     parsed_response = response
+        # elif isinstance(response, BaseError):
+        #     parsed_response = response
 
+        # if its an error we just want the error message with no parsing
+        if not response.is_ok:
+            parsed_response = response.value
+        else:
+            # parse to order response model if error handler has not returned None or ValidationError
+            parsed_response = self.response_parser.order(response=response.value, mode=mode)
+
+        return parsed_response
 
 
 
@@ -410,21 +447,33 @@ class APIBase():
         data = self.request_parser.order("open", symbol=symbol, clOrdID=clOrdID)
 
         response = await self.query_private(method="open_orders", data=data, retries=retries)
-        # parse to order response model
-        parsed_response = self.response_parser.order(response=response, symbol=symbol, mode=mode)
+
+        # if response is None:
+        #     parsed_response = None
+        # elif isinstance(response, ValidationError):
+        #     parsed_response = response
+
+        if not response.is_ok:
+            return response.value
+        else:
+            # parse to order response model if error handler has not returned None or ValidationError
+            parsed_response = self.response_parser.order(response=response.value, symbol=symbol, mode=mode)
+
 
         # don't let responsability of validation to user ==> force it here instead
         if mode == "to_list":
             try:
                 validated_data = OrdersList(data=parsed_response)
             except ValidationError as e:
-                raise e
+                logging.error(e)
+                return str(e)
 
         if mode == "by_id":
             try:
                 validated_data = OrdersByID(data=parsed_response)
             except ValidationError as e:
-                raise e
+                logging.error(e)
+                return str(e)
 
         try:
             return validated_data.data
@@ -455,20 +504,25 @@ class APIBase():
 
         response = await self.query_private(method="closed_orders", data=data, retries=retries)
         # parse to order response model and validate
-        parsed_response = self.response_parser.order(response=response, symbol=symbol, mode=mode)
+        if not response.is_ok:
+            return response.value
+        else:
+            parsed_response = self.response_parser.order(response=response.value, symbol=symbol, mode=mode)
 
         # don't let responsability of validation to user ==> force it here instead
         if mode == "to_list":
             try:
                 validated_data = OrdersList(data=parsed_response)
             except ValidationError as e:
-                raise e
+                logging.error(e)
+                return str(e)
 
         if mode == "by_id":
             try:
                 validated_data = OrdersByID(data=parsed_response)
             except ValidationError as e:
-                raise e
+                logging.error(e)
+                return str(e)
 
         try:
             return validated_data.data
@@ -476,6 +530,39 @@ class APIBase():
             logging.error(stackprinter.format(e, style="darkbg2"))
 
 
+
+    async def get_user_trades(self,
+                              mode: Literal["to_list", "by_id"],
+                              symbol: Optional[str] = None,
+                              retries: int = 1
+                              ):
+        data = self.request_parser.trade()
+
+        response = await self.query_private(method="trades_history", data=data, retries=retries)
+
+        if not response.is_ok:
+            return response.value
+        else:
+            parsed_response = self.response_parser.trade(response=response.value, symbol=symbol, mode=mode)
+
+        if mode == "to_list":
+            try:
+                validated_data = TradesList(data=parsed_response)
+            except ValidationError as e:
+                logging.error(e)
+                return str(e)
+
+        if mode == 'by_id':
+            try:
+                validated_data = TradesByID(data=parsed_response)
+            except ValidationError as e:
+                logging.error(e)
+                return str(e)
+
+        try:
+            return validated_data.data
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
 
 
 

@@ -5,6 +5,7 @@ from typing_extensions import Literal
 from noobit.models.data.base.types import PAIR
 from noobit.models.data.request.parse.base import BaseRequestParser
 from .orders import open_orders, closed_orders, order
+from .trades import user_trades
 
 class KrakenRequestParser(BaseRequestParser):
 
@@ -24,3 +25,11 @@ class KrakenRequestParser(BaseRequestParser):
 
         if mode == "by_id":
             return order(orderID, clOrdID)
+
+
+    def trade(self,
+              mode = None,
+              symbol = None
+              ):
+
+        return user_trades()

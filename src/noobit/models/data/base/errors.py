@@ -1,3 +1,6 @@
+from pydantic import BaseModel, ValidationError
+from typing import Any, Union, Optional
+
 """Lets just copy the file defining base errors from CCXT for now"""
 
 error_hierarchy = {
@@ -44,6 +47,45 @@ error_hierarchy = {
     },
 }
 
+# add an error_handler model to type check what our handle_error parser method returns
+class ErrorHandlerResult(BaseModel):
+    value: Union[list, dict, str]
+
+class OKResult(ErrorHandlerResult):
+    """
+    Needs to define:
+        value (Union[list, dict, str])
+    """
+    accept: bool = True
+    is_ok: bool = True
+
+class ErrorResult(ErrorHandlerResult):
+    """
+    Needs to define:
+        value (Union[list, dict, str])
+        accept (bool)
+        sleep (Optional[float])
+    """
+    accept: bool
+    sleep: Optional[float] = None
+    is_ok: bool = False
+
+
+
+
+class Ok():
+
+    def __init__(self, accept, value):
+        self.accept = accept
+        self.value = value
+
+    def validate(self):
+        try:
+            validated = OKResult(accept=self.accept, value=self.value)
+        except ValidationError as e:
+            raise e
+
+
 
 class BaseError(Exception):
 
@@ -55,7 +97,7 @@ class BaseError(Exception):
         self.accept = True
         self.sleep = None
 
-        msg = f"EXCEPTION:{self.exception}\n{14*' '}Endpoint: {self.endpoint}\n{14*' '}With Arguments: {self.data}"
+        msg = f"EXCEPTION:{self.exception}\nRaw Error: {self.raw_error}\n{14*' '}Query Endpoint: {self.endpoint}\n{14*' '}Query Arguments: {self.data}"
         super().__init__(msg)
 
 

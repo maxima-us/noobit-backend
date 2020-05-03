@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from typing_extensions import Literal
 
@@ -9,6 +10,18 @@ class BaseRequestParser(ABC):
 
 
     @abstractmethod
-    def order(self, filter: Literal["all", "closed", "open", "by_id"], symbol: PAIR, clOrdID: int):
+    def order(self,
+              mode: Literal["all", "closed", "open", "by_id"],
+              symbol: Optional[PAIR] = None,
+              orderID: Optional[str] = None,
+              clOrdID: Optional[int] = None
+              ) -> dict:
         raise NotImplementedError
 
+
+    @abstractmethod
+    def trade(self,
+              mode: Literal["by_id", "to_list"],
+              symbol: PAIR
+              ) -> dict:
+        raise NotImplementedError

@@ -1,4 +1,5 @@
 from typing import List
+from typing_extensions import Literal
 
 from noobit.server.views import APIRouter, Query, UJSONResponse
 from noobit.exchanges.mappings import rest_api_map
@@ -103,6 +104,18 @@ async def new_api_get_open_orders(exchange: str):
     return response
 
 
+@router.get('/new_api/closed_orders/{exchange}', response_class=UJSONResponse)
+async def new_api_get_closed_orders(exchange: str,
+                                    mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode")
+                                    ):
+
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_closed_orders(mode=mode)
+    return response
+
+
 
 @router.get('/new_api/order/{exchange}/{order_id}', response_class=UJSONResponse)
 async def new_api_get_order_by_id(exchange: str, order_id: str):
@@ -111,6 +124,15 @@ async def new_api_get_order_by_id(exchange: str, order_id: str):
     api = rest_api_map[new_api_key]()
 
     response = await api.get_order(mode="to_list", orderID=order_id)
+    return response
+
+
+@router.get('/new_api/trades/{exchange}/{order_id}', response_class=UJSONResponse)
+async def new_api_get_trades_by_id(exchange: str):
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_user_trades(mode="by_id")
     return response
 
 

@@ -10,7 +10,8 @@ from noobit.models.data.base.types import ORDERSTATUS, ORDERTYPE, ORDERSIDE, PER
 
 
 # FIX ExecutionReport : https://www.onixs.biz/fix-dictionary/5.0.sp2/msgType_8_8.html
-
+#! should be add session ID ? to identify a particular trading session ??
+#! see: https://www.onixs.biz/fix-dictionary/4.4/tagNum_336.html
 
 
 class Order(BaseModel):
@@ -147,6 +148,7 @@ class Order(BaseModel):
     # CCXT equivalence: cost
     # FIX Definition: https://fixwiki.org/fixwiki/GrossTradeAmt
     #   Total amount traded (i.e. quantity * price) expressed in units of currency.
+    #   For Futures this is used to express the notional value of a fill when quantity fields are expressed in terms of contract size
     grossTradeAmt: Decimal
 
     # CCXT equivalence: amount
