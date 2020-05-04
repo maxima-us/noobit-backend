@@ -38,6 +38,7 @@ def parse_orders_to_list(response, symbol):
         return OrdersList(data=[])
 
     # response["result"] from kraken will be indexed with "open" or "closed" key according to request
+    # check if we received a response for closed/open/single order
     try:
         key = list(response.keys())[0]
     except Exception as e:
@@ -48,8 +49,9 @@ def parse_orders_to_list(response, symbol):
     elif key == "closed":
         response = response["closed"]
     else:
-        # the request is for a single order filtered by ID
-        response = response[key]
+        # # the request is for a single order filtered by ID
+        # response = response[key]
+        pass
 
 
     try:
@@ -80,15 +82,19 @@ def parse_orders_by_id(response, symbol):
         return OrdersList(data=[])
 
 
-    key = list(response.keys())[0]
+    # check if we received a response for closed/open/single order
+    try:
+        key = list(response.keys())[0]
+    except Exception as e:
+        logging.error(stackprinter.format(e, style="darkbg2"))
     if key == "open":
         response = response["open"]
     elif key == "closed":
         response = response["closed"]
     else:
-        # the request is for a single order filtered by ID
-        response = response[key]
-
+        # # the request is for a single order filtered by ID
+        # response = response[key]
+        pass
 
     try:
         parsed_orders = {

@@ -28,8 +28,9 @@ class KrakenRequestParser(BaseRequestParser):
 
 
     def trade(self,
-              mode = None,
-              symbol = None
+              mode: Optional[Literal["to_list", "by_id"]] = None,
+              trdMatchID: Optional[str] = None,
+              symbol: Optional[PAIR] = None
               ):
 
-        return user_trades()
+        return user_trades(trdMatchID)

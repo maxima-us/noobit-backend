@@ -22,6 +22,7 @@ class BaseRequestParser(ABC):
     @abstractmethod
     def trade(self,
               mode: Literal["by_id", "to_list"],
-              symbol: PAIR
+              symbol: PAIR,
+              trdMatchID: Optional[str] = None
               ) -> dict:
         raise NotImplementedError

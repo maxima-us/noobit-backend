@@ -11,14 +11,19 @@ def parse_trades_to_list(response, symbol):
         return TradesList(data=[])
 
     # response["result"] from kraken will be indexed with "trade" and "count"
+    # check if we received a response for single/all trades
     try:
-        trades = response["trades"]
+        key = list(response.keys())[0]
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))
+    if key == "trades":
+        response = response["trades"]
+        # else : the request for a single trade is indexed by ID
+        # we want the full response in that case
 
     try:
         parsed_trades = [
-            parse_single_trade(key, info) for key, info in trades.items()
+            parse_single_trade(key, info) for key, info in response.items()
         ]
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))
@@ -32,14 +37,19 @@ def parse_trades_by_id(response, symbol):
         return TradesByID(data={})
 
     # response["result"] from kraken will be indexed with "trade" and "count"
+    # check if we received a response for single/all trades
     try:
-        trades = response["trades"]
+        key = list(response.keys())[0]
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))
+    if key == "trades":
+        response = response["trades"]
+        # else : the request for a single trade is indexed by ID
+        # we want the full response in that case
 
     try:
         parsed_trades = {
-            key: parse_single_trade(key, info) for key, info in trades.items()
+            key: parse_single_trade(key, info) for key, info in response.items()
         }
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))

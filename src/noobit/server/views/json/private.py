@@ -95,12 +95,14 @@ async def get_trade_ledger(exchange: str):
 # ================================================================================
 
 @router.get('/new_api/open_orders/{exchange}', response_class=UJSONResponse)
-async def new_api_get_open_orders(exchange: str):
+async def new_api_get_open_orders(exchange: str,
+                                  mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode")
+                                  ):
 
     new_api_key = f"new_{exchange}"
     api = rest_api_map[new_api_key]()
 
-    response = await api.get_open_orders(mode="to_list")
+    response = await api.get_open_orders(mode=mode)
     return response
 
 
@@ -108,7 +110,6 @@ async def new_api_get_open_orders(exchange: str):
 async def new_api_get_closed_orders(exchange: str,
                                     mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode")
                                     ):
-
     new_api_key = f"new_{exchange}"
     api = rest_api_map[new_api_key]()
 
@@ -117,22 +118,37 @@ async def new_api_get_closed_orders(exchange: str,
 
 
 
-@router.get('/new_api/order/{exchange}/{order_id}', response_class=UJSONResponse)
-async def new_api_get_order_by_id(exchange: str, order_id: str):
-
+@router.get('/new_api/order/{exchange}', response_class=UJSONResponse)
+async def new_api_get_order_by_id(exchange: str,
+                                  mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode"),
+                                  order_id: str = Query(..., title="orderID to query")
+                                  ):
     new_api_key = f"new_{exchange}"
     api = rest_api_map[new_api_key]()
 
-    response = await api.get_order(mode="to_list", orderID=order_id)
+    response = await api.get_order(mode=mode, orderID=order_id)
     return response
 
 
-@router.get('/new_api/trades/{exchange}/{order_id}', response_class=UJSONResponse)
-async def new_api_get_trades_by_id(exchange: str):
+@router.get('/new_api/trades/{exchange}', response_class=UJSONResponse)
+async def new_api_get_trades(exchange: str,
+                             mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode")
+                             ):
     new_api_key = f"new_{exchange}"
     api = rest_api_map[new_api_key]()
 
-    response = await api.get_user_trades(mode="by_id")
+    response = await api.get_user_trades(mode=mode)
+    return response
+
+@router.get('/new_api/trade/{exchange}', response_class=UJSONResponse)
+async def new_api_get_single_trade(exchange: str,
+                                   mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode"),
+                                   trade_id: str = Query(..., title="trdMatchID to query")
+                                   ):
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_user_trade_by_id(mode=mode, trdMatchID=trade_id)
     return response
 
 

@@ -18,8 +18,11 @@ from noobit.models.data.receive.api import (Ticker, Ohlc, Orderbook, Trades, Spr
                                             AccountBalance, TradeBalance, Order, OpenOrders,
                                             ClosedOrders, UserTrades, OpenPositions)
 from noobit.models.data.response.order import OrdersList, OrdersByID
-from noobit.models.data.base.errors import ErrorHandlerResult, BaseError, OKResult, ErrorResult
 from noobit.models.data.response.trade import TradesList, TradesByID
+from noobit.models.data.base.errors import ErrorHandlerResult, BaseError, OKResult, ErrorResult
+from noobit.models.data.base.types import PAIR
+from noobit.models.data.request.parse.base import BaseRequestParser
+from noobit.models.data.response.parse.base import BaseResponseParser
 
 
 custom_logger = get_logger(__name__)
@@ -42,6 +45,10 @@ class APIBase():
         self._json_options = {}
         settings.SYMBOL_MAP_TO_EXCHANGE[self.exchange.upper()] = self.to_exchange_format
         settings.SYMBOL_MAP_TO_STANDARD[self.exchange.upper()] = self.to_standard_format
+
+        # must be defined by user
+        # self.request_parser = BaseRequestParser
+        # self.response_parser = BaseResponseParser
 
 
     def json_options(self, **kwargs):
@@ -357,110 +364,8 @@ class APIBase():
     # ================================================================================
 
 
-    # @abstractmethod
-    # async def get_open_orders(self,
-    #                           mode: Literal["to_list", "by_id"],
-    #                           symbol: str,
-    #                           clOrdID: str,
-    #                           retries: int
-    #                           ):
-    #     """Get open orders
-
-    #     Args:
-    #         symbol (str): Instrument symbol
-    #         clOrdID (str): Restrict results to given ID
-    #         mode (str): Parse response to list or index by order id
-
-    #     Returns:
-    #         parsed response
-    #     """
-    #     raise NotImplementedError
-
-
-    # @abstractmethod
-    # async def get_closed_orders(self,
-    #                             mode: Literal["to_list", "by_id"],
-    #                             symbol: str,
-    #                             clOrdID: str,
-    #                             retries: int
-    #                             ):
-
-    #     raise NotImplementedError
-
-
-
-    async def get_order(self,
-                        mode: Literal["to_list", "by_id"],
-                        orderID: str,
-                        clOrdID: Optional[int] = None,
-                        retries: int = 1
-                        ) -> Union[list, dict, str]:
-        """Get a single order
-            mode (str): Parse response to list or index by order id
-            orderID: ID of the order to query (ID as assigned by broker)
-            clOrdID (str): Restrict results to given ID
-        """
-        data = self.request_parser.order(mode="by_id", orderID=orderID, clOrdID=clOrdID)
-
-        #! what happens at this level if the low level query returns an errored response ???
-        #! we should only parse a query that has not errored
-        #! maybe error handler ["value"] key should return either Ok or Err like in result package
-
-        # returns value attr of ErrorHandlerResult object
-        response = await self.query_private(method="order_info", data=data, retries=retries)
-
-        # if response is None:
-        #     parsed_response = None
-        # elif isinstance(response, str) and "validation error" in response:
-        #     parsed_response = response
-        # elif isinstance(response, BaseError):
-        #     parsed_response = response
-
-        # if its an error we just want the error message with no parsing
-        if not response.is_ok:
-            parsed_response = response.value
-        else:
-            # parse to order response model if error handler has not returned None or ValidationError
-            parsed_response = self.response_parser.order(response=response.value, mode=mode)
-
-        return parsed_response
-
-
-
-    async def get_open_orders(self,
-                              mode: Literal["to_list", "by_id"],
-                              symbol: Optional[str] = None,
-                              clOrdID: Optional[int] = None,
-                              retries: int = 1
-                              ):
-        """Get open orders.
-
-        Args:
-            mode (str): Parse response to list or index by order id
-            symbol (str): Instrument symbol
-            clOrdID (str): Restrict results to given ID
-
-        Returns:
-            open orders
-        """
-
-        data = self.request_parser.order("open", symbol=symbol, clOrdID=clOrdID)
-
-        response = await self.query_private(method="open_orders", data=data, retries=retries)
-
-        # if response is None:
-        #     parsed_response = None
-        # elif isinstance(response, ValidationError):
-        #     parsed_response = response
-
-        if not response.is_ok:
-            return response.value
-        else:
-            # parse to order response model if error handler has not returned None or ValidationError
-            parsed_response = self.response_parser.order(response=response.value, symbol=symbol, mode=mode)
-
-
-        # don't let responsability of validation to user ==> force it here instead
+    def order_validate_and_serialize(self, mode, parsed_response):
+        # don't let responsability of validation/serialization to user ==> force it here instead
         if mode == "to_list":
             try:
                 validated_data = OrdersList(data=parsed_response)
@@ -482,10 +387,68 @@ class APIBase():
 
 
 
+    async def get_order(self,
+                        mode: Literal["to_list", "by_id"],
+                        orderID: str,
+                        clOrdID: Optional[int] = None,
+                        retries: int = 1
+                        ) -> Union[list, dict, str]:
+        """Get a single order
+            mode (str): Parse response to list, or index by order id
+            orderID: ID of the order to query (ID as assigned by broker)
+            clOrdID (str): Restrict results to given ID
+        """
+        data = self.request_parser.order(mode="by_id", orderID=orderID, clOrdID=clOrdID)
+
+
+        # returns ErrorHandlerResult object (OkResult or ErrorResult)
+        response = await self.query_private(method="order_info", data=data, retries=retries)
+
+        # if its an error we just want the error message with no parsing
+        if not response.is_ok:
+            return response.value
+        else:
+            # parse to order response model if error handler has not returned None or ValidationError
+            parsed_response = self.response_parser.order(response=response.value, mode=mode)
+            return self.order_validate_and_serialize(mode, parsed_response)
+
+
+
+    async def get_open_orders(self,
+                              mode: Literal["to_list", "by_id"],
+                              symbol: Optional[PAIR] = None,
+                              clOrdID: Optional[int] = None,
+                              retries: int = 1
+                              ):
+        """Get open orders.
+
+        Args:
+            mode (str): Parse response to list or index by order id
+            symbol (str): Instrument symbol
+            clOrdID (str): Restrict results to given ID
+
+        Returns:
+            open orders
+        """
+
+        data = self.request_parser.order("open", symbol=symbol, clOrdID=clOrdID)
+
+        response = await self.query_private(method="open_orders", data=data, retries=retries)
+
+
+        if not response.is_ok:
+            return response.value
+        else:
+            # parse to order response model if error handler has not returned None or ValidationError
+            parsed_response = self.response_parser.order(response=response.value, symbol=symbol, mode=mode)
+            return self.order_validate_and_serialize(mode, parsed_response)
+
+
+
 
     async def get_closed_orders(self,
                                 mode: Literal["to_list", "by_id"],
-                                symbol: Optional[str] = None,
+                                symbol: Optional[PAIR] = None,
                                 clOrdID: Optional[int] = None,
                                 retries: int = 1
                                 ):
@@ -508,43 +471,13 @@ class APIBase():
             return response.value
         else:
             parsed_response = self.response_parser.order(response=response.value, symbol=symbol, mode=mode)
-
-        # don't let responsability of validation to user ==> force it here instead
-        if mode == "to_list":
-            try:
-                validated_data = OrdersList(data=parsed_response)
-            except ValidationError as e:
-                logging.error(e)
-                return str(e)
-
-        if mode == "by_id":
-            try:
-                validated_data = OrdersByID(data=parsed_response)
-            except ValidationError as e:
-                logging.error(e)
-                return str(e)
-
-        try:
-            return validated_data.data
-        except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
+            return self.order_validate_and_serialize(mode, parsed_response)
 
 
+    # ================================================================================
 
-    async def get_user_trades(self,
-                              mode: Literal["to_list", "by_id"],
-                              symbol: Optional[str] = None,
-                              retries: int = 1
-                              ):
-        data = self.request_parser.trade()
 
-        response = await self.query_private(method="trades_history", data=data, retries=retries)
-
-        if not response.is_ok:
-            return response.value
-        else:
-            parsed_response = self.response_parser.trade(response=response.value, symbol=symbol, mode=mode)
-
+    def trade_validate_and_serialize(self, mode, parsed_response):
         if mode == "to_list":
             try:
                 validated_data = TradesList(data=parsed_response)
@@ -563,6 +496,41 @@ class APIBase():
             return validated_data.data
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
+
+
+    async def get_user_trades(self,
+                              mode: Literal["to_list", "by_id"],
+                              symbol: Optional[PAIR] = None,
+                              retries: int = 1
+                              ):
+        data = self.request_parser.trade()
+
+        response = await self.query_private(method="trades_history", data=data, retries=retries)
+
+        if not response.is_ok:
+            return response.value
+        else:
+            parsed_response = self.response_parser.trade(response=response.value, symbol=symbol, mode=mode)
+            return self.trade_validate_and_serialize(mode, parsed_response)
+
+
+
+    async def get_user_trade_by_id(self,
+                                   mode: Literal["to_list", "by_id"],
+                                   trdMatchID: str,
+                                   symbol: Optional[PAIR] = None,
+                                   retries: int = 1
+                                   ):
+        data = self.request_parser.trade(trdMatchID=trdMatchID)
+
+        response = await self.query_private(method="trades_info", data=data, retries=retries)
+
+        if not response.is_ok:
+            return response.value
+        else:
+            parsed_response = self.response_parser.trade(response=response.value, mode=mode)
+            return self.trade_validate_and_serialize(mode, parsed_response)
+
 
 
 
