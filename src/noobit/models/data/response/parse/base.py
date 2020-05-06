@@ -19,12 +19,23 @@ class BaseResponseParser(ABC):
 
 
     @abstractmethod
-    def order(self, response, mode, symbol) -> Union[dict, list]:
+    def orders(self, response, mode, symbol) -> Union[dict, list]:
         """Type checking happens outside of the method, in the base api file.
         """
         raise NotImplementedError
 
 
     @abstractmethod
-    def trade(self, response, mode, symbol) -> Union[dict, list]:
+    def user_trades(self, response, mode, symbol) -> Union[dict, list]:
+        raise NotImplementedError
+
+
+    # public trades
+    @abstractmethod
+    def trades(self, response):
+        raise NotImplementedError
+
+
+    @abstractmethod
+    def ohlc(self, response):
         raise NotImplementedError

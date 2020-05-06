@@ -19,14 +19,14 @@ class Trade(BaseModel):
 
     # FIX Definition: https://fixwiki.org/fixwiki/TrdMatchID
     #   Identifier assigned to a trade by a matching system.
-    trdMatchID: str
+    trdMatchID: Optional[str]
 
     # FIX Definition:
     #   Unique identifier for Order as assigned by sell-side (broker, exchange, ECN).
     #   Uniqueness must be guaranteed within a single trading day.
     #   Firms which accept multi-day orders should consider embedding a date
     #   within the OrderID field to assure uniqueness across days.
-    orderID: str
+    orderID: Optional[str]
 
     # FIX Definition:
     #   Unique identifier for Order as assigned by the buy-side (institution, broker, intermediary etc.)
@@ -71,7 +71,7 @@ class Trade(BaseModel):
     # CCXT equivalence: fee
     # FIX Definition: https://fixwiki.org/fixwiki/Commission
     #   Commission
-    commission: Decimal
+    commission: Optional[Decimal]
 
     # CCXT equivalence: lastTradeTimestamp
     # FIX Definition: https://fixwiki.org/fixwiki/TransactTime

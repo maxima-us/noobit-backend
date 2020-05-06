@@ -1,3 +1,5 @@
+from noobit.models.data.base.types import PAIR, TIMEFRAME
+from starlette.responses import JSONResponse
 from typing import List
 from typing_extensions import Literal
 
@@ -103,7 +105,8 @@ async def new_api_get_open_orders(exchange: str,
     api = rest_api_map[new_api_key]()
 
     response = await api.get_open_orders(mode=mode)
-    return response
+    return UJSONResponse(status_code=response.status_code, content=response.value)
+    # return response.value
 
 
 @router.get('/new_api/closed_orders/{exchange}', response_class=UJSONResponse)
@@ -150,6 +153,31 @@ async def new_api_get_single_trade(exchange: str,
 
     response = await api.get_user_trade_by_id(mode=mode, trdMatchID=trade_id)
     return response
+
+
+@router.get('/new_api/ohlc/{exchange}', response_class=UJSONResponse)
+async def new_api_get_ohlc(exchange: str,
+                       symbol: str = Query(..., title="symbol"),
+                       timeframe: int = Query(..., title="candle timeframe")
+                       ):
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_ohlc(symbol=symbol, timeframe=int(timeframe))
+    return response
+
+
+
+@router.get('/new_api/public_trades/{exchange}', response_class=UJSONResponse)
+async def new_api_get_public_trades(exchange: str,
+                                    symbol: str = Query(..., title="symbol"),
+                                    ):
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_public_trades(symbol=symbol)
+    return response
+
 
 
 # ================================================================================

@@ -56,16 +56,21 @@ map_errors = {
 def handle_error_messages(response, endpoint, data):
 
     if not response:
-        return BadResponse(raw_error=None, endpoint=endpoint, data=data)
+        error = BadResponse(raw_error=None, endpoint=endpoint, query_args=data)
+        return ErrorResult(accept=True, value=str(error))
 
     if response["error"]:
 
         # kraken error message is a list:  example response: {'error': ['EGeneral:Invalid arguments', ]}
         [kraken_error_msg] = response["error"]
-        noobit_error = map_errors.get(kraken_error_msg, UndefinedError)(raw_error=kraken_error_msg, endpoint=endpoint, data=data)
+        noobit_error = map_errors.get(kraken_error_msg, UndefinedError)(raw_error=kraken_error_msg, endpoint=endpoint, query_args=data)
 
         try:
-            error_result = ErrorResult(accept=noobit_error.accept, sleep=noobit_error.sleep, value=str(noobit_error))
+            error_result = ErrorResult(accept=noobit_error.accept,
+                                       sleep=noobit_error.sleep,
+                                       value=str(noobit_error),
+                                       status_code=noobit_error.status_code
+                                       )
             return error_result
         except ValidationError as e:
             return ErrorResult(accept=True, value=str(e))

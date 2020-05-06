@@ -34,6 +34,8 @@ def parse_orders_to_list(response, symbol):
         parsed data is to be validated by corresponding api method in noobit.exchanges.base.rest.api
     """
 
+    #! this is not correct anymore since we parse it after,
+    #! so shoud return empty dict maybe
     if response is None:
         return OrdersList(data=[])
 
@@ -78,8 +80,10 @@ def parse_orders_to_list(response, symbol):
 
 def parse_orders_by_id(response, symbol):
 
+    #! this is not correct anymore since we parse it after,
+    #! so shoud return empty dict maybe
     if response is None:
-        return OrdersList(data=[])
+        return OrdersByID(data={})
 
 
     # check if we received a response for closed/open/single order
@@ -132,7 +136,7 @@ def parse_single_order(key, value):
 
             "clOrdID": info["userref"],
             "account": None,
-            "cashMargin": "cash" if (info["descr"]["leverage"] == "none") else "marginOpen",
+            "cashMargin": "cash" if (info["descr"]["leverage"] == "none") else "margin",
             "ordStatus": MAP_ORDER_STATUS[info["status"]],
             "workingIndicator": True if (info["status"] in ["pending", "open"]) else False,
             "ordRejReason": info.get("reason", None),

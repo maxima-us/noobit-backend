@@ -4,23 +4,26 @@ import time
 import logging
 import asyncio
 from collections import deque
-from typing import Optional, Union, Any
+from typing import Optional, Union, Any, Dict
 from typing_extensions import Literal
 
 import ujson
 import stackprinter
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 import pandas as pd
+from starlette import status
 
 from noobit.server import settings
 from noobit.logging.structlogger import get_logger
-from noobit.models.data.receive.api import (Ticker, Ohlc, Orderbook, Trades, Spread,
+from noobit.models.data.receive.api import (Ticker, Orderbook, Trades, Spread,
                                             AccountBalance, TradeBalance, Order, OpenOrders,
                                             ClosedOrders, UserTrades, OpenPositions)
 from noobit.models.data.response.order import OrdersList, OrdersByID
 from noobit.models.data.response.trade import TradesList, TradesByID
+from noobit.models.data.response.ohlc import Ohlc
 from noobit.models.data.base.errors import ErrorHandlerResult, BaseError, OKResult, ErrorResult
-from noobit.models.data.base.types import PAIR
+from noobit.models.data.base.types import PAIR, TIMEFRAME
+from noobit.models.data.base.response import NoobitResponse, OKResponse, ErrorResponse
 from noobit.models.data.request.parse.base import BaseRequestParser
 from noobit.models.data.response.parse.base import BaseResponseParser
 
@@ -269,12 +272,13 @@ class APIBase():
         method_path = f"{self.public_endpoint}/{method_endpoint}"
 
 
-        result = {"accept": False, "value": None}
 
         # retry while we have not accepted what the response returns
         # handle_response_errors should return a dict of format {"accept": True, "value": response}
         #! this is actually stupid as it may loop forever with no max retry number
-        while not result["accept"]:
+        result = ErrorResult(accept=False, value="")
+
+        while not result.accept:
 
             resp = await self._query(endpoint=method_path,
                                      data=data,
@@ -283,10 +287,11 @@ class APIBase():
                                      retries=retries
                                      )
 
+            # returns an ErrorHandlerResult object
             result = await self._handle_response_errors(response=resp, endpoint=method_path, data=data)
 
 
-        return result["value"]
+        return result
 
 
 
@@ -349,12 +354,103 @@ class APIBase():
     # ========================================
 
 
+    def validate_model_from_mode(self,
+                                 parsed_response: Union[dict, list, str],
+                                 mode: Optional[str],
+                                 mode_to_model: Dict[str, BaseModel]
+                                 ) -> Union[OKResponse, ErrorResponse]:
+        """Handle validation for all possible modes present in mode_to_model dict
+
+        Args:
+            parsed_response: object to validate
+            mode: mode of request
+            mode_to_model: dict mapping mode to pydantic model to validate against
+
+        Returns:
+            Union[OKResponse, ErrorResponse]: according to success/error
+        """
+
+        pydantic_model = mode_to_model[mode]
+
+        try:
+            validated = pydantic_model(data=parsed_response)
+            return OKResponse(status_code=status.HTTP_200_OK,
+                              # we need to call dict method because validated.data would return Dict[str, Order]
+                              # which is not json serializable
+                              #! python datetime is not serializable so will json output will be unix ts
+                              value=validated.dict()["data"]
+                              # value=validated.data
+                              )
+
+        except ValidationError as e:
+            logging.error(e)
+            return ErrorResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                  value=str(e)
+                                  )
+
 
 
     # ================================================================================
     # ====== PUBLIC REQUESTS
     # ================================================================================
 
+    def ohlc_validate_and_serialize(self, parsed_response):
+
+        mode_to_model = {
+            "ohlc": Ohlc
+        }
+
+        return self.validate_model_from_mode(parsed_response, mode="ohlc", mode_to_model=mode_to_model)
+
+
+
+    async def get_ohlc(self,
+                       symbol: PAIR,
+                       timeframe: TIMEFRAME,
+                       retries: int = 1
+                       ) -> NoobitResponse:
+        """
+        """
+        data = {"pair": symbol, "interval": timeframe}
+        # data = self.request_parser.ohlc(symbol=symbol, timeframe=timeframe)
+
+        result = await self.query_public(method="ohlc", data=data, retries=retries)
+        # parse to order response model and validate
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.ohlc(response=result.value)
+            return self.ohlc_validate_and_serialize(parsed_response)
+
+
+    # ================================================================================
+
+
+    def public_trade_validate_and_serialize(self, parsed_response):
+
+        mode_to_model = {
+            "public_trade": TradesList
+        }
+
+        return self.validate_model_from_mode(parsed_response, mode="public_trade", mode_to_model=mode_to_model)
+
+
+    async def get_public_trades(self,
+                                symbol: PAIR,
+                                retries: int = 1
+                                ) -> NoobitResponse:
+        """
+        """
+        data = {"pair": symbol}
+        # data = self.request_parser.ohlc(symbol=symbol, timeframe=timeframe)
+
+        result = await self.query_public(method="trades", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.trades(response=result.value)
+            return self.public_trade_validate_and_serialize(parsed_response)
 
 
 
@@ -364,26 +460,33 @@ class APIBase():
     # ================================================================================
 
 
-    def order_validate_and_serialize(self, mode, parsed_response):
+    def balance_validate_and_serialize(self, mode, parsed_response):
+        pass
+
+
+
+    async def get_balance(self):
+        pass
+
+
+    # ================================================================================
+
+
+
+
+    #! this should probably return some custom response class
+    def order_validate_and_serialize(self,
+                                     mode: Literal["to_list", "by_id"],
+                                     parsed_response: Union[dict, list, str],
+                                     ) -> NoobitResponse:
+
         # don't let responsability of validation/serialization to user ==> force it here instead
-        if mode == "to_list":
-            try:
-                validated_data = OrdersList(data=parsed_response)
-            except ValidationError as e:
-                logging.error(e)
-                return str(e)
+        mode_to_model = {
+            "by_id": OrdersByID,
+            "to_list": OrdersList
+        }
 
-        if mode == "by_id":
-            try:
-                validated_data = OrdersByID(data=parsed_response)
-            except ValidationError as e:
-                logging.error(e)
-                return str(e)
-
-        try:
-            return validated_data.data
-        except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
+        return self.validate_model_from_mode(parsed_response, mode, mode_to_model)
 
 
 
@@ -402,14 +505,14 @@ class APIBase():
 
 
         # returns ErrorHandlerResult object (OkResult or ErrorResult)
-        response = await self.query_private(method="order_info", data=data, retries=retries)
+        result = await self.query_private(method="order_info", data=data, retries=retries)
 
         # if its an error we just want the error message with no parsing
-        if not response.is_ok:
-            return response.value
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
         else:
             # parse to order response model if error handler has not returned None or ValidationError
-            parsed_response = self.response_parser.order(response=response.value, mode=mode)
+            parsed_response = self.response_parser.orders(response=result.value, mode=mode)
             return self.order_validate_and_serialize(mode, parsed_response)
 
 
@@ -433,14 +536,14 @@ class APIBase():
 
         data = self.request_parser.order("open", symbol=symbol, clOrdID=clOrdID)
 
-        response = await self.query_private(method="open_orders", data=data, retries=retries)
+        result = await self.query_private(method="open_orders", data=data, retries=retries)
 
 
-        if not response.is_ok:
-            return response.value
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
         else:
             # parse to order response model if error handler has not returned None or ValidationError
-            parsed_response = self.response_parser.order(response=response.value, symbol=symbol, mode=mode)
+            parsed_response = self.response_parser.orders(response=result.value, symbol=symbol, mode=mode)
             return self.order_validate_and_serialize(mode, parsed_response)
 
 
@@ -465,37 +568,30 @@ class APIBase():
 
         data = self.request_parser.order("closed", symbol=symbol, clOrdID=clOrdID)
 
-        response = await self.query_private(method="closed_orders", data=data, retries=retries)
+        result = await self.query_private(method="closed_orders", data=data, retries=retries)
         # parse to order response model and validate
-        if not response.is_ok:
-            return response.value
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
         else:
-            parsed_response = self.response_parser.order(response=response.value, symbol=symbol, mode=mode)
+            parsed_response = self.response_parser.orders(response=result.value, symbol=symbol, mode=mode)
             return self.order_validate_and_serialize(mode, parsed_response)
+
 
 
     # ================================================================================
 
 
-    def trade_validate_and_serialize(self, mode, parsed_response):
-        if mode == "to_list":
-            try:
-                validated_data = TradesList(data=parsed_response)
-            except ValidationError as e:
-                logging.error(e)
-                return str(e)
 
-        if mode == 'by_id':
-            try:
-                validated_data = TradesByID(data=parsed_response)
-            except ValidationError as e:
-                logging.error(e)
-                return str(e)
+    def user_trade_validate_and_serialize(self, mode, parsed_response):
 
-        try:
-            return validated_data.data
-        except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
+        # don't let responsability of validation/serialization to user ==> force it here instead
+        mode_to_model = {
+            "by_id": TradesByID,
+            "to_list": TradesList
+        }
+
+        return self.validate_model_from_mode(parsed_response, mode, mode_to_model)
+
 
 
     async def get_user_trades(self,
@@ -505,13 +601,13 @@ class APIBase():
                               ):
         data = self.request_parser.trade()
 
-        response = await self.query_private(method="trades_history", data=data, retries=retries)
+        result = await self.query_private(method="trades_history", data=data, retries=retries)
 
-        if not response.is_ok:
-            return response.value
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
         else:
-            parsed_response = self.response_parser.trade(response=response.value, symbol=symbol, mode=mode)
-            return self.trade_validate_and_serialize(mode, parsed_response)
+            parsed_response = self.response_parser.user_trades(response=result.value, symbol=symbol, mode=mode)
+            return self.user_trade_validate_and_serialize(mode, parsed_response)
 
 
 
@@ -523,13 +619,13 @@ class APIBase():
                                    ):
         data = self.request_parser.trade(trdMatchID=trdMatchID)
 
-        response = await self.query_private(method="trades_info", data=data, retries=retries)
+        result = await self.query_private(method="trades_info", data=data, retries=retries)
 
-        if not response.is_ok:
-            return response.value
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
         else:
-            parsed_response = self.response_parser.trade(response=response.value, mode=mode)
-            return self.trade_validate_and_serialize(mode, parsed_response)
+            parsed_response = self.response_parser.user_trades(response=result.value, mode=mode)
+            return self.user_trade_validate_and_serialize(mode, parsed_response)
 
 
 

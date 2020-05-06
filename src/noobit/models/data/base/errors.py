@@ -1,6 +1,8 @@
 from pydantic import BaseModel, ValidationError
 from typing import Any, Union, Optional
 
+from starlette import status
+
 """Lets just copy the file defining base errors from CCXT for now"""
 
 error_hierarchy = {
@@ -58,6 +60,7 @@ class OKResult(ErrorHandlerResult):
     """
     accept: bool = True
     is_ok: bool = True
+    is_error: bool = False
 
 class ErrorResult(ErrorHandlerResult):
     """
@@ -69,10 +72,14 @@ class ErrorResult(ErrorHandlerResult):
     accept: bool
     sleep: Optional[float] = None
     is_ok: bool = False
+    is_error: bool = False
+
+    # gets passed status code from exception class
+    status_code: Optional[int] = None
 
 
 
-
+#! UNUSED
 class Ok():
 
     def __init__(self, accept, value):
@@ -89,15 +96,16 @@ class Ok():
 
 class BaseError(Exception):
 
-    def __init__(self, raw_error: str, endpoint: str, data: dict):
+    def __init__(self, raw_error: str, endpoint: str, query_args: dict):
         self.raw_error = raw_error
         self.exception = self.__class__.__name__
         self.endpoint = endpoint
-        self.data = data
+        self.query_args = query_args
         self.accept = True
         self.sleep = None
+        self.status_code = status.HTTP_400_BAD_REQUEST
 
-        msg = f"EXCEPTION:{self.exception}\nRaw Error: {self.raw_error}\n{14*' '}Query Endpoint: {self.endpoint}\n{14*' '}Query Arguments: {self.data}"
+        msg = f"EXCEPTION:{self.exception}\nRaw Error: {self.raw_error}\n{14*' '}Query Endpoint: {self.endpoint}\n{14*' '}Query Arguments: {self.query_args}"
         super().__init__(msg)
 
 
@@ -114,26 +122,23 @@ class ExchangeError(BaseError):
 
 
 class AuthenticationError(ExchangeError):
-    pass
-
+    status_code = status.HTTP_400_BAD_REQUEST
 
 class PermissionDenied(AuthenticationError):
-    pass
+    status_code = status.HTTP_401_UNAUTHORIZED
 
 
 class AccountSuspended(AuthenticationError):
-    pass
-
+    status_code = status.HTTP_401_UNAUTHORIZED
 
 class InvalidSignature(AuthenticationError):
-    pass
+    status_code = status.HTTP_400_BAD_REQUEST
 
 class ArgumentsRequired(ExchangeError):
     pass
 
-
 class BadRequest(ExchangeError):
-    pass
+    status_code = status.HTTP_400_BAD_REQUEST
 
 
 class BadSymbol(BadRequest):
@@ -146,16 +151,14 @@ class BadResponse(ExchangeError):
 
 
 class NullResponse(BadResponse):
-    pass
+    status_code = status.HTTP_204_NO_CONTENT
 
 
 class InsufficientFunds(ExchangeError):
     pass
 
-
 class InvalidAddress(ExchangeError):
     pass
-
 
 class AddressPending(InvalidAddress):
     pass
@@ -164,10 +167,8 @@ class AddressPending(InvalidAddress):
 class InvalidOrder(ExchangeError):
     pass
 
-
 class OrderNotFound(InvalidOrder):
     pass
-
 
 class OrderNotCached(InvalidOrder):
     pass
@@ -190,11 +191,11 @@ class DuplicateOrderId(InvalidOrder):
 
 
 class NotSupported(ExchangeError):
-    pass
+    status_code = status.HTTP_501_NOT_IMPLEMENTED
 
 
 class Deprecated(ExchangeError):
-    pass
+    status_code = status.HTTP_501_NOT_IMPLEMENTED
 
 
 class NetworkError(BaseError):
@@ -202,28 +203,32 @@ class NetworkError(BaseError):
 
 
 class DDoSProtection(NetworkError):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     accept = False
     sleep = 60
 
 class RateLimitExceeded(DDoSProtection):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     accept = False
     sleep = 60
 
 
 class ExchangeNotAvailable(NetworkError):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     accept = False
     sleep = 60
 
 
 class OnMaintenance(ExchangeNotAvailable):
-    pass
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
 
 class InvalidNonce(NetworkError):
-    pass
+    status_code = status.HTTP_400_BAD_REQUEST
 
 
 class RequestTimeout(NetworkError):
+    status_code = status.HTTP_408_REQUEST_TIMEOUT
     accept = False
     sleep = 60
 

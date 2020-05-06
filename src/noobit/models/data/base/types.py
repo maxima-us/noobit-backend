@@ -141,9 +141,7 @@ INTERVAL = Literal[
 
 
 # tuple of <timestamp>, <open>, <high>, <low>, <close>, <volume>
-OHLCV = Tuple[Decimal, Decimal, Decimal, Decimal, Decimal, Decimal]
-
-
+OHLC = Tuple[Decimal, Decimal, Decimal, Decimal, Decimal, Decimal]
 
 
 # ================================================================================

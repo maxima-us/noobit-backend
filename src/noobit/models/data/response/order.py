@@ -74,7 +74,15 @@ class Order(BaseModel):
     # FIX Definition: https://fixwiki.org/fixwiki/CashMargin
     #   Identifies whether an order is a margin order or a non-margin order.
     #   One of: [Cash, MarginOpen, MarginClose]
-    cashMargin: Literal["cash", "marginOpen", "marginClose"]
+    # We simplify it to just [cash, margin]
+    cashMargin: Literal["cash", "margin"]
+
+    # FIX Definition:
+    #   The fraction of the cash consideration that must be collateralized, expressed as a percent.
+    #   A MarginRatio of 02% indicates that the value of the collateral (after deducting for "haircut")
+    #   must exceed the cash consideration by 2%.
+    # (marginRatio = 1/leverage)
+    marginRatio: Decimal = 0
 
     # CCXT equivalence: status
     # FIX Definition: https://fixwiki.org/fixwiki/OrdStatus
@@ -118,6 +126,7 @@ class Order(BaseModel):
     # FIX Definition: https://fixwiki.org/fixwiki/EffectiveTime
     #   Time the details within the message should take effect
     #   (always expressed in UTC)
+    # (Here would correspond to time the order was created by broker)
     effectiveTime: TIMESTAMP
 
     # FIX Definition: https://fixwiki.org/fixwiki/ValidUntilTime
