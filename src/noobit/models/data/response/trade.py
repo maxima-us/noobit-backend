@@ -1,4 +1,4 @@
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from decimal import Decimal
 
 from typing_extensions import Literal
@@ -86,7 +86,7 @@ class Trade(BaseModel):
     #   Free format text string
     #   May be used by the executing market to record any execution Details that are particular to that market
     # Use to store misc info
-    text: Optional[str]
+    text: Optional[Any]
 
 
 # ================================================================================

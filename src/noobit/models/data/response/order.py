@@ -1,8 +1,8 @@
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from decimal import Decimal
 
 from typing_extensions import Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 
@@ -64,7 +64,7 @@ class Order(BaseModel):
     #   Firms, particularly those which electronically submit multi-day orders, trade globally
     #   or throughout market close periods, should ensure uniqueness across days, for example
     #   by embedding a date within the ClOrdID field.
-    clOrdID: Optional[str]
+    clOrdID: Optional[str] = Field(...)
 
     # FIX Definition:
     #   Account mnemonic as agreed between buy and sell sides, e.g. broker and institution
@@ -77,12 +77,6 @@ class Order(BaseModel):
     # We simplify it to just [cash, margin]
     cashMargin: Literal["cash", "margin"]
 
-    # FIX Definition:
-    #   The fraction of the cash consideration that must be collateralized, expressed as a percent.
-    #   A MarginRatio of 02% indicates that the value of the collateral (after deducting for "haircut")
-    #   must exceed the cash consideration by 2%.
-    # (marginRatio = 1/leverage)
-    marginRatio: Decimal = 0
 
     # CCXT equivalence: status
     # FIX Definition: https://fixwiki.org/fixwiki/OrdStatus
@@ -115,7 +109,7 @@ class Order(BaseModel):
     # CCXT equivalence: lastTradeTimestamp
     # FIX Definition: https://fixwiki.org/fixwiki/TransactTime
     #   Timestamp when the business transaction represented by the message occurred.
-    transactTime: Optional[TIMESTAMP]
+    transactTime: Optional[TIMESTAMP] = Field(...)
 
     # CCXT equivalence: timestamp
     # FIX Definition: https://fixwiki.org/fixwiki/SendingTime
@@ -127,7 +121,7 @@ class Order(BaseModel):
     #   Time the details within the message should take effect
     #   (always expressed in UTC)
     # (Here would correspond to time the order was created by broker)
-    effectiveTime: TIMESTAMP
+    effectiveTime: Optional[TIMESTAMP]
 
     # FIX Definition: https://fixwiki.org/fixwiki/ValidUntilTime
     #   Indicates expiration time of indication message
@@ -193,6 +187,12 @@ class Order(BaseModel):
     #   otherwise LeavesQty = OrderQty (38) - CumQty (14).
     leavesQty: Decimal
 
+    # CCXT equivalence: fee
+    # FIX Definition: https://fixwiki.org/fixwiki/Commission
+    #   Commission
+    commission: Decimal
+
+
 
     # ================================================================================
 
@@ -203,11 +203,28 @@ class Order(BaseModel):
 
     # FIX Definition:
     #   Price per unit of quantity (e.g. per share)
-    stopPx: Decimal
+    stopPx: Optional[Decimal]
 
     # FIX Definition: https://fixwiki.org/fixwiki/AvgPx
     #   Calculated average price of all fills on this order.
-    avgPx: Decimal
+    avgPx: Optional[Decimal] = Field(...)
+
+
+    # ================================================================================
+
+    # FIX Definition:
+    #   The fraction of the cash consideration that must be collateralized, expressed as a percent.
+    #   A MarginRatio of 02% indicates that the value of the collateral (after deducting for "haircut")
+    #   must exceed the cash consideration by 2%.
+    # (marginRatio = 1/leverage)
+    marginRatio: Decimal = 0
+
+    marginAmt: Decimal = 0
+
+    realisedPnL: Decimal = 0
+
+    unrealisedPnL: Decimal = 0
+
 
 
     # ================================================================================
@@ -216,10 +233,6 @@ class Order(BaseModel):
     # FIX Definition:
     fills: Optional[FILLS]
 
-    # CCXT equivalence: fee
-    # FIX Definition: https://fixwiki.org/fixwiki/Commission
-    #   Commission
-    commission: Decimal
 
 
     # ================================================================================
@@ -233,6 +246,16 @@ class Order(BaseModel):
     #   Field to allow further specification of the TargetStrategy
     #   Usage to be agreed between counterparties
     targetStrategyParameters: Optional[dict]
+
+
+
+    # ================================================================================
+
+
+    # Any exchange specific text or info we want to pass
+    text: Optional[Any]
+
+
 
 
 # Bitmex Response

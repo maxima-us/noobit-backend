@@ -1,6 +1,6 @@
 from noobit.server import settings
 
-def parse_public_trades(symbol):
+def parse_instrument(symbol):
 
     map_to_exchange = settings.SYMBOL_MAP_TO_EXCHANGE["KRAKEN"]
 
@@ -10,6 +10,7 @@ def parse_public_trades(symbol):
 
     return payload
 
+
+
 # KRAKEN INPUT FORMAT (FROM DOC)
-# pair = asset pair to get trade data for
-# since = return trade data since given id (optional.  exclusive)
+# pair = comma delimited list of asset pairs to get info on

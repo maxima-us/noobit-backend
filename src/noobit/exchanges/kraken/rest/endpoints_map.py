@@ -24,7 +24,7 @@ mapping = {
                         "time": "Time",
                         "assets": "Assets",
                         "tradable_pairs": "AssetPairs",
-                        "ticker": "Ticker",
+                        "instrument": "Ticker",
                         "ohlc": "OHLC",
                         "orderbook": "Depth",
                         "trades": "Trades",

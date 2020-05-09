@@ -30,6 +30,23 @@ class BaseResponseParser(ABC):
         raise NotImplementedError
 
 
+    @abstractmethod
+    def open_positions(self, response, mode, symbol) -> Union[dict, list]:
+        raise NotImplementedError
+
+    # we need to separate open and closed position parsing because
+    # for some exchanges there is no <closed positions> endpoint
+    # and we need to simulate it
+    @abstractmethod
+    def closed_positions(self, response, mode, symbol) -> Union[dict, list]:
+        raise NotImplementedError
+
+
+    # ================================================================================
+    # ==== PUBLIC REQUESTS
+    # ================================================================================
+
+
     # public trades
     @abstractmethod
     def trades(self, response):

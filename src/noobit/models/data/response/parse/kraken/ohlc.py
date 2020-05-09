@@ -2,7 +2,7 @@ import logging
 import stackprinter
 
 from noobit.models.data.response.ohlc import Ohlc
-
+from noobit.server import settings
 
 def parse_ohlc(response):
 
@@ -13,7 +13,7 @@ def parse_ohlc(response):
 
     try:
         parsed_ohlc = [
-            parse_single_ohlc(item) for item in response[key]
+            parse_single_ohlc(item, key) for item in response[key]
         ]
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))
@@ -22,10 +22,12 @@ def parse_ohlc(response):
 
 
 
-def parse_single_ohlc(list_item):
+def parse_single_ohlc(list_item, symbol):
+    map_to_standard = settings.SYMBOL_MAP_TO_STANDARD["KRAKEN"]
 
     try:
         parsed_info = {
+            "symbol": map_to_standard[symbol],
             "utcTime": list_item[0],
             "open": list_item[1],
             "high": list_item[2],

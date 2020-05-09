@@ -137,6 +137,8 @@ def parse_single_order(key, value):
             "clOrdID": info["userref"],
             "account": None,
             "cashMargin": "cash" if (info["descr"]["leverage"] == "none") else "margin",
+            "marginRatio": 0 if info["descr"]["leverage"] == "none" else 1/int(info["descr"]["leverage"][0]),
+            "marginAmt": 0 if info["descr"]["leverage"] == "none" else Decimal(info["cost"])/int(info["descr"]["leverage"][0]),
             "ordStatus": MAP_ORDER_STATUS[info["status"]],
             "workingIndicator": True if (info["status"] in ["pending", "open"]) else False,
             "ordRejReason": info.get("reason", None),
@@ -164,7 +166,12 @@ def parse_single_order(key, value):
             "commission": info["fee"],
 
             "targetStrategy": None,
-            "targetStrategyParameters": None
+            "targetStrategyParameters": None,
+
+            "text": {
+                "misc": info["misc"],
+                "flags": info["oflags"]
+            }
 
         }
     except Exception as e:

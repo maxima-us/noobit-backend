@@ -1,8 +1,8 @@
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Optional
 from decimal import Decimal
 from datetime import datetime
 
-from typing_extensions import Literal, TypedDict
+from typing_extensions import Literal
 from pydantic import BaseModel, conint, constr
 
 
@@ -78,12 +78,12 @@ TIMESTAMP = datetime
 # ================================================================================
 
 
-# tuple of <price>, <volume>
-ASK = Tuple[Decimal, Decimal]
-ASKS = List[ASK]
+# dict of { <price> : <volume> }
+ASK = Dict[Decimal, Decimal]
+ASKS = Dict[Decimal, Decimal]
 
-BID = Tuple[Decimal, Decimal]
-BIDS = List[BID]
+BID = Dict[Decimal, Decimal]
+BIDS = Dict[Decimal, Decimal]
 
 
 
@@ -102,10 +102,26 @@ SPREAD = Tuple[Decimal, Decimal, Decimal]
 # ====== FILLS
 # ================================================================================
 
-class Fill(TypedDict):
+# FIX Fills Group: https://www.onixs.biz/fix-dictionary/5.0.sp2/compBlock_FillsGrp.html
+class Fill(BaseModel):
+
+    # FIX Definition:
+    #   Unique identifier of execution as assigned by sell-side (broker, exchange, ECN).
+    #   Must not overlap ExecID(17). Required if NoFills > 0
     fillExecID: str
-    fillPx: Decimal
-    fillQty: Decimal
+
+    # FIX Definition:
+    #   Price of this partial fill.
+    #   Conditionally required if NoFills > 0.
+    fillPx: Optional[Decimal]
+
+    # FIX Definition:
+    #   Quantity (e.g. shares) bought/sold on this partial fill.
+    #   Required if NoFills > 0.
+    fillQty: Optional[Decimal]
+
+    # FIX Definition:
+    #   Specifies the number of partial fills included in this Execution Report
     noFills: int
 
 

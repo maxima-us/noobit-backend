@@ -18,9 +18,13 @@ from noobit.logging.structlogger import get_logger
 from noobit.models.data.receive.api import (Ticker, Orderbook, Trades, Spread,
                                             AccountBalance, TradeBalance, Order, OpenOrders,
                                             ClosedOrders, UserTrades, OpenPositions)
+
 from noobit.models.data.response.order import OrdersList, OrdersByID
 from noobit.models.data.response.trade import TradesList, TradesByID
 from noobit.models.data.response.ohlc import Ohlc
+from noobit.models.data.response.orderbook import OrderBook
+from noobit.models.data.response.instrument import Instrument
+
 from noobit.models.data.base.errors import ErrorHandlerResult, BaseError, OKResult, ErrorResult
 from noobit.models.data.base.types import PAIR, TIMEFRAME
 from noobit.models.data.base.response import NoobitResponse, OKResponse, ErrorResponse
@@ -147,11 +151,6 @@ class APIBase():
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
 
-        #! how can we type check this ? do we need to ?
-        #! raw response should not be type checked because we have no way of knowing types
-        #! exception should be type checked ?
-        #! ==> we basically want to make sure that user will return a dict of format {"accept": bool, "value": Any}
-        #! ==> should he return a dict or encapsulate the data in a object that will force type ??
         # try:
         #     logging.warning(result)
         #     # validated_result = ErrorHandlerResult(**result)
@@ -171,10 +170,6 @@ class APIBase():
             # exception = result.value
             logging.error(result.value)
 
-            #! We now return ErrorResult() and simply pass the string representation of our error to value
-            #! (instead of passing a dict and type checking here)
-            #! So we can not call attributes anymore ...
-            #! How do we solve this mess
             if result.sleep:
                 await asyncio.sleep(result.sleep)
             return result
@@ -237,6 +232,7 @@ class APIBase():
                                              )
 
         if self.response.status_code not in (200, 201, 202):
+            #TODO this stops the whole server, find better way to return a server side error
             self.response.raise_for_status()
 
         logging.debug(f"API Request URL: {self.response.url}")
@@ -373,12 +369,26 @@ class APIBase():
         pydantic_model = mode_to_model[mode]
 
         try:
-            validated = pydantic_model(data=parsed_response)
+
+            validated = pydantic_model(**parsed_response)
+            defined_fields = list(validated.dict().keys())
+
+            # handle different cases, where we define data only, or multiple fields
+            if defined_fields == ["data"]:
+                value = validated.dict()["data"]
+            else:
+                value = validated.dict()
+
             return OKResponse(status_code=status.HTTP_200_OK,
                               # we need to call dict method because validated.data would return Dict[str, Order]
                               # which is not json serializable
-                              #! python datetime is not serializable so will json output will be unix ts
-                              value=validated.dict()["data"]
+                              #! python datetime is not serializable so json output will be unix ts
+
+                              #! this also assumes the pydantic model only defines the "data" field
+                              #! what happens when we define more fields ?
+
+
+                              value=value
                               # value=validated.data
                               )
 
@@ -390,9 +400,11 @@ class APIBase():
 
 
 
+
     # ================================================================================
     # ====== PUBLIC REQUESTS
     # ================================================================================
+
 
     def ohlc_validate_and_serialize(self, parsed_response):
 
@@ -411,8 +423,15 @@ class APIBase():
                        ) -> NoobitResponse:
         """
         """
-        data = {"pair": symbol, "interval": timeframe}
-        # data = self.request_parser.ohlc(symbol=symbol, timeframe=timeframe)
+        # TODO Handle request errors (for ex if we pass invalid symbol, or pair that does not exist)
+        data = self.request_parser.ohlc(symbol=symbol.upper(), timeframe=timeframe)
+
+        #! vvvvvvvvvvvvvvvvvvvvvvv HANDLE REQUEST PARSING ERRORS
+        # make request parser return a RequestResult object
+        # but this leaves responsability to the user, which is bad
+        # ==> Basic Example:
+        # if request.is_error:
+        #   return ErrorResponse(status_code=bad_request, value=request.value)
 
         result = await self.query_public(method="ohlc", data=data, retries=retries)
         # parse to order response model and validate
@@ -420,7 +439,9 @@ class APIBase():
             return ErrorResponse(status_code=result.status_code, value=result.value)
         else:
             parsed_response = self.response_parser.ohlc(response=result.value)
-            return self.ohlc_validate_and_serialize(parsed_response)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.ohlc_validate_and_serialize({"data": parsed_response})
 
 
     # ================================================================================
@@ -439,10 +460,10 @@ class APIBase():
                                 symbol: PAIR,
                                 retries: int = 1
                                 ) -> NoobitResponse:
+        """Get data on public trades. Response value is a list with each item being a dict that
+        corresponds to the data for a single trade.
         """
-        """
-        data = {"pair": symbol}
-        # data = self.request_parser.ohlc(symbol=symbol, timeframe=timeframe)
+        data = self.request_parser.public_trades(symbol.upper())
 
         result = await self.query_public(method="trades", data=data, retries=retries)
 
@@ -450,7 +471,68 @@ class APIBase():
             return ErrorResponse(status_code=result.status_code, value=result.value)
         else:
             parsed_response = self.response_parser.trades(response=result.value)
-            return self.public_trade_validate_and_serialize(parsed_response)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.public_trade_validate_and_serialize({"data": parsed_response})
+
+
+    # ================================================================================
+
+
+    def orderbook_validate_and_serialize(self, parsed_response):
+
+        mode_to_model = {
+            "orderbook": OrderBook
+        }
+
+        return self.validate_model_from_mode(parsed_response, mode="orderbook", mode_to_model=mode_to_model)
+
+
+
+    async def get_orderbook(self,
+                            symbol: PAIR,
+                            retries: int = 1,
+                            ) -> NoobitResponse:
+        """
+        """
+        data = self.request_parser.orderbook(symbol.upper())
+
+        result = await self.query_public(method="orderbook", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.orderbook(response=result.value)
+            return self.orderbook_validate_and_serialize(parsed_response)
+
+
+    # ================================================================================
+
+
+    def instrument_validate_and_serialize(self, parsed_response):
+
+        mode_to_model = {
+            "instrument": Instrument
+        }
+
+        return self.validate_model_from_mode(parsed_response, mode="instrument", mode_to_model=mode_to_model)
+
+
+    async def get_instrument(self,
+                             symbol: PAIR,
+                             retries: int = 1,
+                             ) -> NoobitResponse:
+        """Get data for instrument. Depending on exchange this will aggregate ticker, spread data
+        """
+        data = self.request_parser.instrument(symbol.upper())
+
+        result = await self.query_public(method="instrument", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.instrument(response=result.value)
+            return self.instrument_validate_and_serialize(parsed_response)
 
 
 
@@ -470,8 +552,6 @@ class APIBase():
 
 
     # ================================================================================
-
-
 
 
     #! this should probably return some custom response class
@@ -501,7 +581,7 @@ class APIBase():
             orderID: ID of the order to query (ID as assigned by broker)
             clOrdID (str): Restrict results to given ID
         """
-        data = self.request_parser.order(mode="by_id", orderID=orderID, clOrdID=clOrdID)
+        data = self.request_parser.orders(mode="by_id", orderID=orderID, clOrdID=clOrdID)
 
 
         # returns ErrorHandlerResult object (OkResult or ErrorResult)
@@ -513,7 +593,9 @@ class APIBase():
         else:
             # parse to order response model if error handler has not returned None or ValidationError
             parsed_response = self.response_parser.orders(response=result.value, mode=mode)
-            return self.order_validate_and_serialize(mode, parsed_response)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.order_validate_and_serialize(mode, {"data": parsed_response})
 
 
 
@@ -534,7 +616,7 @@ class APIBase():
             open orders
         """
 
-        data = self.request_parser.order("open", symbol=symbol, clOrdID=clOrdID)
+        data = self.request_parser.orders("open", symbol=symbol.upper(), clOrdID=clOrdID)
 
         result = await self.query_private(method="open_orders", data=data, retries=retries)
 
@@ -544,7 +626,9 @@ class APIBase():
         else:
             # parse to order response model if error handler has not returned None or ValidationError
             parsed_response = self.response_parser.orders(response=result.value, symbol=symbol, mode=mode)
-            return self.order_validate_and_serialize(mode, parsed_response)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.order_validate_and_serialize(mode, {"data": parsed_response})
 
 
 
@@ -566,7 +650,7 @@ class APIBase():
             closed orders
         """
 
-        data = self.request_parser.order("closed", symbol=symbol, clOrdID=clOrdID)
+        data = self.request_parser.orders("closed", symbol=symbol.upper(), clOrdID=clOrdID)
 
         result = await self.query_private(method="closed_orders", data=data, retries=retries)
         # parse to order response model and validate
@@ -574,7 +658,9 @@ class APIBase():
             return ErrorResponse(status_code=result.status_code, value=result.value)
         else:
             parsed_response = self.response_parser.orders(response=result.value, symbol=symbol, mode=mode)
-            return self.order_validate_and_serialize(mode, parsed_response)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.order_validate_and_serialize(mode, {"data": parsed_response})
 
 
 
@@ -599,7 +685,7 @@ class APIBase():
                               symbol: Optional[PAIR] = None,
                               retries: int = 1
                               ):
-        data = self.request_parser.trade()
+        data = self.request_parser.user_trades()
 
         result = await self.query_private(method="trades_history", data=data, retries=retries)
 
@@ -607,7 +693,9 @@ class APIBase():
             return ErrorResponse(status_code=result.status_code, value=result.value)
         else:
             parsed_response = self.response_parser.user_trades(response=result.value, symbol=symbol, mode=mode)
-            return self.user_trade_validate_and_serialize(mode, parsed_response)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.user_trade_validate_and_serialize(mode, {"data": parsed_response})
 
 
 
@@ -617,7 +705,9 @@ class APIBase():
                                    symbol: Optional[PAIR] = None,
                                    retries: int = 1
                                    ):
-        data = self.request_parser.trade(trdMatchID=trdMatchID)
+        """Get info on a single trade
+        """
+        data = self.request_parser.user_trades(trdMatchID=trdMatchID)
 
         result = await self.query_private(method="trades_info", data=data, retries=retries)
 
@@ -625,7 +715,70 @@ class APIBase():
             return ErrorResponse(status_code=result.status_code, value=result.value)
         else:
             parsed_response = self.response_parser.user_trades(response=result.value, mode=mode)
-            return self.user_trade_validate_and_serialize(mode, parsed_response)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.user_trade_validate_and_serialize(mode, {"data": parsed_response})
+
+
+
+    # ================================================================================
+
+
+
+    def positions_validate_and_serialize(self, mode, parsed_response):
+
+        # don't let responsability of validation/serialization to user ==> force it here instead
+        mode_to_model = {
+            "by_id": OrdersByID,
+            "to_list": OrdersList
+        }
+
+        return self.validate_model_from_mode(parsed_response, mode, mode_to_model)
+
+
+
+    async def get_open_positions(self,
+                                 mode: Literal["to_list", "by_id"],
+                                 symbol: Optional[PAIR] = None,
+                                 retries: int = 1
+                                 ) -> NoobitResponse:
+        """For kraken there is no <closed positions> endpoint, but we can simulate it by querying <closed orders> and then filtering for margin orders
+        Or even better filter out <trades history> and <type==closed position>
+        """
+        # TODO response parser for mode==by_id is missing
+        # data = {"docalcs": "true"}
+        data = self.request_parser.open_positions(mode, symbol)
+
+        result = await self.query_private(method="open_positions", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.open_positions(response=result.value, mode=mode)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.positions_validate_and_serialize(mode, {"data": parsed_response})
+
+
+
+    # for some exchanges there are not direct endpoints to get closed positions, so we need to work around it
+    async def get_closed_positions(self,
+                                   mode: Literal["to_list", "by_id"],
+                                   symbol: Optional[PAIR] = None,
+                                   retries: int = 1
+                                   ) -> NoobitResponse:
+        # TODO simulate endpoint by fetching user trades and then filtering type==closed_position (for kraken)
+        # TODO ========>>>>>>>>>>> WE STOPPED HERE <<<<<<<<<<<<<<<<=============
+
+        data = self.request_parser.closed_positions(mode, symbol)
+
+        result = await self.query_private(method="trades_history", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.closed_positions(response=result.value, mode=mode)
+            return self.positions_validate_and_serialize(mode, {"data": parsed_response})
 
 
 

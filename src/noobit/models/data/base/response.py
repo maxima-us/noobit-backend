@@ -10,24 +10,50 @@ from starlette.responses import JSONResponse
 
 
 class NoobitResponse(BaseModel):
+    """Base Noobit Response Model
 
+    Args:
+        status_code (int): http/ws code
+        value (typing.Any): contains data of the response
+
+    Returns:
+        pydantic.BaseModel
+    """
     status_code: conint(ge=100, le=1000)
     value: Any
 
 
 class OKResponse(NoobitResponse):
-    """
-    """
+    """Noobit Response Model indicating success
 
+    Args:
+        status_code (int): http/ws code
+        value (typing.Any): contains data of the response
+
+    Attributes:
+        is_ok (bool): True
+        is_error (bool): False
+
+    Returns:
+        pydantic.BaseModel
+    """
     is_ok: bool = True
     is_error: bool = False
 
 
 class ErrorResponse(NoobitResponse):
-    """
+    """Noobit Response Model indicating error
+
     Args:
-        http_code
-        value
+        status_code (int): http/ws code
+        value (typing.Any): contains data of the response
+
+    Attributes:
+        is_ok (bool): False
+        is_error (bool): True
+
+    Returns:
+        pydantic.BaseModel
     """
 
     is_ok: bool = False

@@ -179,6 +179,54 @@ async def new_api_get_public_trades(exchange: str,
     return response
 
 
+@router.get('/new_api/orderbook/{exchange}', response_class=UJSONResponse)
+async def new_api_get_orderbook(exchange: str,
+                                symbol: str = Query(..., title="symbol"),
+                                ):
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_orderbook(symbol=symbol)
+    return response
+
+
+@router.get('/new_api/instrument/{exchange}', response_class=UJSONResponse)
+async def new_api_get_instrument(exchange: str,
+                                 symbol: str = Query(..., title="symbol")
+                                 ):
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_instrument(symbol=symbol)
+    return response
+
+
+
+@router.get('/new_api/positions/open/{exchange}', response_class=UJSONResponse)
+async def new_api_get_open_positions(exchange: str,
+                                     mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode"),
+                                     symbol: str = Query(..., title="symbol")
+                                     ):
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_open_positions(symbol=symbol, mode=mode)
+    return response
+
+
+@router.get('/new_api/positions/closed/{exchange}', response_class=UJSONResponse)
+async def new_api_get_closed_positions(exchange: str,
+                                       mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode"),
+                                       symbol: str = Query(..., title="symbol")
+                                       ):
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_closed_positions(symbol=symbol, mode=mode)
+    return response
+
+
+
 
 # ================================================================================
 # ==== UNDECIDED
