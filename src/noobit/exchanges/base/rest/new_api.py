@@ -615,8 +615,9 @@ class APIBase():
         Returns:
             open orders
         """
-
-        data = self.request_parser.orders("open", symbol=symbol.upper(), clOrdID=clOrdID)
+        if symbol is not None:
+            symbol = symbol.upper()
+        data = self.request_parser.orders("open", symbol=symbol, clOrdID=clOrdID)
 
         result = await self.query_private(method="open_orders", data=data, retries=retries)
 
@@ -650,7 +651,9 @@ class APIBase():
             closed orders
         """
 
-        data = self.request_parser.orders("closed", symbol=symbol.upper(), clOrdID=clOrdID)
+        if symbol is not None:
+            symbol = symbol.upper()
+        data = self.request_parser.orders("closed", symbol=symbol, clOrdID=clOrdID)
 
         result = await self.query_private(method="closed_orders", data=data, retries=retries)
         # parse to order response model and validate
@@ -747,6 +750,8 @@ class APIBase():
         """
         # TODO response parser for mode==by_id is missing
         # data = {"docalcs": "true"}
+        if symbol is not None:
+            symbol = symbol.upper()
         data = self.request_parser.open_positions(mode, symbol)
 
         result = await self.query_private(method="open_positions", data=data, retries=retries)
@@ -770,6 +775,8 @@ class APIBase():
         # TODO simulate endpoint by fetching user trades and then filtering type==closed_position (for kraken)
         # TODO ========>>>>>>>>>>> WE STOPPED HERE <<<<<<<<<<<<<<<<=============
 
+        if symbol is not None:
+            symbol = symbol.upper()
         data = self.request_parser.closed_positions(mode, symbol)
 
         result = await self.query_private(method="trades_history", data=data, retries=retries)

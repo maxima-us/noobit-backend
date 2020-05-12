@@ -30,9 +30,9 @@ def aggregate_historical_trades(exchange, pair):
 
 @click.command()
 @click.option("--exchanges", "-e", multiple=True, default=["kraken"], help="List of lowercase exchanges")
-@click.option("--pairs", "-p", multiple=True, default=["XBT/USD", "ETH/USD"], help="Slash-separated uppercase pairs")
+@click.option("--pairs", "-p", multiple=True, default=["XBT-USD", "ETH-USD"], help="dash-separated uppercase pairs")
 @click.option("--private_feeds", "-prf", multiple=True, default=["ownTrades", "openOrders"], help="Private feeds to subscribe to")
-@click.option("--public_feeds", "-pbf", multiple=True, default=["trade", "spread"], help="Public feeds to subscribe to")
+@click.option("--public_feeds", "-pbf", multiple=True, default=["orderbook"], help="Public feeds to subscribe to")
 def run_feedhandler(exchanges, pairs, private_feeds, public_feeds):
     try:
         fh = FeedHandler(exchanges=exchanges,

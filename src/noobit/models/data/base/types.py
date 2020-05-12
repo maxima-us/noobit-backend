@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List, Dict, Optional, Counter
 from decimal import Decimal
 from datetime import datetime
 
@@ -80,9 +80,11 @@ TIMESTAMP = datetime
 
 # dict of { <price> : <volume> }
 ASK = Dict[Decimal, Decimal]
+# ASKS = Counter[Decimal]
 ASKS = Dict[Decimal, Decimal]
 
 BID = Dict[Decimal, Decimal]
+# BIDS = Counter[Decimal]
 BIDS = Dict[Decimal, Decimal]
 
 
@@ -168,4 +170,23 @@ OHLC = Tuple[Decimal, Decimal, Decimal, Decimal, Decimal, Decimal]
 TRANSACTIONTYPE = Literal[
     "withdrawal",
     "deposit",
+]
+
+
+
+# ================================================================================
+# ====== TRANSACTIONS
+# ================================================================================
+
+WS_ROUTE = [
+    "heartbeat",
+    "system_status",
+    "subscription_status",
+
+    "trade",
+    "instrument",
+    "orderbook",
+    "spread",
+
+    "data"
 ]

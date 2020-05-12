@@ -2,7 +2,7 @@ from typing import Dict, Optional, List, Any
 from decimal import Decimal
 
 from typing_extensions import Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 
@@ -19,14 +19,14 @@ class Trade(BaseModel):
 
     # FIX Definition: https://fixwiki.org/fixwiki/TrdMatchID
     #   Identifier assigned to a trade by a matching system.
-    trdMatchID: Optional[str]
+    trdMatchID: Optional[str] = Field(...)
 
     # FIX Definition:
     #   Unique identifier for Order as assigned by sell-side (broker, exchange, ECN).
     #   Uniqueness must be guaranteed within a single trading day.
     #   Firms which accept multi-day orders should consider embedding a date
     #   within the OrderID field to assure uniqueness across days.
-    orderID: Optional[str]
+    orderID: Optional[str] = Field(...)
 
     # FIX Definition:
     #   Unique identifier for Order as assigned by the buy-side (institution, broker, intermediary etc.)
@@ -76,7 +76,7 @@ class Trade(BaseModel):
     # CCXT equivalence: lastTradeTimestamp
     # FIX Definition: https://fixwiki.org/fixwiki/TransactTime
     #   Timestamp when the business transaction represented by the message occurred.
-    transactTime: Optional[TIMESTAMP]
+    transactTime: Optional[TIMESTAMP] = Field(...)
 
     # FIX Definition: https://fixwiki.org/fixwiki/TickDirection
     #   Direction of the "tick"

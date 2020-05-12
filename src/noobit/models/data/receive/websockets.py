@@ -180,8 +180,6 @@ class Trade(BaseModel):
 
 
 
-
-
 # array of <bid>, <ask>, <timestamp>, <bidVolume>, <askVolume>
 SpreadEntry = Tuple[Decimal, Decimal, Decimal, Decimal, Decimal]
 
@@ -209,6 +207,7 @@ class BookSnapshot(TypedDict):
     bids: List[Tuple[Decimal, Decimal, Decimal]]
 
 
+
 class BookEntry(TypedDict):
     """
     a: array of <price>, <volume>, <timestamp>, <updateType>
@@ -220,6 +219,7 @@ class BookEntry(TypedDict):
     """
     a: List[Tuple[Decimal, Decimal, Decimal, Optional[str]]]
     b: List[Tuple[Decimal, Decimal, Decimal, Optional[str]]]
+
 
 
 class Book(BaseModel):

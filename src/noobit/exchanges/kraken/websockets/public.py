@@ -26,6 +26,7 @@ class KrakenPublicFeedReader(BasePublicFeedReader):
         self.depth = depth
 
 
+
     async def subscribe(self, ping_interval: int, ping_timeout: int):
         """Subscribe to websocket
         """
@@ -51,12 +52,14 @@ class KrakenPublicFeedReader(BasePublicFeedReader):
                 logging.error(stackprinter.format(e, style="darkbg2"))
 
 
+
     async def close(self):
         try:
             # await self.ws.wait_closed()
             await self.ws.close()
         except Exception as e:
             logging.error(stackprinter.format(e, style="darkbg2"))
+
 
 
     async def msg_handler(self, msg, redis_pool):
