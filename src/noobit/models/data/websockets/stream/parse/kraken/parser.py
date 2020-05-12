@@ -1,8 +1,10 @@
+
+from noobit.models.data.websockets.stream.parse.base import BaseStreamParser
 from .trade import parse_trades_to_list
 from .instrument import parse_instrument
 from .orderbook import parse_orderbook
 
-class KrakenStreamParser():
+class KrakenStreamParser(BaseStreamParser):
 
 
     def trade(self, message) -> dict:

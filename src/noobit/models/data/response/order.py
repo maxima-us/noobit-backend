@@ -199,7 +199,7 @@ class Order(BaseModel):
 
     # FIX Definition: https://fixwiki.org/fixwiki/Price
     #   Price per unit of quantity (e.g. per share)
-    price: Decimal
+    price: Optional[Decimal] = Field(...)
 
     # FIX Definition:
     #   Price per unit of quantity (e.g. per share)

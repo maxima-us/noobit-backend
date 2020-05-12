@@ -18,6 +18,19 @@ def parse_open_positions_to_list(response):
     return parsed_positions
 
 
+
+def parse_open_positions_by_id(response):
+    try:
+        parsed_positions = {
+            key: parse_single_position(key, info) for key, info in response.items()
+        }
+    except Exception as e:
+        logging.error(stackprinter.format(e, style='darkbg2'))
+
+    return parsed_positions
+
+
+
 def parse_single_position(key, value):
     info = value
     map_to_standard = settings.SYMBOL_MAP_TO_STANDARD["KRAKEN"]
@@ -25,16 +38,18 @@ def parse_single_position(key, value):
     try:
         parsed_info = {
             "orderID": info["ordertxid"],
-            "clOrdID": None,
             "symbol": map_to_standard[info["pair"]],
             "currency": map_to_standard[info["pair"]].split("-")[1],
             "side": info["type"],
             "ordType": info["ordertype"],
-            "transactTime": info["time"],
+
+            "clOrdID": None,
 
             "cashMargin": "margin",
             "ordStatus": "new",
             "workingIndicator": True,
+
+            "transactTime": info["time"],
 
             "grossTradeAmt": info["cost"],
             "orderQty": info["vol"],
@@ -46,6 +61,9 @@ def parse_single_position(key, value):
             "marginAmt": info["margin"],
 
             "commission": info["fee"],
+
+            "price": Decimal(info["cost"]) / Decimal(info["vol"]),
+            "avgPx": None,
 
             # we need to request <docacls> to get this value
             "unrealisedPnL": info.get("net", None),

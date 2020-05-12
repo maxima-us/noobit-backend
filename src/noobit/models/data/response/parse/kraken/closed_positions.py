@@ -22,6 +22,22 @@ def parse_closed_positions_to_list(response):
     return parsed_positions
 
 
+
+def parse_closed_positions_by_id(response):
+
+    trades = response["trades"]
+
+    try:
+        parsed_positions = {
+            key: parse_single_position(key, info) for key, info in trades.items()
+        }
+    except Exception as e:
+        logging.error(stackprinter.format(e, style="darkbg2"))
+
+    return parsed_positions
+
+
+
 def parse_single_position(key, value):
     info = value
     map_to_standard = settings.SYMBOL_MAP_TO_STANDARD["KRAKEN"]
@@ -30,16 +46,18 @@ def parse_single_position(key, value):
         parsed_info = {
             "orderID": info["ordertxid"],
             # eventually there should be some way to get this info from the db
-            "clOrdID": None,
             "symbol": map_to_standard[info["pair"]],
             "currency": map_to_standard[info["pair"]].split("-")[1],
             "side": info["type"],
             "ordType": info["ordertype"],
-            "transactTime": info["time"],
+
+            "clOrdID": None,
 
             "cashMargin": "margin",
             "ordStatus": info["posstatus"],
             "workingIndicator": False if info["posstatus"] in ["closed", "canceled"] else True,
+
+            "transactTime": info["time"],
 
             "grossTradeAmt": info["cost"],
             "orderQty": info["vol"],

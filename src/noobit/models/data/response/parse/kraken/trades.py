@@ -29,10 +29,12 @@ def parse_public_trades(response):
 
 def parse_single_trade(list_item: list, symbol: PAIR):
     map_to_standard = settings.SYMBOL_MAP_TO_STANDARD["KRAKEN"]
-    map_to_exchange = settings.SYMBOL_MAP_TO_EXCHANGE["KRAKEN"]
+    # map_to_exchange = settings.SYMBOL_MAP_TO_EXCHANGE["KRAKEN"]
 
     try:
         parsed_info = {
+            "trdMatchID": None,
+            "orderID": None,
             "symbol": map_to_standard[symbol.upper()],
             "transactTime": list_item[2],
             "side": "buy" if list_item[3] == "b" else "sell",
