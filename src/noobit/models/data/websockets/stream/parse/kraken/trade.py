@@ -31,7 +31,7 @@ def parse_single_trade(info, pair):
             "avgPx": info[0],
             "cumQty": info[1],
             "grossTradeAmt": Decimal(info[0]) * Decimal(info[1]),
-            "transactTime": info[2],
+            "transactTime": info[2]*10**9,
         }
 
     except Exception as e:

@@ -28,7 +28,7 @@ def parse_single_ohlc(list_item, symbol):
     try:
         parsed_info = {
             "symbol": map_to_standard[symbol],
-            "utcTime": list_item[0],
+            "utcTime": list_item[0]*10**9,
             "open": list_item[1],
             "high": list_item[2],
             "low": list_item[3],

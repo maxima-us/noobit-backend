@@ -68,7 +68,11 @@ PERCENT = conint(ge=0, le=100, multiple_of=1)
 
 PAIR = constr(regex=r'[A-Z]+-[A-Z]+')
 
-TIMESTAMP = datetime
+# datetime can not be efficiently serialized to json
+# has to be int so we make sure timestamp in in nanoseconds
+# example: 1589083212696600000
+# and not: 1589083212.6966 (what we would receive from kraken)
+TIMESTAMP = int
 
 
 

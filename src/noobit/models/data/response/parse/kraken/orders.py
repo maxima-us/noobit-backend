@@ -122,7 +122,7 @@ def parse_orders_by_id(response, symbol):
 def parse_single_order(key, value):
     info = value
     map_to_standard = settings.SYMBOL_MAP_TO_STANDARD["KRAKEN"]
-    map_to_exchange = settings.SYMBOL_MAP_TO_EXCHANGE["KRAKEN"]
+    # map_to_exchange = settings.SYMBOL_MAP_TO_EXCHANGE["KRAKEN"]
 
     try:
         parsed_info = {
@@ -144,11 +144,11 @@ def parse_single_order(key, value):
             "ordRejReason": info.get("reason", None),
 
             "timeInForce": None,
-            "transactTime": info.get("closetm", None),
+            "transactTime": info["closetm"]*10**9 if "closetm" in info else None,
             "sendingTime": None,
-            "effectiveTime": info["opentm"],
+            "effectiveTime": info["opentm"]*10**9,
             "validUntilTime": None,
-            "expireTime": None if info["expiretm"] == 0 else info["expiretm"],
+            "expireTime": None if info["expiretm"] == 0 else info["expiretm"]*10**9,
 
             "displayQty": None,
             "grossTradeAmt": info["cost"],

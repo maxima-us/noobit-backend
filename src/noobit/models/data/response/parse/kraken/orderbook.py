@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime
+# from datetime import datetime
+import time
 
 import stackprinter
 
@@ -19,7 +20,7 @@ def parse_orderbook(response):
     try:
         parsed_orderbook = {
 
-            "sendingTime": datetime.utcnow(),
+            "sendingTime": time.time_ns(),
             "symbol": map_to_standard[key],
             "asks": {item[0]: item[1] for item in response["asks"]},
             "bids": {item[0]: item[1] for item in response["bids"]}

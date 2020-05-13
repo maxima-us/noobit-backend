@@ -60,12 +60,12 @@ def parse_user_trades_by_id(response, symbol):
 def parse_single_trade(key, value):
     info = value
     map_to_standard = settings.SYMBOL_MAP_TO_STANDARD["KRAKEN"]
-    map_to_exchange = settings.SYMBOL_MAP_TO_EXCHANGE["KRAKEN"]
+    # map_to_exchange = settings.SYMBOL_MAP_TO_EXCHANGE["KRAKEN"]
 
     try:
         parsed_info = {
             "trdMatchID": key,
-            "transactTime": info["time"],
+            "transactTime": info["time"]*10**9,
             "orderID": info["ordertxid"],
             "clOrdID": None,
             "symbol": map_to_standard[info["pair"].upper()],

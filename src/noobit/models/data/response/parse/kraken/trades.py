@@ -36,7 +36,7 @@ def parse_single_trade(list_item: list, symbol: PAIR):
             "trdMatchID": None,
             "orderID": None,
             "symbol": map_to_standard[symbol.upper()],
-            "transactTime": list_item[2],
+            "transactTime": list_item[2]*10**9,
             "side": "buy" if list_item[3] == "b" else "sell",
             "ordType": "market" if list_item[4] == "m" else "limit",
             "avgPx": list_item[0],

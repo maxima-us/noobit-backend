@@ -77,7 +77,6 @@ class Order(BaseModel):
     # We simplify it to just [cash, margin]
     cashMargin: Literal["cash", "margin"]
 
-
     # CCXT equivalence: status
     # FIX Definition: https://fixwiki.org/fixwiki/OrdStatus
     #   Identifies current status of order.

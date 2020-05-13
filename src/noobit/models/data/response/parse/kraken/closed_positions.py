@@ -57,7 +57,7 @@ def parse_single_position(key, value):
             "ordStatus": info["posstatus"],
             "workingIndicator": False if info["posstatus"] in ["closed", "canceled"] else True,
 
-            "transactTime": info["time"],
+            "transactTime": info["time"]*10**9,
 
             "grossTradeAmt": info["cost"],
             "orderQty": info["vol"],

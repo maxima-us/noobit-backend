@@ -49,7 +49,7 @@ def parse_single_position(key, value):
             "ordStatus": "new",
             "workingIndicator": True,
 
-            "transactTime": info["time"],
+            "transactTime": info["time"]*10**9,
 
             "grossTradeAmt": info["cost"],
             "orderQty": info["vol"],
