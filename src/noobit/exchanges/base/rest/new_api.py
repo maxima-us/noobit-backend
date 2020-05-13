@@ -24,6 +24,8 @@ from noobit.models.data.response.trade import TradesList, TradesByID
 from noobit.models.data.response.ohlc import Ohlc
 from noobit.models.data.response.orderbook import OrderBook
 from noobit.models.data.response.instrument import Instrument
+from noobit.models.data.response.balance import Balances
+from noobit.models.data.response.exposure import Exposure
 
 from noobit.models.data.base.errors import ErrorHandlerResult, BaseError, OKResult, ErrorResult
 from noobit.models.data.base.types import PAIR, TIMEFRAME
@@ -542,13 +544,13 @@ class APIBase():
     # ================================================================================
 
 
-    def balance_validate_and_serialize(self, mode, parsed_response):
-        pass
+    # def balance_validate_and_serialize(self, mode, parsed_response):
+    #     pass
 
 
 
-    async def get_balance(self):
-        pass
+    # async def get_balance(self):
+    #     pass
 
 
     # ================================================================================
@@ -786,6 +788,64 @@ class APIBase():
         else:
             parsed_response = self.response_parser.closed_positions(response=result.value, mode=mode)
             return self.positions_validate_and_serialize(mode, {"data": parsed_response})
+
+
+    # ================================================================================
+
+
+
+    def balances_validate_and_serialize(self, parsed_response):
+        # don't let responsability of validation/serialization to user ==> force it here instead
+        mode_to_model = {
+            "balances": Balances,
+        }
+
+        return self.validate_model_from_mode(parsed_response, "balances", mode_to_model)
+
+
+    async def get_balances(self,
+                           symbol: Optional[PAIR] = None,
+                           retries: int = 1
+                           ) -> NoobitResponse:
+        if symbol is not None:
+            symbol = symbol.upper()
+        data = {}
+
+        result = await self.query_private(method="balances", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.balances(response=result.value)
+            return self.balances_validate_and_serialize({"data": parsed_response})
+
+
+
+    # ================================================================================
+
+
+    def exposure_validate_and_serialize(self, parsed_response):
+        # don't let responsability of validation/serialization to user ==> force it here instead
+        mode_to_model = {
+            "exposure": Exposure,
+        }
+
+        return self.validate_model_from_mode(parsed_response, "exposure", mode_to_model)
+
+
+
+    async def get_exposure(self,
+                           retries: int = 1):
+
+        data = {}
+        result = await self.query_private(method="exposure", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.exposure(response=result.value)
+            return self.exposure_validate_and_serialize(parsed_response)
+
 
 
 

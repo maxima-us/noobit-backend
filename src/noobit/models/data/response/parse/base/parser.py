@@ -42,17 +42,37 @@ class BaseResponseParser(ABC):
         raise NotImplementedError
 
 
+    @abstractmethod
+    def balances(self, response, symbol) -> dict:
+        raise NotImplementedError
+
+
+    @abstractmethod
+    def exposure(self, response) -> dict:
+        raise NotImplementedError
+
+
+
     # ================================================================================
     # ==== PUBLIC REQUESTS
     # ================================================================================
 
 
+
     # public trades
     @abstractmethod
-    def trades(self, response):
+    def trades(self, response) -> list:
         raise NotImplementedError
 
 
     @abstractmethod
-    def ohlc(self, response):
+    def ohlc(self, response) -> list:
+        raise NotImplementedError
+
+    @abstractmethod
+    def orderbook(self, response) -> dict:
+        raise NotImplementedError
+
+    @abstractmethod
+    def instrument(self, response) -> dict:
         raise NotImplementedError

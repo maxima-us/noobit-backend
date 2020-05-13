@@ -226,6 +226,26 @@ async def new_api_get_closed_positions(exchange: str,
     return response
 
 
+@router.get('/new_api/balances/{exchange}', response_class=UJSONResponse)
+async def new_api_get_balances(exchange: str,
+                                       ):
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_balances()
+    return response
+
+
+@router.get('/new_api/exposure/{exchange}', response_class=UJSONResponse)
+async def new_api_get_exposure(exchange: str,
+                                       ):
+    new_api_key = f"new_{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_exposure()
+    return response
+
+
 
 
 # ================================================================================

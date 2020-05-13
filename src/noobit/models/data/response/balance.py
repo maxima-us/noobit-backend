@@ -58,7 +58,7 @@ class Balance(BaseModel):
 
 
 
-class Balances(BaseModel):
+class Margin(BaseModel):
 
     # CCXT equivalence: timestamp
     # FIX Definition: https://fixwiki.org/fixwiki/SendingTime
@@ -68,7 +68,7 @@ class Balances(BaseModel):
 
     # FIX Definition: https://www.onixs.biz/fix-dictionary/4.4/tagNum_900.html
     # (Total value of assets + positions + unrealized)
-    totalNetvalue: Decimal
+    totalNetValue: Decimal
 
     # FIX Definition: https://www.onixs.biz/fix-dictionary/4.4/tagNum_901.html
     # (Available cash after deducting margin)
@@ -87,9 +87,13 @@ class Balances(BaseModel):
     # (total margin exposure on account)
     marginRatio: Decimal = 0
 
+    unrealisedPnL: Decimal = 0
+
 
     # ================================================================================
 
 
-    balances: List[Balance]
+class Balances(BaseModel):
+
+    data: Dict[str, Decimal]
 

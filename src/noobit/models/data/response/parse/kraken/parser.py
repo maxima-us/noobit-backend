@@ -12,7 +12,8 @@ from .orderbook import parse_orderbook
 from .instrument import parse_instrument
 from .open_positions import parse_open_positions_to_list, parse_open_positions_by_id
 from .closed_positions import parse_closed_positions_to_list, parse_closed_positions_by_id
-
+from .balances import parse_balances
+from .exposure import parse_exposure
 
 class KrakenResponseParser(BaseResponseParser):
 
@@ -53,10 +54,19 @@ class KrakenResponseParser(BaseResponseParser):
             return parse_closed_positions_by_id(response)
 
 
+    def balances(self, response, symbol: str = None):
+        return parse_balances(response)
+
+
+    def exposure(self, response):
+       return parse_exposure(response)
+
+
 
     # ================================================================================
     # ==== PUBLIC
     # ================================================================================
+
 
 
     def ohlc(self, response):

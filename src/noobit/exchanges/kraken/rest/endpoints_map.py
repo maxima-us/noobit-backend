@@ -33,7 +33,9 @@ mapping = {
                     },
 
                     "private_methods":{
+                        "balances": "Balance",
                         "account_balance": "Balance",
+                        "exposure": "TradeBalance",
                         "trade_balance": "TradeBalance",
                         "open_positions": "OpenPositions",
                         "open_orders": "OpenOrders",
