@@ -30,6 +30,16 @@ class FeedHandler(object):
     def __init__(self, exchanges: List[str], private_feeds: List[str], public_feeds: List[str], pairs: List[str], retries: int = 10):
         """For now, feeds will be common to all exchanges, meaning all
         exchanges will subscribe to the same feeds we passed
+
+        maybe instead we should pass a dict like this:
+        {
+            "kraken":{
+                "private_feeds":["trade", "order"],
+                "public_feeds": ["trade", "instrument", "orderbook"]
+            }
+        }
+        and define the arg passed as a model of Dict[str, FeedsModel]
+        where FeedsModel is a pydantic.BaseModel with fields private_feeds: List[str] and public_feeds: List[str]
         """
 
         self.exchanges = [exchange.lower() for exchange in exchanges]
@@ -140,7 +150,7 @@ class FeedHandler(object):
 
     async def setup(self):
 
-        self.redis_pool = await aioredis.create_redis_pool('redis://localhost')
+        self.redis_pool = await aioredis.create_redis_pool(('localhost', 6379))
 
         for exchange in self.exchanges:
             await self.connect_private(exchange)

@@ -76,6 +76,7 @@ async def record_new_balance_update(event: str):
 
     for exchange_name, exchange_id in settings.EXCHANGE_IDS_FROM_NAME.items():
 
+        #! update later
         api = rest_api_map[exchange_name]()
 
         account_balance = await api.get_account_balance()

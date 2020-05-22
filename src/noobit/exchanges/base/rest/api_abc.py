@@ -1,3 +1,7 @@
+"""
+Define Abstract Base Class for Exchange Rest API.
+Exchange Rest API Class must inherit from both Base Class and Abstract Base Class
+"""
 from abc import ABC, abstractmethod
 
 

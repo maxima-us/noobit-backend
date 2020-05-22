@@ -45,7 +45,7 @@ def parse_snapshot(info, pair):
 def parse_update(info, pair):
 
     keys = list(info.keys())
-    logging.warning(keys)
+    # logging.warning(keys)
 
 
     try:

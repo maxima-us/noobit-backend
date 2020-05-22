@@ -45,7 +45,13 @@ class StratBase():
     where self.execution is an instance subclassing BaseExecution
     """
 
-    def __init__(self, exchange: str, pair: list, timeframe: int, volume: int):
+    def __init__(self, name: str, strat_id: int, description: str, exchange: str, pair: list, timeframe: int, volume: int):
+        self.name = name
+        self.description = description
+        #! generating a new number for each new instance ==> not ok
+        # self.strat_id = random.getrandbits(32)
+        self.strat_id = strat_id
+
         self.exchange = exchange.lower()
         self.pair = pair
         self.timeframe = timeframe
@@ -67,8 +73,6 @@ class StratBase():
 
         self._long_conditions = []
 
-        self.strat_id = random.getrandbits(32)
-        self._name = self.__class__.__name__
 
         self._ws_uri = WS_URI_MAP[self.exchange]
 
@@ -99,7 +103,7 @@ class StratBase():
 
         for feed in feeds:
             try:
-                data = {"event": "subscribe", "subscription": {"name": feed, "token": self.ws_token['token']}}
+                data = {"event": "subscribe", "subscription": {"name": feed, "token": self.ws_token.value['token']}}
                 payload = ujson.dumps(data)
                 await self.ws.send(payload)
                 await asyncio.sleep(0.1)
@@ -111,9 +115,11 @@ class StratBase():
             await self.setup_execution_ws(model)
 
 
+
     async def setup_execution_ws(self, execution_instance):
         execution_instance.ws = self.ws
         execution_instance.ws_token = self.ws_token
+
 
 
     async def close(self):
@@ -126,6 +132,7 @@ class StratBase():
             log_exception(logger, e)
 
 
+
     async def register_to_db(self):
         """register strategy into db
         check if strategy table contains our strategy
@@ -133,14 +140,14 @@ class StratBase():
 
         also bind strat runner ws to strat instance
         """
-        check = await Strategy.filter(name=self._name).values()
+        check = await Strategy.filter(name=self.name).values()
         if not check:
-            logger.info(f"Strategy : {self._name} --- Add to Db")
+            logger.info(f"Strategy : {self.name} --- Add to Db")
             await Strategy.create(id=self.strat_id,
-                                  name=self._name,
+                                  name=self.name,
                                   )
         else:
-            logger.info(f"Strategy : {self._name} --- Already in DB")
+            logger.info(f"Strategy : {self.name} --- Already in DB")
 
 
     async def get_decimal_precision(self):
@@ -154,10 +161,6 @@ class StratBase():
     # ==== DATA
     # ================================================================================
 
-    #!  This should actually be read from cache, feed processor/handler should already have calculated
-    #!  some data points like price quote, available volume etc etc for use by strategy and execution modules
-
-    #!  If OHLC is a problem maybe we can poll this one via rest api
 
 
     async def setup_df(self):
@@ -174,17 +177,11 @@ class StratBase():
         ==> waste to poll for each, if they have the same pairs for ex
         ==> that was a stupid comment, we prob wont be running multiple strats on same exch/pair
         """
-        ohlc = await self.api.get_ohlc_as_pandas(self.pair, self.timeframe)
-        return ohlc["data"]
 
-    # @property
-    # def ohlc(self):
-    #     """
-    #     Returns:
-    #         coroutine
-    #     """
-    #     ohlc_coro = self.api.get_ohlc_as_pandas(self.pair, self.timeframe)
-    #     return ohlc_coro
+        #! this has not been implemented yet on new API
+        response = await self.api.get_ohlc_as_pandas(self.pair, self.timeframe)
+        if response.is_ok:
+            return response.value
 
 
 
@@ -200,12 +197,13 @@ class StratBase():
         self._tick_args.append(tick_args)
 
 
+
     def calculate_indicator(self, func, source, **kwargs):
         """
         Args:
             talib_func: TA-Lib function
             source: column of self.ohlc we want to use as input
-            args: args specific to TA-Lib function
+            kwargs: kwargs specific to TA-Lib function
 
         Notes:
         add signals into the instance data dataframe
@@ -244,9 +242,11 @@ class StratBase():
         self._crossups_to_calc.append((col1, col2))
 
 
+
     def calculate_crossups(self):
         for i in self._crossups_to_calc:
             self.df = self.crossup(col1=i[0], col2=i[1], df=self.df)
+
 
 
     def crossup(self, col1: str, col2: str, df):
@@ -277,9 +277,11 @@ class StratBase():
         self._crossdowns_to_calc.append((col1, col2))
 
 
+
     def calculate_crossdowns(self):
         for i in self._crossdowns_to_calc:
             self.df = self.crossdown(col1=i[0], col2=i[1], df=self.df)
+
 
 
     def crossdown(self, col1: str, col2: str, df):
@@ -306,9 +308,11 @@ class StratBase():
         self._crossovers_to_calc.append((col, value))
 
 
+
     def calculate_crossovers(self):
         for i in self._crossovers_to_calc:
             self.df = self.crossover(col=i[0], value=i[1], df=self.df)
+
 
 
     def crossover(self, col: str, value: float, df):
@@ -330,9 +334,11 @@ class StratBase():
         self._crossunders_to_calc.append((col, value))
 
 
+
     def calculate_crossunders(self):
         for i in self._crossunders_to_calc:
             self.df = self.crossunder(col=i[0], value=i[1], df=self.df)
+
 
 
     def crossunder(self, col: str, value: float, df):
@@ -346,46 +352,8 @@ class StratBase():
 
 
     # ================================================================================
-    # ==== LONG
-    # ================================================================================
-
-    def long_condition(self):
-        pass
-
-    def short_condition(self):
-        pass
-
-
-    # def add_long_condition(self, condition: str):
-    #     return
-    #     condition = f"{condition}"
-    #     # condition = re.sub(r'"(.*?)"', self.df[])
-
-    #     # self._long_conditions.append(condition)
-
-
-    # def calculate_long_condition(self):
-    #     return
-    #     for i in self._long_conditions:
-    #         self.df = self.long(i[0])
-
-
-    # def long(self, condition, df):
-    #     pass
-
-
-
-
-    # ================================================================================
     # ==== TICK
     # ================================================================================
-
-
-    def user_tick(self):
-        pass
-
-    def user_setup(self):
-        pass
 
 
     async def main_loop(self, tick_interval=1):
@@ -402,6 +370,7 @@ class StratBase():
             should_exit = await self.on_tick(counter, tick_interval)
 
 
+
     async def on_tick(self, counter, tick_interval) -> bool:
 
         # heartbeat once per second
@@ -410,11 +379,10 @@ class StratBase():
         # Check indicators every minute
         if counter % (60/tick_interval) == 0:
             await self.update_df()
-            # for coro in self._tick_coros:
-            #     print(coro)
-            #     await coro
+
             for func_args in self._tick_args:
                 self.calculate_indicator(**func_args)
+
             self.calculate_crossups()
             self.calculate_crossdowns()
             self.calculate_crossovers()
@@ -425,8 +393,8 @@ class StratBase():
 
             self.user_tick()
 
-            # print(self.df.iloc[-2])
-            print(self.df[["close", "MAMA0", "MAMA1", "RSI", "CROSSUP_MAMA0_MAMA1", "long"]].tail(20))
+            print(self.df.iloc[-2:])
+
         # Determine if we should exit.
         if self.should_exit:
             return True

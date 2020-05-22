@@ -6,13 +6,16 @@ import aioredis
 import ujson
 
 from noobit.logging.structlogger import get_logger, log_exception
-from noobit.models.data.send.websockets import AddOrder, CancelOrder
+from noobit.models.data.websockets.deprecated_orders import AddOrder, CancelOrder
 
 logger = get_logger(__name__)
 
 
 
 class AsyncState():
+
+    #! should we use a pydantic model for this too ? 
+    #! ==> probably !!!
 
     def __init__(self, pair):
         self.current = {
@@ -36,6 +39,8 @@ class LimitChaseExecution():
     """
 
     def __init__(self, exchange, pair, ws, ws_token, strat_id, pair_decimals, order_life: float = None, sub_map: dict = None):
+        #! map exchange to exchange parsers
+        #! for that we will need to map all parsers in exchanges.mappings / or in models.data
         self.exchange = exchange
         self.pair = pair[0].lower()
         self.aioredis_pool = None
@@ -89,7 +94,7 @@ class LimitChaseExecution():
                             "user_order_updates": f"ws:private:data:update:{self.exchange}:openOrders",
                             "user_trade_updates": f"ws:private:data:update:{self.exchange}:ownTrades",
                             "public_trade_updates": f"ws:public:data:update:{self.exchange}:trade:{self.pair}",
-                            "public_ticker_updates": f"ws:pubic:data:update:{self.exchange}:ticker",
+                            "public_ticker_updates": f"ws:public:data:update:{self.exchange}:ticker",
                             "public_spread_updates": f"ws:public:data:update:{self.exchange}:spread:{self.pair}",
                             }
         else:
@@ -225,6 +230,8 @@ class LimitChaseExecution():
                         price = ask
                     leverage = 4
 
+
+                #! noobit format => then call exchange parser
                 try:
                     data = {
                         "event": "addOrder",
@@ -236,6 +243,10 @@ class LimitChaseExecution():
                         "volume": remaining_vol,
                     }
 
+
+
+                    #! will have to use the exchange parser somehow
+                    #! validate against standard Order model
                     try:
                         validated = AddOrder(**data)
                         validated_data = validated.dict()
@@ -244,6 +255,7 @@ class LimitChaseExecution():
                     except Exception as e:
                         log_exception(logger, e)
 
+                    #! pass parsed data instead
                     payload = ujson.dumps(validated_data)
                     await self.ws.send(payload)
 

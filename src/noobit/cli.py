@@ -31,8 +31,8 @@ def aggregate_historical_trades(exchange, pair):
 @click.command()
 @click.option("--exchanges", "-e", multiple=True, default=["kraken"], help="List of lowercase exchanges")
 @click.option("--pairs", "-p", multiple=True, default=["XBT-USD", "ETH-USD"], help="dash-separated uppercase pairs")
-@click.option("--private_feeds", "-prf", multiple=True, default=["ownTrades", "openOrders"], help="Private feeds to subscribe to")
-@click.option("--public_feeds", "-pbf", multiple=True, default=["orderbook"], help="Public feeds to subscribe to")
+@click.option("--private_feeds", "-prf", multiple=True, default=["trade", "order"], help="Private feeds to subscribe to")
+@click.option("--public_feeds", "-pbf", multiple=True, default=["instrument", "trade", "orderbook"], help="Public feeds to subscribe to")
 def run_feedhandler(exchanges, pairs, private_feeds, public_feeds):
     try:
         fh = FeedHandler(exchanges=exchanges,
@@ -61,10 +61,11 @@ def run_server(host, port, auto_reload):
 
 
 @click.command()
-@click.option("--strategy", "-s", help="Name of Strategy")
-@click.option("--exchange", "e", default="kraken", help="Lowercase exchange")
-@click.option("--pair", "-p", help="Dash-separated lowercase pairs")
-@click.option("--timeframe", "-tf", help="TimeFrame in minutes")
+# strategy name == file name (e.g trend_following.py => name = trend_following)
+@click.option("--strategy", "-s", help="Name of Strategy", required=True)
+@click.option("--exchange", "-e", default="kraken", help="Lowercase exchange")
+@click.option("--pair", "-p", default="xbt-usd", help="Dash-separated lowercase pairs")
+@click.option("--timeframe", "-tf", help="TimeFrame in minutes", required=True)
 @click.option("--volume", "-v", default=0, help="Volume in lots")
 def run_stratrunner(strategy, exchange, pair, timeframe, volume):
     strat_dir_path = "noobit_user.strategies"
@@ -72,23 +73,14 @@ def run_stratrunner(strategy, exchange, pair, timeframe, volume):
     strategy = import_module(strat_file_path)
 
     # every strat file needs to define the strategy class
-    strat = strategy.Strategy(exchange, [pair], timeframe, volume)
+    strat = strategy.Strategy(name="testName",
+                              strat_id=10001,
+                              description="this is a test description",
+                              exchange=exchange,
+                              pair=pair,
+                              timeframe=timeframe,
+                              volume=volume
+                              )
 
     runner = StratRunner(strats=[strat])
     runner.run()
-
-
-
-if __name__ == "__main__":
-
-    try:
-        aggregate_historical_trades()
-    except Exception as e:
-        log_exception(logger, e)
-
-
-# if __name__ == "__main__":
-#     try:
-#         asyncio.run(aggregate_historical_trades())
-#     except Exception as e:
-#         log_exception(logger, e)

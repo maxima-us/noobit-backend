@@ -83,15 +83,20 @@ def print_version(ctx, param, value):
 # added import necessary for bot
 
 
-import ujson
 import aioredis
 
 from noobit.server import settings
+from noobit.server.db_utils.account import record_new_account_update
 from noobit.server.db_utils.exchange import startup_exchange_table
-from noobit.server.db_utils.trades import startup_trades_table
-from noobit.server.db_utils.balance import startup_balance_table, record_new_balance_update
 from noobit.server.db_utils.strategy import startup_strategy_table
-from noobit.server.db_utils.update_from_ws import update_user_trades, update_user_orders, update_public_trades, update_public_spread
+from noobit.server.db_utils.update_from_ws import (
+    update_user_trades,
+    update_user_orders,
+    update_public_trades,
+    update_public_spread,
+    update_public_orderbook,
+    update_public_instrument
+)
 from noobit.server.app_startup.monit import startup_monit
 from noobit.server.monitor.heartbeat import Heartbeat
 
@@ -166,14 +171,18 @@ class Server:
         self.redis_tasks = []
         self.subscribed_channels = {}
         if sub_map is None:
-            self.sub_map = {"heartbeat": "ws:heartbeat:*",
-                            "status": "ws:status:*",
-                            "system": "ws:system:*",
-                            "user_order_updates": "ws:private:data:update:kraken:openOrders",
-                            "user_trade_updates": "ws:private:data:update:kraken:ownTrades",
-                            "public_trade_updates": "ws:public:data:update:kraken:trade:*",
-                            "public_ticker_updates": "ws:pubic:data:update:kraken:ticker",
-                            "public_spread_updates": "ws:public:data:update:kraken:spread:xbt-usd"
+            # redis channels are case sensitive
+            self.sub_map = {"public_heartbeat": "ws:public:heartbeat:*",
+                            "public_status": "ws:public:status:*",
+                            "public_system": "ws:public:system:*",
+                            "public_trade_updates": "ws:public:data:trade:update:kraken:*",
+                            "public_instrument_updates": "ws:public:data:instrument:update:kraken:XBT-USD",
+                            "public_orderbook_updates": "ws:public:data:orderbook:update:kraken:*",
+                            "private_heartbeat": "ws:private:heartbeat",
+                            "private_status": "ws:private:status:*",
+                            "private_system": "ws:private:system:*",
+                            "private_order_updates": "ws:private:data:order:update:kraken:*",
+                            "private_trade_updates": "ws:private:data:trade:update:kraken:*",
                             }
         else:
             self.sub_map = sub_map
@@ -186,23 +195,6 @@ class Server:
         # loop.run_until_complete(self.serve(sockets=sockets))
         loop.run_until_complete(self.main(sockets))
 
-        # try:
-        #     loop.run_until_complete(self.main(sockets))
-        # except KeyboardInterrupt:
-        #     self.should_exit = True
-        #     print("Keyboard Interrupt")
-        # finally:
-        #     loop = asyncio.get_event_loop()
-        #     tasks = asyncio.all_tasks(loop)
-        #     print(f"Closing tasks : {asyncio.current_task(loop)}")
-        #     for task in tasks:
-        #         task.cancel()
-        #     print("Initiating shutdown")
-        #     loop.run_until_complete(self.shutdown_server())
-        #     print("Stopping Event Loop")
-        #     loop.stop()
-        #     print("Closing Event Loop")
-        #     loop.close()
 
 
     async def main(self, sockets):
@@ -211,6 +203,7 @@ class Server:
 
         results = await asyncio.gather(*self.redis_tasks, self.serve(sockets=sockets))
         return results
+
 
 
     async def serve(self, sockets=None):
@@ -352,9 +345,8 @@ class Server:
 
     async def startup_db(self):
         await startup_exchange_table()
-        await record_new_balance_update(event="startup")
+        await record_new_account_update(event="startup")
         await startup_strategy_table()
-        # await startup_trades_table()
 
 
 
@@ -367,7 +359,7 @@ class Server:
         # con_status = await self.private_ws.connect_to_ws()
         # sub_status = await self.private_ws.subscribe()
         # aioredis pool connection to use across entire server module
-        settings.AIOREDIS_POOL = await aioredis.create_redis_pool('redis://localhost')
+        settings.AIOREDIS_POOL = await aioredis.create_redis_pool(('localhost', 6379))
         self.aioredis_pool = settings.AIOREDIS_POOL
 
         for key, channel_name in self.sub_map.items():
@@ -375,46 +367,35 @@ class Server:
             # subscription always returns a list of channels
             self.subscribed_channels[key] = subd_chan[0]
             # self.redis_tasks.append(self.consume_from_channel(key, subd_chan[0]))
+            if key == "public_orderbook_updates":
+                self.redis_tasks.append(self.consume_public_orderbook(subd_chan[0]))
             if key == "public_trade_updates":
                 self.redis_tasks.append(self.consume_public_trades(subd_chan[0]))
             if key == "public_spread_updates":
                 self.redis_tasks.append(self.consume_public_spread(subd_chan[0]))
-            if key == "user_trade_updates":
+            if key == "public_instrument_updates":
+                self.redis_tasks.append(self.consume_public_instrument(subd_chan[0]))
+            if key == "private_trade_updates":
                 self.redis_tasks.append(self.consume_user_trades(subd_chan[0]))
-            if key == "user_order_updates":
+            if key == "private_order_updates":
                 self.redis_tasks.append(self.consume_user_orders(subd_chan[0]))
 
         logger.debug(f"redis tasks : {self.redis_tasks}")
         logger.debug(f"subscribed channels : {self.subscribed_channels}")
 
 
-    async def consume_from_channel(self, key, channel):
+
+
+    async def consume_public_orderbook(self, channel):
         async for _chan, message in channel.iter():
             if self.should_exit:
                 break
 
-            # decide what we do with each message
-            # ==> if its a private trade or order we need to write to db
-
-            if key == "public_trade_updates":
-                await update_public_trades(exchange="kraken", message=message)
-
-            if key == "user_trade_updates":
-                # update trades db table
-                await update_user_trades(exchange="kraken", message=message)
-                # TODO update balance db table (remove or add the bought/sold asset)
-                #       take into account trade fees
-                # TODO update cache with new balance
-
-            if key == "user_order_updates":
-                await update_user_orders(exchange="kraken", message=message)
-                # TODO push new order to cache ?
-
-            if key == "public_spread_updates":
-                await update_public_spread(exchange="kraken", message=message)
+            await update_public_orderbook(exchange="kraken", message=message)
 
 
     async def consume_public_trades(self, channel):
+        logging.info("new_trade !! ")
         async for _chan, message in channel.iter():
             if self.should_exit:
                 break
@@ -428,6 +409,14 @@ class Server:
                 break
 
             await update_public_spread(exchange="kraken", message=message)
+
+
+    async def consume_public_instrument(self, channel):
+        async for _chan, message in channel.iter():
+            if self.should_exit:
+                break
+
+            await update_public_instrument(exchange="kraken", message=message)
 
 
     async def consume_user_trades(self, channel):
@@ -479,13 +468,14 @@ class Server:
 
         # Write balance to db every minute
         if counter % (60/tick_interval) == 0:
-            await record_new_balance_update(event="periodic")
+            # await record_new_balance_update(event="periodic")
+            await record_new_account_update(event="periodic")
 
-            holding = await self.aioredis_pool.get(f"db:balance:holdings:kraken")
-            logger.info(f"Holdings : {ujson.loads(holding)}")
-            positions = await self.aioredis_pool.get(f"db:balance:positions:kraken")
-            logger.info(f"Positions : {ujson.loads(positions)}")
-            account_value = await self.aioredis_pool.get(f"db:balance:account_value:kraken")
+            # holding = await self.aioredis_pool.get(f"db:balance:holdings:kraken")
+            # logger.info(f"Holdings : {ujson.loads(holding)}")
+            # positions = await self.aioredis_pool.get(f"db:balance:positions:kraken")
+            # logger.info(f"Positions : {ujson.loads(positions)}")
+            # account_value = await self.aioredis_pool.get(f"db:balance:account_value:kraken")
             # logger.info(f"Account value : {ujson.loads(account_value)}")
 
 

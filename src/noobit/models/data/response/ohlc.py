@@ -10,7 +10,7 @@ from noobit.models.data.base.types import PAIR
 class OhlcItem(BaseModel):
 
     symbol: PAIR
-    utcTime: datetime
+    utcTime: int
 
     open: Decimal
     high: Decimal

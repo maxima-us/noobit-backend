@@ -13,8 +13,8 @@ def parse_trades_to_list(message):
     except Exception as e:
         logging.error(e)
 
-
-    return parsed_trades
+    if parsed_trades:
+        return parsed_trades
 
 
 
@@ -31,13 +31,14 @@ def parse_single_trade(info, pair):
             "avgPx": info[0],
             "cumQty": info[1],
             "grossTradeAmt": Decimal(info[0]) * Decimal(info[1]),
-            "transactTime": info[2]*10**9,
+            "transactTime": Decimal(info[2])*10**9,
         }
 
     except Exception as e:
         logging.error(e)
 
     return parsed_trade
+
 
 # KRAKEN STREAM FORMAT (FROM DOC)
 

@@ -11,7 +11,7 @@ def parse_exposure(response):
             "marginExcess": response["mf"],
 
             "marginAmt": response["m"],
-            "marginRatio": 1/Decimal(response["ml"]),
+            "marginRatio": 1/Decimal(response.get("ml", 1)),
             "unrealisedPnL": response["n"],
         }
     except Exception as e:

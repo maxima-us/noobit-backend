@@ -101,7 +101,9 @@ async def new_api_get_open_orders(exchange: str,
                                   mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode")
                                   ):
 
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
+
+    #! handle cases where exchange is unknown to return correct error message
     api = rest_api_map[new_api_key]()
 
     response = await api.get_open_orders(mode=mode)
@@ -113,7 +115,7 @@ async def new_api_get_open_orders(exchange: str,
 async def new_api_get_closed_orders(exchange: str,
                                     mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode")
                                     ):
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
     api = rest_api_map[new_api_key]()
 
     response = await api.get_closed_orders(mode=mode)
@@ -126,7 +128,7 @@ async def new_api_get_order_by_id(exchange: str,
                                   mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode"),
                                   order_id: str = Query(..., title="orderID to query")
                                   ):
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
     api = rest_api_map[new_api_key]()
 
     response = await api.get_order(mode=mode, orderID=order_id)
@@ -137,7 +139,7 @@ async def new_api_get_order_by_id(exchange: str,
 async def new_api_get_trades(exchange: str,
                              mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode")
                              ):
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
     api = rest_api_map[new_api_key]()
 
     response = await api.get_user_trades(mode=mode)
@@ -148,7 +150,7 @@ async def new_api_get_single_trade(exchange: str,
                                    mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode"),
                                    trade_id: str = Query(..., title="trdMatchID to query")
                                    ):
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
     api = rest_api_map[new_api_key]()
 
     response = await api.get_user_trade_by_id(mode=mode, trdMatchID=trade_id)
@@ -160,7 +162,7 @@ async def new_api_get_ohlc(exchange: str,
                        symbol: str = Query(..., title="symbol"),
                        timeframe: int = Query(..., title="candle timeframe")
                        ):
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
     api = rest_api_map[new_api_key]()
 
     response = await api.get_ohlc(symbol=symbol, timeframe=int(timeframe))
@@ -172,7 +174,7 @@ async def new_api_get_ohlc(exchange: str,
 async def new_api_get_public_trades(exchange: str,
                                     symbol: str = Query(..., title="symbol"),
                                     ):
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
     api = rest_api_map[new_api_key]()
 
     response = await api.get_public_trades(symbol=symbol)
@@ -183,7 +185,7 @@ async def new_api_get_public_trades(exchange: str,
 async def new_api_get_orderbook(exchange: str,
                                 symbol: str = Query(..., title="symbol"),
                                 ):
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
     api = rest_api_map[new_api_key]()
 
     response = await api.get_orderbook(symbol=symbol)
@@ -194,7 +196,7 @@ async def new_api_get_orderbook(exchange: str,
 async def new_api_get_instrument(exchange: str,
                                  symbol: str = Query(..., title="symbol")
                                  ):
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
     api = rest_api_map[new_api_key]()
 
     response = await api.get_instrument(symbol=symbol)
@@ -207,7 +209,7 @@ async def new_api_get_open_positions(exchange: str,
                                      mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode"),
                                      symbol: str = Query(..., title="symbol")
                                      ):
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
     api = rest_api_map[new_api_key]()
 
     response = await api.get_open_positions(symbol=symbol, mode=mode)
@@ -219,7 +221,7 @@ async def new_api_get_closed_positions(exchange: str,
                                        mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode"),
                                        symbol: str = Query(..., title="symbol")
                                        ):
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
     api = rest_api_map[new_api_key]()
 
     response = await api.get_closed_positions(symbol=symbol, mode=mode)
@@ -229,7 +231,7 @@ async def new_api_get_closed_positions(exchange: str,
 @router.get('/new_api/balances/{exchange}', response_class=UJSONResponse)
 async def new_api_get_balances(exchange: str,
                                        ):
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
     api = rest_api_map[new_api_key]()
 
     response = await api.get_balances()
@@ -239,7 +241,7 @@ async def new_api_get_balances(exchange: str,
 @router.get('/new_api/exposure/{exchange}', response_class=UJSONResponse)
 async def new_api_get_exposure(exchange: str,
                                        ):
-    new_api_key = f"new_{exchange}"
+    new_api_key = f"{exchange}"
     api = rest_api_map[new_api_key]()
 
     response = await api.get_exposure()

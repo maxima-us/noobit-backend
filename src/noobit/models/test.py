@@ -65,11 +65,42 @@ class _OrdersPydantic(BaseModel):
 #================================================================================
 #================================================================================
 
-pydord = OrderPydantic(price='130.44')
-print(pydord)
+# pydord = OrderPydantic(price='130.44')
+# print(pydord)
 
-order = Order(price=130.33442534325)._validate()
-print(order)
+# order = Order(price=130.33442534325)._validate()
+# print(order)
 
-testorders = Orders(orders=[order, order, order])
-print(testorders.data)
+# testorders = Orders(orders=[order, order, order])
+# print(testorders.data)
+
+
+
+class BaseError(Exception):
+
+    def __init__(self, endpoint: str, data: dict):
+        self.endpoint = endpoint
+        self.data = data
+        self.accept = True
+        self.sleep = None
+
+        msg = f"Endpoint: {self.endpoint} - Data: {self.data}"
+        super().__init__(msg)
+
+
+class DDoSProtection(BaseError):
+    accept = False
+    sleep = 60
+
+
+# try:
+#     raise BaseError(endpoint="kraken.com", data={"orderID": "lol"})
+# except Exception as e:
+#     print(stackprinter.format(e, style="darkbg2"))
+
+
+if True:
+    err = BaseError(endpoint="kraken.com", data={"1 == 2"})
+    print("message: ", err)
+    raise err
+    # raise ValueError("Constant Value not accepted in conditional statement")

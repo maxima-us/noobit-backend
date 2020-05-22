@@ -1,7 +1,6 @@
 import logging
 from decimal import Decimal
 
-from pydantic import ValidationError
 import stackprinter
 
 from noobit.server import settings

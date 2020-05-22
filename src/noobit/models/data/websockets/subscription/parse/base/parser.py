@@ -4,5 +4,9 @@ class BaseSubParser(ABC):
 
 
     @abstractmethod
-    def parse(self, pairs, timeframe, depth, feed) -> dict:
+    async def public(self, pairs, timeframe, depth, feed) -> dict:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def private(self, pairs, feed) -> dict:
         raise NotImplementedError

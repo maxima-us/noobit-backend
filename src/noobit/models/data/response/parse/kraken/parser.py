@@ -1,6 +1,6 @@
 from typing_extensions import Literal
 
-from noobit.models.data.base.types import PAIR, TIMEFRAME
+from noobit.models.data.base.types import PAIR
 from noobit.models.data.response.parse.base import BaseResponseParser
 
 from .orders import parse_orders_to_list, parse_orders_by_id
@@ -22,7 +22,7 @@ class KrakenResponseParser(BaseResponseParser):
         return handle_error_messages(response, endpoint, data)
 
 
-    def orders(self, response, mode: Literal["to_list", "by_id"], symbol: str = None):
+    def orders(self, response, mode: Literal["to_list", "by_id"], symbol: PAIR = None):
         if mode == "to_list":
             return parse_orders_to_list(response, symbol)
 
@@ -30,7 +30,7 @@ class KrakenResponseParser(BaseResponseParser):
             return parse_orders_by_id(response, symbol)
 
 
-    def user_trades(self, response, mode: Literal["to_list", "by_id"], symbol: str = None):
+    def user_trades(self, response, mode: Literal["to_list", "by_id"], symbol: PAIR = None):
         if mode == "to_list":
             return parse_user_trades_to_list(response, symbol)
 
@@ -38,7 +38,7 @@ class KrakenResponseParser(BaseResponseParser):
             return parse_user_trades_by_id(response, symbol)
 
 
-    def open_positions(self, response, mode: Literal["to_list", "by_id"], symbol: str = None):
+    def open_positions(self, response, mode: Literal["to_list", "by_id"], symbol: PAIR = None):
         if mode == "to_list":
             return parse_open_positions_to_list(response)
 
@@ -46,7 +46,7 @@ class KrakenResponseParser(BaseResponseParser):
             return parse_open_positions_by_id(response)
 
 
-    def closed_positions(self, response, mode: Literal["to_list", "by_id"], symbol: str = None):
+    def closed_positions(self, response, mode: Literal["to_list", "by_id"], symbol: PAIR = None):
         if mode == "to_list":
             return parse_closed_positions_to_list(response)
 
@@ -54,12 +54,12 @@ class KrakenResponseParser(BaseResponseParser):
             return parse_closed_positions_by_id(response)
 
 
-    def balances(self, response, symbol: str = None):
+    def balances(self, response, symbol: PAIR = None):
         return parse_balances(response)
 
 
     def exposure(self, response):
-       return parse_exposure(response)
+        return parse_exposure(response)
 
 
 

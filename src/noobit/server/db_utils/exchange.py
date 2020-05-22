@@ -5,6 +5,8 @@ import stackprinter
 from noobit.server import settings
 from noobit.models.orm import Exchange
 
+
+
 async def startup_exchange_table():
     '''
     instantiate table if the passed dict is empty \t

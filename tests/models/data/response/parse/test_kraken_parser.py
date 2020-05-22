@@ -135,11 +135,11 @@ response = '''{"open": {
 
 def test_parse_order_response_to_list(response=response, symbol=None, mode="to_list"):
 
-    resp_parse = KrakenResponseParser()
+    resp_parser = KrakenResponseParser()
 
     try:
         response = ujson.loads(response)
-        parsed_list = resp_parse.order(response, symbol, mode)
+        parsed_list = resp_parser.orders(response, mode, symbol)
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))
 
@@ -157,11 +157,11 @@ def test_parse_order_response_to_list(response=response, symbol=None, mode="to_l
 
 def test_parse_order_response_by_id(response=response, symbol=None, mode="by_id"):
 
-    resp_parse = KrakenResponseParser()
+    resp_parser = KrakenResponseParser()
 
     try:
         response = ujson.loads(response)
-        parsed_dict = resp_parse.order(response, symbol, mode)
+        parsed_dict = resp_parser.orders(response, mode, symbol)
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))
 

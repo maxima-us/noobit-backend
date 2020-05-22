@@ -41,6 +41,7 @@ mapping = {
                         "open_orders": "OpenOrders",
                         "closed_orders": "ClosedOrders",
                         "trades_history": "TradesHistory",
+                        "closed_positions": "TradesHistory",
                         "ledger": "Ledgers",
                         "order_info": "QueryOrders",
                         "trades_info": "QueryTrades",

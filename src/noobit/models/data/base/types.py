@@ -191,6 +191,7 @@ WS_ROUTE = [
     "instrument",
     "orderbook",
     "spread",
+    "order",
 
     "data"
 ]
