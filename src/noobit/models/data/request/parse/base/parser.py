@@ -3,7 +3,7 @@ from typing import Optional
 
 from typing_extensions import Literal
 
-from noobit.models.data.base.types import PAIR, TIMEFRAME
+from noobit.models.data.base.types import PAIR, TIMEFRAME, TIMESTAMP
 
 
 class BaseRequestParser(ABC):
@@ -43,6 +43,7 @@ class BaseRequestParser(ABC):
     @abstractmethod
     def public_trades(self,
                       symbol: PAIR,
+                      since: TIMESTAMP
                       ) -> dict:
         raise NotImplementedError
 

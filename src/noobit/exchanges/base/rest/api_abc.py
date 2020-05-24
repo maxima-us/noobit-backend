@@ -70,3 +70,10 @@ class APIAbc(ABC):
     #     Needs to return none if there is an error and the data if there was no error.
     #     '''
     #     raise NotImplementedError
+
+
+    @abstractmethod
+    def aggregate_historical_trades(self, pair: list):
+        """aggregate all historical trades to feed to backtesting engine
+        """
+        raise NotImplementedError

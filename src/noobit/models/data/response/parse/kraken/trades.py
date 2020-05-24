@@ -11,19 +11,23 @@ def parse_public_trades(response):
 
     try:
         key = list(response.keys())[0]
-        response = response[key]
+        last = int(response["last"])
+        raw_trades = response[key]
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))
 
 
     try:
         parsed_trades = [
-            parse_single_trade(item, key) for item in response
+            parse_single_trade(item, key) for item in raw_trades
         ]
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))
 
-    return parsed_trades
+    return {
+        "data": parsed_trades,
+        "last": last
+    }
 
 
 

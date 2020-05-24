@@ -21,7 +21,7 @@ from noobit.server import settings
 from noobit.logging.structlogger import get_logger
 
 # models
-from noobit.models.data.base.types import PAIR, TIMEFRAME
+from noobit.models.data.base.types import PAIR, TIMEFRAME, TIMESTAMP
 from noobit.models.data.base.errors import ErrorHandlerResult, BaseError, OKResult, ErrorResult
 from noobit.models.data.base.response import NoobitResponse, OKResponse, ErrorResponse
 from noobit.models.data.response.order import OrdersList, OrdersByID
@@ -472,12 +472,13 @@ class APIBase():
 
     async def get_public_trades(self,
                                 symbol: PAIR,
+                                since: TIMESTAMP = None,
                                 retries: int = 1
                                 ) -> NoobitResponse:
         """Get data on public trades. Response value is a list with each item being a dict that
         corresponds to the data for a single trade.
         """
-        data = self.request_parser.public_trades(symbol.upper())
+        data = self.request_parser.public_trades(symbol.upper(), since)
 
         result = await self.query_public(method="trades", data=data, retries=retries)
 
@@ -487,7 +488,7 @@ class APIBase():
             parsed_response = self.response_parser.trades(response=result.value)
             # not all pydantic models have <data> as only field
             # so we need to specify the field here to make it work for all models
-            return self.public_trade_validate_and_serialize({"data": parsed_response})
+            return self.public_trade_validate_and_serialize({"data": parsed_response["data"], "last": parsed_response["last"]})
 
 
     # ================================================================================
@@ -700,7 +701,9 @@ class APIBase():
             parsed_response = self.response_parser.user_trades(response=result.value, symbol=symbol, mode=mode)
             # not all pydantic models have <data> as only field
             # so we need to specify the field here to make it work for all models
-            return self.user_trade_validate_and_serialize(mode, {"data": parsed_response})
+            return self.user_trade_validate_and_serialize(
+                mode, {"data": parsed_response["data"], "last": parsed_response["last"]}
+            )
 
 
 
@@ -752,7 +755,7 @@ class APIBase():
         """
         if symbol is not None:
             symbol = symbol.upper()
-        data = self.request_parser.open_positions(mode, symbol)
+        data = self.request_parser.open_positions(symbol)
 
         result = await self.query_private(method="open_positions", data=data, retries=retries)
 
@@ -775,7 +778,7 @@ class APIBase():
 
         if symbol is not None:
             symbol = symbol.upper()
-        data = self.request_parser.closed_positions(mode, symbol)
+        data = self.request_parser.closed_positions(symbol)
 
         result = await self.query_private(method="closed_positions", data=data, retries=retries)
 

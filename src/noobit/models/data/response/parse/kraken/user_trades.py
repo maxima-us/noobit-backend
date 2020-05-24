@@ -28,7 +28,7 @@ def parse_user_trades_to_list(response, symbol):
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))
 
-    return parsed_trades
+    return {"data": parsed_trades, "last": None}
 
 
 
@@ -54,7 +54,7 @@ def parse_user_trades_by_id(response, symbol):
     except Exception as e:
         logging.error(stackprinter.format(e, style="darkbg2"))
 
-    return parsed_trades
+    return {"data": parsed_trades, "last": None}
 
 
 def parse_single_trade(key, value):

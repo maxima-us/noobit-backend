@@ -6,7 +6,9 @@ from pydantic import BaseModel, Field
 
 
 
-from noobit.models.data.base.types import ORDERSTATUS, ORDERTYPE, ORDERSIDE, PERCENT, PAIR, TIMESTAMP, FILLS
+from noobit.models.data.base.types import (
+    ORDERSIDE, ORDERTYPE, PAIR, TIMESTAMP
+)
 
 
 # FIX Trade Capture Report: https://www.onixs.biz/fix-dictionary/4.4/msgtype_ae_6569.html
@@ -94,6 +96,7 @@ class Trade(BaseModel):
 
 class TradesList(BaseModel):
     data: List[Trade]
+    last: Optional[TIMESTAMP] = Field(...)
 
 
 class TradesByID(BaseModel):

@@ -10,29 +10,36 @@ import hmac
 import os
 import asyncio
 from collections import deque
-
 import logging
+
 import stackprinter
 import requests
 from dotenv import load_dotenv
 from starlette import status
+import pandas as pd
 
-# mappings
-from .endpoints_map import mapping
+from noobit_user import get_abs_path
+
+# logger
+from noobit.logging.structlogger import get_logger, log_exception
 
 # base classes
 from noobit.exchanges.base.rest import BaseRestAPI
 
 # models
+from noobit.models.data.base.types import PAIR
 from noobit.models.data.base.response import OKResponse, ErrorResponse
 
 # parsers
 from noobit.models.data.response.parse.kraken import KrakenResponseParser
 from noobit.models.data.request.parse.kraken import KrakenRequestParser
 
+# mappings
+from .endpoints_map import mapping
+
 load_dotenv()
 
-
+structlogger = get_logger(__name__)
 # derived from krakenex https://github.com/veox/python3-krakenex/blob/master/krakenex/api.py
 
 
@@ -262,79 +269,123 @@ class KrakenRestAPI(BaseRestAPI):
     # ==== AGGREGATE HISTRICAL TRADES IF THERE IS NO DIRECT ENDPOINT
     # ================================================================================
 
-
-
-    async def write_historical_trades_to_csv(self, pair: list):
+    async def aggregate_historical_trades(self, symbol: PAIR):
         """
         kraken does not provide historical ohlc data
         ==> aggregate all historical trades into ohlc
-        """
 
-        file_path = f"data/{self.exchange.lower()}_{pair[0]}_historical_trade_data.csv"
+        Note:
+            So far this is very slow, since we use the get_public_trades method from the API.
+            The method is public and Krakens rate limits are very low for public requests.
+            Eventually, change this to make an authenticated requests.
+        """
+        noobit_user_path = get_abs_path()
+        file_path = f"{noobit_user_path}/data/{self.exchange.lower()}_{symbol}_historical_trade_data_fix_api.csv"
 
         # init
         since = 0
         count = 0
 
+        parsed_response = await self.get_public_trades(symbol=symbol)
+        most_recent_trades = parsed_response.value["data"]
+        most_recent_last = parsed_response.value["last"]
+
         # verify data validity
         try:
             df = pd.read_csv(file_path,
-                             names=["price", "volume", "time", "side", "type", "misc"],
+                             names=[
+                                 "symbol",
+                                 "side",
+                                 "ordType",
+                                 "avgPx",
+                                 "cumQty",
+                                 "grossTradeAmt",
+                                 "transactTime",
+                             ],
                             #  header=None,
                             #  skiprows=1
                              )
-            # logging.info(df.head(10))
-            logging.info(df.tail(10))
-            # logging.info(df.dtypes)
+            structlogger.info(df.tail(10))
 
             # get index for row with highest timestamp
-            max_ts = df["time"].max()
-            [max_ts_index] = df.index[df["time"] == max_ts].tolist()
+            max_ts = df["transactTime"].max()
+            structlogger.info(f"most recent timestamp:  {max_ts}")
 
+            [max_ts_index] = df.index[df["transactTime"] == max_ts].tolist()
+            structlogger.info(f"corresponding index: {max_ts_index}")
             # drop row where index > max_ts_index
             # (means they were wrongly appended to file)
-            df = df[(df["time"] < max_ts) & (df.index < max_ts_index)]
+            df = df[(df["transactTime"] <= max_ts) & (df.index <= max_ts_index)]
 
             # overwrite
             df.to_csv(path_or_buf=file_path,
                       mode="w",
                       header=False,
-                      index=False
+                      index=False,
                       )
 
-            since = int(df["time"].iloc[-1] * 10**9)
-            # logging.info(df.head(10))
-            logging.info(df.tail(10))
-            logging.info(f"Last trade entry written to csv for date : {pd.to_datetime(since)}")
+            since = df["transactTime"].iloc[-1]
+            structlogger.info(df.tail(10))
+            structlogger.info(f"Datetime of last Trade entry: {pd.to_datetime(since)}")
+
         except FileNotFoundError as e:
-            logging.warning("CSV file does not exist")
+            structlogger.warning("CSV file does not exist")
+            structlogger.warning("Creating file and populating with latest trades data")
+            since_0_trades = await self.get_public_trades(symbol, since=0)
+            trades_df = pd.DataFrame(since_0_trades.value["data"])
+            trades_df = trades_df.drop(
+                [
+                    "trdMatchID",
+                    "orderID",
+                    "clOrdID",
+                    "commission",
+                    "tickDirection",
+                    "text"
+                ],
+                axis=1
+            )
+            trades_df.to_csv(path_or_buf=file_path,
+                             mode="w",
+                             header=False,
+                             index=False,
+                             )
+
         except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
+            log_exception(structlogger, e)
 
 
-        logging.info(f"since: {since} --- type: {type(since)}")
-
-        most_recent_trades = await self.get_trades(pair=pair)
-        most_recent_last = most_recent_trades["last"]
 
         try:
             while since < most_recent_last:
-                trades = await self.get_trades(pair=pair, since=since)
-                trades_df = pd.DataFrame(trades["data"])
+                #! get_public_trades has no since arg yet, need to add it
+                trades = await self.get_public_trades(symbol=symbol, since=since)
+                #! now returns data under a different format
+                trades_df = pd.DataFrame(trades.value["data"])
+                trades_df = trades_df.drop(
+                    [
+                        "trdMatchID",
+                        "orderID",
+                        "clOrdID",
+                        "commission",
+                        "tickDirection",
+                        "text"
+                    ],
+                    axis=1
+                )
                 trades_df.to_csv(path_or_buf=file_path,
                                  mode="a",
                                  header=False,
-                                 index=False
+                                 index=False,
                                  )
-                count += len(trades["data"])
-                since = trades["last"]
+                count += len(trades.value["data"])
+                since = trades.value["last"]
                 # otherwise we will get rate limited
                 await asyncio.sleep(2)
-                custom_logger.info(f"count : {count}")
-                custom_logger.info(pd.to_datetime(int(since)))
+                structlogger.info(f"count : {count}")
+                structlogger.info(pd.to_datetime(int(since)))
         except KeyboardInterrupt:
             pass
         except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
+            log_exception(structlogger, e)
 
         return {"count": count}

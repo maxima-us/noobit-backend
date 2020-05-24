@@ -16,16 +16,17 @@ logger = get_logger(__name__)
 
 @click.command()
 @click.option("--exchange", "-e", default="kraken", help="Lowercase exchange")
-@click.option("--pair", "-p", help="Dash-separated lowercase pair")
+@click.option("--pair", "-p", required=True, help="Dash-separated lowercase pair")
 def aggregate_historical_trades(exchange, pair):
     api = rest_api_map[exchange]()
     api.session = httpx.AsyncClient()
-    try:
-        asyncio.run(api.write_historical_trades_to_csv(pair=[pair]))
-    except KeyboardInterrupt:
-        pass
-    except Exception as e:
-        log_exception(logger, e)
+    asyncio.run(api.aggregate_historical_trades(symbol=pair))
+    # try:
+    #     asyncio.run(api.aggregate_historical_trades(symbol=pair))
+    # except KeyboardInterrupt:
+    #     pass
+    # except Exception as e:
+    #     log_exception(logger, e)
 
 
 @click.command()

@@ -9,6 +9,7 @@ import pandas as pd
 
 import stackprinter
 
+from noobit.models.data.base.types import TIMESTAMP
 from noobit.models.data.base.response import NoobitResponse
 
 # ==== PyTest Fixtures
@@ -80,7 +81,8 @@ async def test_get_user_trades_to_list(api):
 
     assert isinstance(resp, NoobitResponse), resp
     assert isinstance(resp.status_code, int), resp.status_code
-    assert isinstance(resp.value, list), resp.value
+    assert isinstance(resp.value["data"], list), resp.value
+    assert isinstance(resp.value["last"], (TIMESTAMP, type(None)))
 
 
 @pytest.mark.asyncio

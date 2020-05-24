@@ -2,7 +2,7 @@ from typing import Optional, Any
 
 from typing_extensions import Literal
 
-from noobit.models.data.base.types import PAIR, TIMEFRAME
+from noobit.models.data.base.types import PAIR, TIMESTAMP, TIMEFRAME
 from noobit.models.data.request.parse.base import BaseRequestParser
 from .orders import open_orders, closed_orders, order
 from .user_trades import parse_user_trades
@@ -37,22 +37,20 @@ class KrakenRequestParser(BaseRequestParser):
 
     def user_trades(self,
                     mode: Optional[Literal["to_list", "by_id"]] = None,
+                    symbol: Optional[PAIR] = None,
                     trdMatchID: Optional[str] = None,
-                    symbol: Optional[PAIR] = None
                     ):
 
         return parse_user_trades(trdMatchID)
 
 
     def open_positions(self,
-                       mode: Literal["to_list", "by_id"] = "to_list",
                        symbol: Optional[PAIR] = None
                        ):
         return parse_open_positions()
 
 
     def closed_positions(self,
-                         mode: Literal["to_list", "by_id"] = "to_list",
                          symbol: Optional[PAIR] = None
                          ):
         return parse_closed_positions()
@@ -72,9 +70,10 @@ class KrakenRequestParser(BaseRequestParser):
 
 
     def public_trades(self,
-               symbol: PAIR
-               ):
-        return parse_public_trades(symbol)
+                      symbol: PAIR,
+                      since: TIMESTAMP
+                      ):
+        return parse_public_trades(symbol, since)
 
 
     def orderbook(self,
