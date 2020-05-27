@@ -1,6 +1,7 @@
 aiofiles
 aioredis==1.3.1
 aiosqlite==0.11.0                        # indirect dependency of tortoise-orm
+backtrader==1.9.74.123
 click==7.0
 colorama
 fastapi==0.45.0
@@ -15,6 +16,7 @@ python-dotenv==0.10.5
 pandas==0.25.3
 redis
 requests==2.22.0
+simplejson==3.17.0
 stackprinter==0.2.3
 structlog==20.1.0
 tortoise-orm==0.15.23

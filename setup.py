@@ -57,6 +57,7 @@ setup(
             'noobit-feedhandler=noobit.cli:run_feedhandler',
             'noobit-server=noobit.cli:run_server',
             'noobit-stratrunner=noobit.cli:run_stratrunner',
+            'noobit-backtester=noobit.cli:run_backtester',
             # noobit user module
             'noobit-add-keys=noobit_user.cli:open_env_file',
             'noobit-add-strategy=noobit_user.cli:create_user_strategy'

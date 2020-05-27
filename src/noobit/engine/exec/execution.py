@@ -6,13 +6,16 @@ import aioredis
 import ujson
 
 from noobit.logging.structlogger import get_logger, log_exception
-from noobit.models.data.send.websockets import AddOrder, CancelOrder
+from noobit.models.data.websockets.deprecated_orders import AddOrder, CancelOrder
 
 logger = get_logger(__name__)
 
 
 
 class AsyncState():
+
+    #! should we use a pydantic model for this too ? 
+    #! ==> probably !!!
 
     def __init__(self, pair):
         self.current = {
@@ -35,17 +38,20 @@ class LimitChaseExecution():
     basic example of a limit chase execution
     """
 
-    def __init__(self, exchange, pair, ws, ws_token, strat_id, pair_decimals, order_life: float = None, sub_map: dict = None):
+    def __init__(self, exchange, pair, ws, ws_token, pair_decimals, order_life: float = None, sub_map: dict = None):
+        #! map exchange to exchange parsers
+        #! for that we will need to map all parsers in exchanges.mappings / or in models.data
         self.exchange = exchange
         self.pair = pair[0].lower()
         self.aioredis_pool = None
 
         self.ws = ws
         self.ws_token = ws_token
-        self.strat_id = strat_id
+        # self.strat_id = strat_id
 
         # decimal precision allowed for given pair
         # see kraken doc : https://support.kraken.com/hc/en-us/articles/360001389366-Price-and-volume-decimal-precision
+        #! we should get this at init of strat like for api
         self.pair_decimals = pair_decimals
 
         # how long an order should be allowed to stay alive before we cancel it
@@ -88,7 +94,7 @@ class LimitChaseExecution():
                             "user_order_updates": f"ws:private:data:update:{self.exchange}:openOrders",
                             "user_trade_updates": f"ws:private:data:update:{self.exchange}:ownTrades",
                             "public_trade_updates": f"ws:public:data:update:{self.exchange}:trade:{self.pair}",
-                            "public_ticker_updates": f"ws:pubic:data:update:{self.exchange}:ticker",
+                            "public_ticker_updates": f"ws:public:data:update:{self.exchange}:ticker",
                             "public_spread_updates": f"ws:public:data:update:{self.exchange}:spread:{self.pair}",
                             }
         else:
@@ -224,17 +230,23 @@ class LimitChaseExecution():
                         price = ask
                     leverage = 4
 
+
+                #! noobit format => then call exchange parser
                 try:
                     data = {
                         "event": "addOrder",
                         "token": self.ws_token["token"],     # we need to get this from strat instance that Exec is binded to
-                        "userref": self.strat_id,    # we need to get this from strat instance that Exec is binded to
+                        # "userref": self.strat_id,    # we need to get this from strat instance that Exec is binded to
                         "ordertype": "limit",
                         "type": side,
                         "pair": pair.replace("-", "/").upper(),
                         "volume": remaining_vol,
                     }
 
+
+
+                    #! will have to use the exchange parser somehow
+                    #! validate against standard Order model
                     try:
                         validated = AddOrder(**data)
                         validated_data = validated.dict()
@@ -243,6 +255,7 @@ class LimitChaseExecution():
                     except Exception as e:
                         log_exception(logger, e)
 
+                    #! pass parsed data instead
                     payload = ujson.dumps(validated_data)
                     await self.ws.send(payload)
 

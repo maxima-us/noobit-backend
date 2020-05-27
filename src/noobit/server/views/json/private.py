@@ -1,4 +1,7 @@
+from noobit.models.data.base.types import PAIR, TIMEFRAME
+from starlette.responses import JSONResponse
 from typing import List
+from typing_extensions import Literal
 
 from noobit.server.views import APIRouter, Query, UJSONResponse
 from noobit.exchanges.mappings import rest_api_map
@@ -84,6 +87,173 @@ async def get_positions(exchange: str,
 @router.get('/ledger/{exchange}', response_class=UJSONResponse)
 async def get_trade_ledger(exchange: str):
     pass
+
+
+
+
+
+# ================================================================================
+# ==== NEW API
+# ================================================================================
+
+@router.get('/new_api/open_orders/{exchange}', response_class=UJSONResponse)
+async def new_api_get_open_orders(exchange: str,
+                                  mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode")
+                                  ):
+
+    new_api_key = f"{exchange}"
+
+    #! handle cases where exchange is unknown to return correct error message
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_open_orders(mode=mode)
+    return UJSONResponse(status_code=response.status_code, content=response.value)
+    # return response.value
+
+
+@router.get('/new_api/closed_orders/{exchange}', response_class=UJSONResponse)
+async def new_api_get_closed_orders(exchange: str,
+                                    mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode")
+                                    ):
+    new_api_key = f"{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_closed_orders(mode=mode)
+    return response
+
+
+
+@router.get('/new_api/order/{exchange}', response_class=UJSONResponse)
+async def new_api_get_order_by_id(exchange: str,
+                                  mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode"),
+                                  order_id: str = Query(..., title="orderID to query")
+                                  ):
+    new_api_key = f"{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_order(mode=mode, orderID=order_id)
+    return response
+
+
+@router.get('/new_api/trades/{exchange}', response_class=UJSONResponse)
+async def new_api_get_trades(exchange: str,
+                             mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode")
+                             ):
+    new_api_key = f"{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_user_trades(mode=mode)
+    return response
+
+@router.get('/new_api/trade/{exchange}', response_class=UJSONResponse)
+async def new_api_get_single_trade(exchange: str,
+                                   mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode"),
+                                   trade_id: str = Query(..., title="trdMatchID to query")
+                                   ):
+    new_api_key = f"{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_user_trade_by_id(mode=mode, trdMatchID=trade_id)
+    return response
+
+
+@router.get('/new_api/ohlc/{exchange}', response_class=UJSONResponse)
+async def new_api_get_ohlc(exchange: str,
+                       symbol: str = Query(..., title="symbol"),
+                       timeframe: int = Query(..., title="candle timeframe")
+                       ):
+    new_api_key = f"{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_ohlc(symbol=symbol, timeframe=int(timeframe))
+    return response
+
+
+
+@router.get('/new_api/public_trades/{exchange}', response_class=UJSONResponse)
+async def new_api_get_public_trades(exchange: str,
+                                    symbol: str = Query(..., title="symbol"),
+                                    ):
+    new_api_key = f"{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_public_trades(symbol=symbol)
+    return response
+
+
+@router.get('/new_api/orderbook/{exchange}', response_class=UJSONResponse)
+async def new_api_get_orderbook(exchange: str,
+                                symbol: str = Query(..., title="symbol"),
+                                ):
+    new_api_key = f"{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_orderbook(symbol=symbol)
+    return response
+
+
+@router.get('/new_api/instrument/{exchange}', response_class=UJSONResponse)
+async def new_api_get_instrument(exchange: str,
+                                 symbol: str = Query(..., title="symbol")
+                                 ):
+    new_api_key = f"{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_instrument(symbol=symbol)
+    return response
+
+
+
+@router.get('/new_api/positions/open/{exchange}', response_class=UJSONResponse)
+async def new_api_get_open_positions(exchange: str,
+                                     mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode"),
+                                     symbol: str = Query(..., title="symbol")
+                                     ):
+    new_api_key = f"{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_open_positions(symbol=symbol, mode=mode)
+    return response
+
+
+@router.get('/new_api/positions/closed/{exchange}', response_class=UJSONResponse)
+async def new_api_get_closed_positions(exchange: str,
+                                       mode: Literal["by_id", "to_list"] = Query(..., title="Sorting mode"),
+                                       symbol: str = Query(..., title="symbol")
+                                       ):
+    new_api_key = f"{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_closed_positions(symbol=symbol, mode=mode)
+    return response
+
+
+@router.get('/new_api/balances/{exchange}', response_class=UJSONResponse)
+async def new_api_get_balances(exchange: str,
+                                       ):
+    new_api_key = f"{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_balances()
+    return response
+
+
+@router.get('/new_api/exposure/{exchange}', response_class=UJSONResponse)
+async def new_api_get_exposure(exchange: str,
+                                       ):
+    new_api_key = f"{exchange}"
+    api = rest_api_map[new_api_key]()
+
+    response = await api.get_exposure()
+    return response
+
+
+
+
+# ================================================================================
+# ==== UNDECIDED
+# ================================================================================
+
 
 
 #! do we even need to set this as an api endpoint or do we just need the request for the bot ?

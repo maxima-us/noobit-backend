@@ -1,10 +1,13 @@
-import time
 from tortoise import fields, models
+
+from noobit.models.orm.strategy import Strategy
+
 
 #!  on startup we need to audit order table, to see if we are up to date
 #!  also log performance (meaning delta between initial func call and end)
 
-
+# ORDER ORM Model that conforms to our pydantic response model
+# We should always validate and serialize with pydantic before writing to db
 class Order(models.Model):
 
     # surrogate primary key
@@ -12,50 +15,66 @@ class Order(models.Model):
 
     # id of order (dependant on exchange)
     # avoid calling any parameter "id": tortoise reserves it for primary keys
-    order_id = fields.CharField(max_length=30)
-    pair = fields.CharField(max_length=10)
-    # status of order (pending, open, cancelled, filled)
-    status = fields.CharField(max_length=30, default="pending")
-    # type of order (market, limit, takeprofit, stoploss)
-    type = fields.CharField(max_length=30)
-    # side or order (long, short)
+    # fields need to be unique for it to be a reverse relation to a FK
+    orderID = fields.CharField(max_length=30, unique=True)
+
+    symbol = fields.CharField(max_length=10)
+    currency = fields.CharField(max_length=10)
     side = fields.CharField(max_length=5)
+    ordType = fields.CharField(max_length=30)
+    execInst = fields.CharField(max_length=20, null=True)
 
-    time_open = fields.BigIntField()
-    time_start = fields.BigIntField(null=True)
-    time_expire = fields.BigIntField(null=True)
-    # time at which the order was recorded in the db
-    time_recorded = fields.BigIntField(default=time.time_ns())
-    # time at which order has been completely filled
-    time_executed = fields.BigIntField(null=True)
+    clOrdID = fields.CharField(max_length=30, null=True)
+    account = fields.CharField(max_length=30, null=True)
+    cashMargin = fields.CharField(max_length=10)
 
-    # total volume of the order
-    volume_total = fields.FloatField()
-    # volume that was filled so far
-    volume_filled = fields.FloatField()
-    # limit entry price (if market than it will be 0)
-    price_limit = fields.FloatField(null=True)
-    # take profit price
-    price_tp = fields.FloatField(null=True)
-    # stop loss price
-    price_sl = fields.FloatField(null=True)
-    # average fill price for order
-    price_avg_fill = fields.FloatField(null=True)
-    leverage = fields.SmallIntField(null=True)
+    ordStatus = fields.CharField(max_length=30, default="new")
 
+    workingIndicator = fields.BooleanField()
+    ordRejReason = fields.CharField(max_length=100, null=True)
 
-    # foreign key relationships (must contain suffix "_id")
+    timeInForce = fields.CharField(max_length=20, null=True)
+    transactTime = fields.BigIntField(null=True)
+    sendingTime = fields.BigIntField(null=True)
+    effectiveTime = fields.BigIntField(null=True)
+    validUntilTime = fields.BigIntField(null=True)
+    expireTime = fields.BigIntField(null=True)
+
+    displayQty = fields.FloatField(null=True)
+    grossTradeAmt = fields.FloatField(null=True)
+    orderQty = fields.FloatField(null=True)
+    cashOrderQty = fields.FloatField(null=True)
+    orderPercent = fields.IntField(null=True)
+    cumQty = fields.FloatField(null=True)
+    leavesQty = fields.FloatField(null=True)
+    commission = fields.FloatField(null=True)
+
+    price = fields.FloatField(null=True)
+    stopPx = fields.FloatField(null=True)
+    avgPx = fields.FloatField(null=True)
+
+    marginRatio = fields.FloatField()
+    marginAmt = fields.FloatField()
+    realisedPnL = fields.FloatField()
+    unrealisedPnL = fields.FloatField()
+
+    # be careful since pydantic model is a list of Fill Models
+    fills = fields.JSONField(null=True)
+
+    text = fields.JSONField(null=True)
+
+    # targetStrategy = fields.ForeignKeyField("models.Strategy")
+    targetStrategy: fields.ForeignKeyRelation[Strategy] = fields.ForeignKeyField("models.Strategy",
+                                                                       related_name="trade",
+                                                                       to_field="strategy_id",
+                                                                       from_field="targetStrategy"
+                                                                       )
+    targetStrategyParameters = fields.JSONField(null=True)
+
+    # foreign key relationships (must contain suffix "_id" when referencing)
     exchange = fields.ForeignKeyField("models.Exchange")
-    strategy = fields.ForeignKeyField("models.Strategy")
-    # strategy_id: fields.ForeignKeyRelation[Strategy] = fields.ForeignKeyField("models.Strategy",
-    #                                                                           related_name="order",
-    #                                                                           to_field="id",
-    #                                                                           from_field="order"
-    #                                                                           )
 
     # trades  = relatinship ... ??? how to handle in tortoise
-    # trade = fields.ReverseRelation["models.Trade"]
+    trade = fields.ReverseRelation["models.Trade"]
 
 
-    def __str__(self) -> str:
-        return f"Order {self.order_id}: {self.price}"

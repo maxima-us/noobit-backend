@@ -39,7 +39,7 @@ import stackprinter
 #     root_logger.setLevel(logging.INFO)
 
 
-def get_logger(name: str, level=logging.INFO, exception_style: str="darkbg2"):
+def get_logger(name: str, level=logging.INFO, exception_style: str = "darkbg2"):
     stackprinter.set_excepthook(style=exception_style)
 
     ''' this func has exactly the same result as the code above'''

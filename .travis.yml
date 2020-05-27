@@ -7,6 +7,6 @@ install:
   - python setup.py install
 # command to run tests
 script:
-  - pytest tests/server/views/json/test_public_json.py
-  - pytest tests/server/views/html/test_public_html.py
+  # - pytest tests/server/views/json/test_public_json.py
+  # - pytest tests/server/views/html/test_public_html.py
   - pytest tests/exchanges/kraken/rest/test_public_api_kraken.py

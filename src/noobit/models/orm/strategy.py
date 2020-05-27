@@ -14,7 +14,6 @@ class Strategy(models.Model):
     # description of the strategy
     description = fields.TextField(null=True)
     # type of trading the strategy does (eg trend-following, mean-reversion etc)
-    type = fields.CharField(max_length=40, null=True)
     timeframe = fields.IntField(null=True)
 
 

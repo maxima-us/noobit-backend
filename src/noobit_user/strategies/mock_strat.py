@@ -2,22 +2,30 @@ import talib
 
 from noobit.engine.base import BaseStrategy
 from noobit.engine.exec.execution import LimitChaseExecution
-
+from noobit.models.data.base.types import PAIR, TIMEFRAME
 
 # in every strategy file we need to define a Strategy class for cli endpoint to work
 class Strategy(BaseStrategy):
 
 
-    def __init__(self, exchange, pair, timeframe, volume):
-        super().__init__(exchange, pair, timeframe, volume)
+    def __init__(self,
+                 name: str,
+                 description: str,
+                 exchange: str,
+                 pair: PAIR,
+                 timeframe: TIMEFRAME,
+                 volume: float
+                 ):
+        super().__init__(name, description, exchange, pair, timeframe, volume)
         #!  for now we only accept one execution
         self.execution_models = {
-            "limit_chase": LimitChaseExecution(exchange, pair, self.ws, self.ws_token, self.strat_id, 0.1)
+            "limit_chase": LimitChaseExecution(exchange, pair, self.ws, self.ws_token, 0.1)
         }
 
 
     def user_setup(self):
-        self.add_indicator(func=talib.MAMA, source="close", fastlimit=0.5, slowlimit=0.05)
+        #! later we might want to add the possibility to choose different timeframes too
+        self.add_indicator(func=talib.MAMA, source="close", fastlimit=0.1, slowlimit=0.05)
         self.add_indicator(func=talib.RSI, source="close", timeperiod=14)
         self.add_crossup("MAMA0", "MAMA1")
         self.add_crossdown("MAMA0", "MAMA1")
@@ -40,4 +48,3 @@ class Strategy(BaseStrategy):
 
         if last["short"]:
             print("We go short !")
-            # self.execution.add_short_orde(total_vol=0.0234567)

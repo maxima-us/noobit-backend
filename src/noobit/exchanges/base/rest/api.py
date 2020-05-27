@@ -1,40 +1,66 @@
-'''Define Base MetaClass for Exchange Rest APIs'''
+'''
+Define Base Class for Exchange Rest API.
+Exchange Rest API Class must inherit from both Base Class and Abstract Base Class
+'''
 from abc import ABC, abstractmethod
 import time
 import logging
 import asyncio
+from collections import deque
+from typing import Optional, Union, Any, Dict
+from typing_extensions import Literal
 
 import ujson
 import stackprinter
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 import pandas as pd
+from starlette import status
 
+# general
+from noobit.server import settings
 from noobit.logging.structlogger import get_logger
-from noobit.models.data.receive.api import (Ticker, Ohlc, Orderbook, Trades, Spread,
-                                            AccountBalance, TradeBalance, Order, OpenOrders,
-                                            ClosedOrders, UserTrades, OpenPositions)
+
+# models
+from noobit.models.data.base.types import PAIR, TIMEFRAME, TIMESTAMP
+from noobit.models.data.base.errors import ErrorHandlerResult, BaseError, OKResult, ErrorResult
+from noobit.models.data.base.response import NoobitResponse, OKResponse, ErrorResponse
+from noobit.models.data.response.order import OrdersList, OrdersByID
+from noobit.models.data.response.trade import TradesList, TradesByID
+from noobit.models.data.response.ohlc import Ohlc
+from noobit.models.data.response.orderbook import OrderBook
+from noobit.models.data.response.instrument import Instrument
+from noobit.models.data.response.balance import Balances
+from noobit.models.data.response.exposure import Exposure
+
+# parsers
+from noobit.models.data.request.parse.base import BaseRequestParser
+from noobit.models.data.response.parse.base import BaseResponseParser
+
 
 custom_logger = get_logger(__name__)
 
-class BaseRestAPI(ABC):
-    """Abstract Baseclass for Rest APIs.
-
-    Notes:
-        Example Init for Kraken:
-            self.exchange = "Kraken"
-            self.base_url = mapping[self.exchange]["base_url"]
-            self.public_endpoint = mapping[self.exchange]["public_endpoint"]
-            self.private_endpoint = mapping[self.exchange]["private_endpoint"]
-            self.public_methods = mapping[self.exchange]["public_methods"]
-            self.private_methods = mapping[self.exchange]["private_methods"]
-            self.session = settings.SESSION
-            self.response = None
-            self._json_options = {}
-            self._load_all_env_keys()
-            self.from_exchange_format = self._load_normalize_map()
-            self.to_exchange_format = {v:k for k, v in self.normalize.items()}
-            self.exchange_pair_specs = self._load_pair_specs_map()
+class APIBase():
+    """Baseclass for Rest APIs.
     """
+
+    env_keys_dq = deque()
+
+
+    def __init__(self):
+
+        self._load_all_env_keys()
+        self.to_standard_format = self._load_normalize_map()
+        self.to_exchange_format = {v:k for k, v in self.to_standard_format.items()}
+        self.exchange_pair_specs = self._load_pair_specs_map()
+        self.session = settings.SESSION
+        self.response = None
+        self._json_options = {}
+        settings.SYMBOL_MAP_TO_EXCHANGE[self.exchange.upper()] = self.to_exchange_format
+        settings.SYMBOL_MAP_TO_STANDARD[self.exchange.upper()] = self.to_standard_format
+
+        # must be defined by user
+        # self.request_parser = BaseRequestParser
+        # self.response_parser = BaseResponseParser
 
 
     def json_options(self, **kwargs):
@@ -61,18 +87,6 @@ class BaseRestAPI(ABC):
     # ================================================================================
 
 
-    @abstractmethod
-    def _load_all_env_keys(self):
-        '''Load all API keys from env file into a deque.
-
-        Notes:
-            In .env file, keys should contain :
-                API Key : <exchange-name> & "key"
-                API Secret : <exchange-name> & "secret"
-        '''
-        raise NotImplementedError
-
-
     @classmethod
     def _set_class_var(cls, value):
         if not cls.env_keys_dq:
@@ -89,12 +103,18 @@ class BaseRestAPI(ABC):
 
     def current_key(self):
         """env key we are currently using"""
-        return self.env_keys_dq[0][0]
+        try:
+            return self.env_keys_dq[0][0]
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
 
 
     def current_secret(self):
         """env secret we are currently using"""
-        return self.env_keys_dq[0][1]
+        try:
+            return self.env_keys_dq[0][1]
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
 
 
     def _nonce(self):
@@ -104,10 +124,6 @@ class BaseRestAPI(ABC):
             an always-increasing unsigned integer (up to 64 bits wide)
         """
         return int(1000*time.time())
-
-
-    def _sign(self, data: dict, urlpath: str):
-        raise NotImplementedError
 
 
 
@@ -133,52 +149,38 @@ class BaseRestAPI(ABC):
 
 
 
-    @abstractmethod
-    def _load_normalize_map(self):
-        '''Instantiate instance variable self.pair_map as dict.
+    async def _handle_response_errors(self, response, endpoint, data) -> ErrorHandlerResult:
 
-        keys : exchange format
-        value : standard format
+        try:
+            result = self.response_parser.handle_errors(response, endpoint, data)
+        except Exception as e:
+            logging.error(stackprinter.format(e, style="darkbg2"))
 
-        eg for kraken : {"xxbtzusd": "btc/usd", "zusd": "usd}
-        '''
-        raise NotImplementedError
-
-
-
-    @abstractmethod
-    def _load_pair_specs_map(self):
-        '''Instantiate instance variable self.pair_info as dict.
-
-        keys : exchange format
-        value : standard format
-
-        eg for kraken : {"xxbtzusd": {"price_decimals": 0.1, "volume_decimals": 0.1}}
-        '''
-        raise NotImplementedError
+        # try:
+        #     logging.warning(result)
+        #     # validated_result = ErrorHandlerResult(**result)
+        #     validated_result = OKResult(result.dict())
+        # except ValidationError as e:
+        #     logging.error(e)
+        #     return ErrorResult(accept=True, value=str(e))
+        if not isinstance(result, ErrorHandlerResult):
+            error_msg = "Invalid Type: Result needs to be ErrorResult or OKResult"
+            logging.error(error_msg)
+            return ErrorResult(accept=True, value=error_msg)
 
 
+        # if isinstance(validated_result.value, BaseError):
+        if not result.is_ok:
+            # result["value"] returns one of our custom error classes here
+            # exception = result.value
+            logging.error(result.value)
 
-    @abstractmethod
-    def _cleanup_input_data(self, data: dict):
-        raise NotImplementedError
+            if result.sleep:
+                await asyncio.sleep(result.sleep)
+            return result
 
-
-
-    @abstractmethod
-    def _normalize_response(self, response: str):
-        '''Input response has to be json string to make it easier to replace values.'''
-        raise NotImplementedError
-
-
-
-    @abstractmethod
-    async def _handle_response_errors(self, response):
-        '''Input response has to be json object.
-        Needs to return none if there is an error and the data if there was no error.
-        '''
-        raise NotImplementedError
-
+        else:
+            return result
 
 
 
@@ -187,23 +189,24 @@ class BaseRestAPI(ABC):
     # ================================================================================
 
 
-    async def _query(self, endpoint, data: dict, private: bool, headers=None, timeout=None, json=None, retries=0):
+    async def _query(self, endpoint, data: dict, private: bool, headers: dict = None, timeout: Union[float, int] = None, retries: int = 0):
         """ Low-level query handling.
-        .. note::
+
+        Args:
+            endpoint (str): API URL path sans host
+            data (dict): API request parameters
+            headers (dict): HTTPS headers (optional)
+            timeout (float): if not None, exception will be thrown after timeout seconds if a response has not been received
+
+        Returns:
+            requests.Response.json: deserialized python object
+
+        Raises:
+            requests.HTTPError: if response status not successful
+
+        Note:
            Use :py:meth:`query_private` or :py:meth:`query_public`
            unless you have a good reason not to.
-        :param endpoint: API URL path sans host
-        :type endpoint: str
-        :param data: API request parameters
-        :type data: dict
-        :param headers: (optional) HTTPS headers
-        :type headers: dict
-        :param timeout: (optional) if not ``None``, a :py:exc:`requests.HTTPError`
-                        will be thrown after ``timeout`` seconds if a response
-                        has not been received
-        :type timeout: int or float
-        :returns: :py:meth:`requests.Response.json`-deserialised Python object
-        :raises: :py:exc:`requests.HTTPError`: if response status not successful
         """
 
         full_path = f"{self.base_url}{endpoint}"
@@ -220,7 +223,6 @@ class BaseRestAPI(ABC):
             self.response = await self.retry(func=self.session.post,
                                              url=full_path,
                                              data=data,
-                                             json=json,
                                              headers=headers,
                                              timeout=timeout,
                                              retry_attempts=retries
@@ -235,6 +237,7 @@ class BaseRestAPI(ABC):
                                              )
 
         if self.response.status_code not in (200, 201, 202):
+            #TODO this stops the whole server, find better way to return a server side error
             self.response.raise_for_status()
 
         logging.debug(f"API Request URL: {self.response.url}")
@@ -242,15 +245,15 @@ class BaseRestAPI(ABC):
         # return self.response.json(**self._json_options)
 
         resp_str = self.response.text
-        normalized_resp = self._normalize_response(resp_str)
-        normalized_resp = ujson.loads(normalized_resp)
+        # normalized_resp = self._normalize_response(resp_str)
+        # normalized_resp = ujson.loads(normalized_resp)
 
-        return normalized_resp
-
-
+        return ujson.loads(resp_str)
 
 
-    async def query_public(self, method, data=None, timeout=None, retries=0):
+
+
+    async def query_public(self, method: str, data: dict = None, timeout: Union[float, int] = None, retries: int = 0):
         """ Performs an API query that does not require a valid key/secret pair.
 
         Args:
@@ -264,47 +267,53 @@ class BaseRestAPI(ABC):
             response.json (dict) : deserialised Python object
         """
 
-        data = self._cleanup_input_data(data)
+        # data = self._cleanup_input_data(data) ==> handled by request parser
 
         method_endpoint = self.public_methods[method]
         method_path = f"{self.public_endpoint}/{method_endpoint}"
 
 
-        result = {"accept": False, "value": None}
 
-        while not result["accept"]:
+        # retry while we have not accepted what the response returns
+        # handle_response_errors should return a dict of format {"accept": True, "value": response}
+        #! this is actually stupid as it may loop forever with no max retry number
+        result = ErrorResult(accept=False, value="")
+
+        while not result.accept:
 
             resp = await self._query(endpoint=method_path,
-                                        data=data,
-                                        private=False,
-                                        timeout=timeout,
-                                        retries=retries
-                                        )
+                                     data=data,
+                                     private=False,
+                                     timeout=timeout,
+                                     retries=retries
+                                     )
 
-            result = await self._handle_response_errors(response=resp)
-
-
-        return result["value"]
+            # returns an ErrorHandlerResult object
+            result = await self._handle_response_errors(response=resp, endpoint=method_path, data=data)
 
 
+        return result
 
-    async def query_private(self, method, data=None, timeout=None, retries=0):
+
+
+
+    async def query_private(self, method: str, data: dict = None, timeout: Union[float, int] = None, retries: int = 0) -> Union[ErrorResult, OKResult]:
         """ Performs an API query that requires a valid key/secret pair.
-        :param method: API method name
-        :type method: str
-        :param data: (optional) API request parameters
-        :type data: dict
-        :param timeout: (optional) if not ``None``, a :py:exc:`requests.HTTPError`
-                        will be thrown after ``timeout`` seconds if a response
-                        has not been received
-        :type timeout: int or float
-        :returns: :py:meth:`requests.Response.json`-deserialised Python object
+
+        Args:
+            method (str): API method name
+            data (dict): (optional) API request parameters
+            timeout (float) : (optional)
+                if not ``None``, throw Error after ``timeout`` seconds if no response
+
+        Returns:
+            noobit.ErrorHandlerResult
         """
 
         if not self.current_key() or not self.current_secret():
             raise Exception('Either key or secret is not set! (Use `load_key()`.')
 
-        data = self._cleanup_input_data(data)
+        # data = self._cleanup_input_data(data) ==> this is handled by request parser
         data['nonce'] = self._nonce()
 
         method_endpoint = self.private_methods[method]
@@ -316,24 +325,25 @@ class BaseRestAPI(ABC):
             'API-Sign': self._sign(data, method_path)
         }
 
-        result = {"accept": False, "value": None}
+        result = ErrorResult(accept=False, value="")
 
-        while not result["accept"]:
+        while not result.accept:
 
             resp = await self._query(endpoint=method_path,
-                                    data=data,
-                                    headers=headers,
-                                    private=True,
-                                    timeout=timeout,
-                                    retries=retries
-                                    )
+                                     data=data,
+                                     headers=headers,
+                                     private=True,
+                                     timeout=timeout,
+                                     retries=retries
+                                     )
 
             self._rotate_api_keys()
 
-            result = await self._handle_response_errors(response=resp)
+            # returns an ErrorHandlerResult object
+            result = await self._handle_response_errors(response=resp, endpoint=method_path, data=data)
 
 
-        return result["value"]
+        return result
 
 
 
@@ -345,296 +355,199 @@ class BaseRestAPI(ABC):
     # ========================================
 
 
+    def validate_model_from_mode(self,
+                                 parsed_response: Union[dict, list, str],
+                                 mode: Optional[str],
+                                 mode_to_model: Dict[str, BaseModel]
+                                 ) -> Union[OKResponse, ErrorResponse]:
+        """Handle validation for all possible modes present in mode_to_model dict
+
+        Args:
+            parsed_response: object to validate
+            mode: mode of request
+            mode_to_model: dict mapping mode to pydantic model to validate against
+
+        Returns:
+            Union[OKResponse, ErrorResponse]: according to success/error
+        """
+
+        pydantic_model = mode_to_model[mode]
+
+        try:
+
+            validated = pydantic_model(**parsed_response)
+            defined_fields = list(validated.dict().keys())
+
+            # handle different cases, where we define data only, or multiple fields
+            if defined_fields == ["data"]:
+                value = validated.dict()["data"]
+            else:
+                value = validated.dict()
+
+            return OKResponse(status_code=status.HTTP_200_OK,
+                              value=value
+                              )
+
+        except ValidationError as e:
+            logging.error(e)
+            return ErrorResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                  value=str(e)
+                                  )
+
+
 
 
     # ================================================================================
-    # ====== Public Methods
+    # ====== PUBLIC REQUESTS
     # ================================================================================
 
 
-    @abstractmethod
-    async def get_raw_ticker(self, *args, **kwargs) -> dict:
-        """Raw (not checked against our models) ticker data for given pairs.
+    def ohlc_validate_and_serialize(self, parsed_response):
 
-        Args:
-            pair (list) : list of requested pairs
-                input format : ["XBT-USD", "ETH-USD"]
-                must be passed as list even if single pair
-            retries (int): number of request retry attempts
+        mode_to_model = {
+            "ohlc": Ohlc
+        }
 
-        Returns:
-            dict that must follow models.orm.Ticker data model
+        return self.validate_model_from_mode(parsed_response, mode="ohlc", mode_to_model=mode_to_model)
+
+
+
+    async def get_ohlc(self,
+                       symbol: PAIR,
+                       timeframe: TIMEFRAME,
+                       retries: int = 1
+                       ) -> NoobitResponse:
         """
-        raise NotImplementedError
-
-
-
-    async def get_ticker(self, pair: list, retries: int = 0) -> dict:
-        """Validated Ticker data (checked against data model).
-
-        Args:
-            pair (list) : list of requested pairs
-                input format : ["XBT-USD", "ETH-USD"]
-                must be passed as list even if single pair
-            retries (int): number of request retry attempts
-
-        Returns:
-            dict with single key:
-                data (dict):
-                    key (str) : pair
-                    value (list) : array of ask, bid, open, high, low, close, volume, vwap, trades
         """
+        # TODO Handle request errors (for ex if we pass invalid symbol, or pair that does not exist)
+        data = self.request_parser.ohlc(symbol=symbol.upper(), timeframe=timeframe)
 
-        data = await self.get_raw_ticker(pair, retries)
-        try:
-            ticker = Ticker(data=data)
-            return ticker.dict()
-        except ValidationError as e:
-            logging.warning("Please check that your get_raw_ticker method returns the correct type")
-            logging.error(e)
+        #! vvvvvvvvvvvvvvvvvvvvvvv HANDLE REQUEST PARSING ERRORS
+        # make request parser return a RequestResult object
+        # but this leaves responsability to the user, which is bad
+        # ==> Basic Example:
+        # if request.is_error:
+        #   return ErrorResponse(status_code=bad_request, value=request.value)
+
+        result = await self.query_public(method="ohlc", data=data, retries=retries)
+        # parse to order response model and validate
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.ohlc(response=result.value)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.ohlc_validate_and_serialize({"data": parsed_response})
+
+
+    async def get_ohlc_as_pandas(self,
+                                 symbol: PAIR,
+                                 timeframe: TIMEFRAME,
+                                 retries: int = 1,
+                                 ) -> NoobitResponse:
+        response = await self.get_ohlc(symbol, timeframe, retries)
+
+        if response.is_ok:
+            cols = ["symbol", "utcTime", "open", "high", "low", "close", "volume", "vwap", "trdCount"]
+            df = pd.DataFrame(data=response.value, columns=cols)
+            response.value = df
+            return response
+        else:
+            # response is ErrorResponse and we return it in full
+            return response
 
 
 
-    async def get_ticker_as_pandas(self, pair: list, retries: int = 0):
-        """Checked ticker data for given pairs as pandas df.
+    # ================================================================================
+
+
+    def public_trade_validate_and_serialize(self, parsed_response):
+
+        mode_to_model = {
+            "public_trade": TradesList
+        }
+
+        return self.validate_model_from_mode(parsed_response, mode="public_trade", mode_to_model=mode_to_model)
+
+
+    async def get_public_trades(self,
+                                symbol: PAIR,
+                                since: TIMESTAMP = None,
+                                retries: int = 1
+                                ) -> NoobitResponse:
+        """Get data on public trades. Response value is a list with each item being a dict that
+        corresponds to the data for a single trade.
         """
-        validated_response = await self.get_ticker(pair, retries)
+        data = self.request_parser.public_trades(symbol.upper(), since)
 
-        df = pd.DataFrame.from_dict(validated_response["data"], orient="index") # ==> better to orient along index
-        return df
+        result = await self.query_public(method="trades", data=data, retries=retries)
 
-
-
-    @abstractmethod
-    async def get_raw_ohlc(self, *args, **kwargs) -> dict:
-        """Raw Ohlc data (not yet validated against data model).
-
-        Args:
-            pair (list) : list containing single request pair
-            timeframe (int) : candle timeframe in minutes
-                possible values : 1 (default), 5, 15, 30, 60, 240, 1440, 10080, 21600
-            since : return committed OHLC data since given id (optional)
-            retries (int): number of request retry attempts
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.trades(response=result.value)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.public_trade_validate_and_serialize({"data": parsed_response["data"], "last": parsed_response["last"]})
 
 
-        Returns:
-            dict (must conform with models.data_models.Ohlc):
-                data (list) : array of <time>, <open>, <high>, <low>, <close>, <vwap>, <volume>, <count>
-                    vwap and count are optional, can be none
-                last (Decimal) : id to be used as since when polling for new, committed OHLC data
+    # ================================================================================
+
+
+    def orderbook_validate_and_serialize(self, parsed_response):
+
+        mode_to_model = {
+            "orderbook": OrderBook
+        }
+
+        return self.validate_model_from_mode(parsed_response, mode="orderbook", mode_to_model=mode_to_model)
+
+
+
+    async def get_orderbook(self,
+                            symbol: PAIR,
+                            retries: int = 1,
+                            ) -> NoobitResponse:
         """
-        raise NotImplementedError
-
-
-
-    async def get_ohlc(self, pair: list, timeframe: int, since: int = None, retries: int = 0):
-        """Validated Ohlc data (checked against data model).
-
-        Args:
-            pair (list) : asset pair to get market depth for
-            timeframe (int) : candle timeframe in minutes
-                possible values : 1 (default), 5, 15, 30, 60, 240, 1440, 10080, 21600
-            since : return committed OHLC data since given id (optional)
-            retries (int): number of request retry attempts
-
-        Returns:
-            dict with only two keys:
-                data (list) : array of <time>, <open>, <high>, <low>, <close>, <vwap>, <volume>, <count>
-                    vwap and count are optional, can be none
-                last (Decimal) : id to be used as since when polling for new, committed OHLC data
         """
-        response = await self.get_raw_ohlc(pair, timeframe, since, retries)
-        try:
-            ohlc = Ohlc(data=response["data"], last=response["last"])
-            return ohlc.dict()
-        except ValidationError as e:
-            logging.warning("Please check that your get_raw_ohlc method returns the correct type")
-            logging.error(e)
+        data = self.request_parser.orderbook(symbol.upper())
+
+        result = await self.query_public(method="orderbook", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.orderbook(response=result.value)
+            return self.orderbook_validate_and_serialize(parsed_response)
 
 
+    # ================================================================================
 
-    async def get_ohlc_as_pandas(self, pair: list, timeframe: int, since: int = None, retries: int = 0):
-        """Validated Ohlc data as pandas dataframe.
 
-        Returns:
-            dict: two keys
-                data (pd.DataFrame)
-                last (int)
+    def instrument_validate_and_serialize(self, parsed_response):
 
+        mode_to_model = {
+            "instrument": Instrument
+        }
+
+        return self.validate_model_from_mode(parsed_response, mode="instrument", mode_to_model=mode_to_model)
+
+
+    async def get_instrument(self,
+                             symbol: PAIR,
+                             retries: int = 1,
+                             ) -> NoobitResponse:
+        """Get data for instrument. Depending on exchange this will aggregate ticker, spread data
         """
-        validated_response = await self.get_ohlc(pair, timeframe, since, retries)
+        data = self.request_parser.instrument(symbol.upper())
 
-        cols = ["time", "open", "high", "low", "close", "vwap", "volume", "count"]
-        df = pd.DataFrame(data=validated_response["data"], columns=cols)
-        return {"data": df, "last": validated_response["last"]}
+        result = await self.query_public(method="instrument", data=data, retries=retries)
 
-
-
-    @abstractmethod
-    async def get_raw_orderbook(self, *args, **kwargs) -> dict:
-        raise NotImplementedError
-
-
-
-    async def get_orderbook(self, pair: list, count: int = None, retries: int = 0):
-        """Validated orderbook data (checked against data model).
-
-        Args:
-            pair (list) : asset pair to get market depth for
-            count (int) : maximum number of asks/bids (optional)
-            retries (int): number of request retry attempts
-
-        Returns:
-            dict with only two keys:
-                asks (list) : array of <price>, <volume>, <timestamp>
-                bids (list) : array of <price>, <volume>, <timestamp>
-        """
-        response = await self.get_raw_orderbook(pair, count, retries)
-        try:
-            ob = Orderbook(asks=response["asks"], bids=response["bids"])
-            return ob.dict()
-        except ValidationError as e:
-            logging.warning("Please check that your get_raw_orderbook method returns the correct type")
-            logging.error(e)
-
-
-
-    async def get_orderbook_as_pandas(self, pair: list, count: int = None, retries: int = 0):
-        """Validated orderbook data as pandas dataframe.
-
-        Returns:
-            dict: 2 keys
-                asks (pd.DataFrame)
-                bids (pd.DataFrame)
-        """
-        #   TODO : merge the two dataframes and return
-        validated_response = await self.get_orderbook(pair, count, retries)
-
-        cols = ["price", "volume", "timestamp"]
-        asks_df = pd.DataFrame(data=validated_response["asks"], columns=cols)
-        bids_df = pd.DataFrame(data=validated_response["bids"], columns=cols)
-        return {"asks": asks_df, "bids": bids_df}
-
-
-
-    @abstractmethod
-    async def get_raw_trades(self, *arg, **kwargs) -> dict:
-        """Raw Trades data (not yet validated against data model).
-
-        Args:
-            pair (list): asset pair to get trade data for
-            since (int): return trade data since given id (optional.  exclusive)
-
-        Returns:
-            dict : two keys
-                data (list) : array of <price>, <volume>, <time>, <buy/sell>, <market/limit>, <miscellaneous>
-                last (int) : id to be used as since when polling for new data
-        """
-        raise NotImplementedError
-
-
-
-    async def get_trades(self, pair: list, since: int = None, retries: int = 0):
-        """Validated Trades data (checked against data model).
-
-        Args:
-            pair (list): asset pair to get trade data for
-            since (int): return trade data since given id (optional.  exclusive)
-
-        Returns:
-            dict : two keys
-                data (list) : array of <price>, <volume>, <time>, <buy/sell>, <market/limit>, <miscellaneous>
-                last (Decimal) : id to be used as since when polling for new data
-        """
-        response = await self.get_raw_trades(pair, since, retries)
-        try:
-            trades = Trades(data=response["data"], last=response["last"])
-            return trades.dict()
-        except ValidationError as e:
-            logging.warning("Please check that get_raw_trades method returns the correct type")
-            logging.error(stackprinter.format(e, style="darkbg2"))
-
-
-
-    async def get_trades_as_pandas(self, pair: list, since: int = None, retries: int = 0):
-        """Validated Trades data (checked against data model).
-
-        Args:
-            pair (list): asset pair to get trade data for
-            since (int): return trade data since given id (optional.  exclusive)
-
-        Returns:
-            dict : two keys
-                data (pd.DataFrame) : columns <price>, <volume>, <time>, <buy/sell>, <market/limit>, <miscellaneous>
-                last (Decimal) : id to be used as since when polling for new data
-        """
-        validated_response = await self.get_trades(pair, since, retries)
-
-        cols = ["price", "volume", "time", "side", "type", "misc"]
-        df = pd.DataFrame(data=validated_response["data"], columns=cols)
-        return {"data": df, "last": validated_response["last"]}
-
-
-
-    @abstractmethod
-    async def get_raw_spread(self, *args, **kwargs) -> dict:
-        """Raw Spread data (not yet validated against data model).
-
-        Args:
-            pair (list): asset pair to get trade data for
-            since (int): return data since given id (optional.  exclusive)
-            retries(int)
-
-        Returns:
-            dict : two keys
-                data (list) : array of entries <time>, <bid>, <ask>
-                last (Decimal) : id to be used as since when polling for new data
-        """
-        raise NotImplementedError
-
-
-    async def get_spread(self, pair: list, since: int = None, retries: int = 0):
-        """Validated Spread data (checked against data model).
-
-        Args:
-            pair (list): asset pair to get trade data for
-            since (int): return trade data since given id (optional.  exclusive)
-            retries(int)
-
-        Returns:
-            dict : two keys
-                data (list) : array of <time>, <bid>, <ask>
-                last (Decimal) : id to be used as since when polling for new data
-        """
-        response = await self.get_raw_spread(pair, since, retries)
-        try:
-            trades = Spread(data=response["data"], last=response["last"])
-            return trades.dict()
-        except ValidationError as e:
-            logging.warning("Please check that get_raw_spread method returns the correct type")
-            logging.error(e)
-
-
-    async def get_spread_as_pandas(self, pair: list, since: int = None, retries: int = 0) -> pd.DataFrame:
-        """Validated Spread data as pandas dataframe.
-
-        Args:
-            pair (list): asset pair to get trade data for
-            since (int): return trade data since given id (optional.  exclusive)
-            retries(int)
-
-        Returns:
-            dict : two keys
-                data (pd.DataFrame) : columns of <time>, <bid>, <ask>
-                last (Decimal) : id to be used as since when polling for new data
-        """
-
-        validated_response = await self.get_spread(pair, since, retries)
-
-        cols = ["time", "bid", "ask"]
-        df = pd.DataFrame(data=validated_response["data"], columns=cols)
-        return {"data": df, "last": validated_response["last"]}
-
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.instrument(response=result.value)
+            return self.instrument_validate_and_serialize(parsed_response)
 
 
 
@@ -644,384 +557,294 @@ class BaseRestAPI(ABC):
     # ================================================================================
 
 
-    @abstractmethod
-    async def get_raw_account_balance(self, *args, **kwargs) -> dict:
-        raise NotImplementedError
+
+    def order_validate_and_serialize(self,
+                                     mode: Literal["to_list", "by_id"],
+                                     parsed_response: Union[dict, list, str],
+                                     ) -> NoobitResponse:
+
+        # don't let responsability of validation/serialization to user ==> force it here instead
+        mode_to_model = {
+            "by_id": OrdersByID,
+            "to_list": OrdersList
+        }
+
+        return self.validate_model_from_mode(parsed_response, mode, mode_to_model)
 
 
-    async def get_account_balance(self, retries: int = 0) -> dict:
-        """Validated account balance data (checked against data model).
+
+    async def get_order(self,
+                        mode: Literal["to_list", "by_id"],
+                        orderID: str,
+                        clOrdID: Optional[int] = None,
+                        retries: int = 1
+                        ) -> Union[list, dict, str]:
+        """Get a single order
+            mode (str): Parse response to list, or index by order id
+            orderID: ID of the order to query (ID as assigned by broker)
+            clOrdID (str): Restrict results to given ID
+        """
+        data = self.request_parser.orders(mode="by_id", orderID=orderID, clOrdID=clOrdID)
+
+
+        # returns ErrorHandlerResult object (OkResult or ErrorResult)
+        result = await self.query_private(method="order_info", data=data, retries=retries)
+
+        # if its an error we just want the error message with no parsing
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            # parse to order response model if error handler has not returned None or ValidationError
+            parsed_response = self.response_parser.orders(response=result.value, mode=mode)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.order_validate_and_serialize(mode, {"data": parsed_response})
+
+
+
+    async def get_open_orders(self,
+                              mode: Literal["to_list", "by_id"],
+                              symbol: Optional[PAIR] = None,
+                              clOrdID: Optional[int] = None,
+                              retries: int = 1
+                              ):
+        """Get open orders.
 
         Args:
-            retries (int)
+            mode (str): Parse response to list or index by order id
+            symbol (str): Instrument symbol
+            clOrdID (str): Restrict results to given ID
 
         Returns:
-            dictionary : one key
-                data (dict) : dict of <asset name> : <balance amount>
+            open orders
         """
-        response = await self.get_raw_account_balance(retries)
-        try:
-            account_balance = AccountBalance(data=response)
-            return account_balance.dict()
-        except ValidationError as e:
-            logging.warning("Please check that get_raw_account_balance method returns the correct type")
-            logging.error(e)
+        if symbol is not None:
+            symbol = symbol.upper()
+        data = self.request_parser.orders("open", symbol=symbol, clOrdID=clOrdID)
+
+        result = await self.query_private(method="open_orders", data=data, retries=retries)
 
 
-    async def get_account_balance_as_pandas(self, retries: int = 0) -> pd.DataFrame:
-        """Probably useless.
-        """
-        validated_response = await self.get_account_balance(retries)
-        df = pd.DataFrame.from_dict(validated_response["data"], orient="index") # ==> better to orient along index
-        return df
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            # parse to order response model if error handler has not returned None or ValidationError
+            parsed_response = self.response_parser.orders(response=result.value, symbol=symbol, mode=mode)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.order_validate_and_serialize(mode, {"data": parsed_response})
 
 
-
-    @abstractmethod
-    async def get_raw_trade_balance(self, *args, **kwargs) -> dict:
-        """Trade balance data (not validated against data model).
-
-        Args:
-            asset_class (str): asset class (optional):
-                currency (default)
-            asset (str): base asset used to determine balance (default = ZUSD)
-
-        Returns:
-            dict with following keys
-
-                - equivalent_balance (combined balance of all currencies)
-                - trade_balance (combined balance of all equity currencies)
-                - positions_margin
-                - positions_unrealized (net profit/loss of open positions)
-                - positions_cost basis
-                - positions_valuation
-                - equity (trade balance + unrealized net profit/loss)
-                - free_margin (equity - initial margin)
-                    (maximum margin available to open new positions)
-                - margin_level ( equity*100 / initial margin )
-
-        Note:
-            I dont't really understand what is meant by asset_class input in the API Docs
-        """
-        raise NotImplementedError
-
-
-
-    async def get_trade_balance(self, asset_class: str = None, asset: str = None, retries: int = 0) -> dict:
-        """Trade balance data (not validated against data model).
-
-        Args:
-            asset_class (str): asset class (optional):
-                currency (default)
-            asset (str): base asset used to determine balance (default = ZUSD)
-
-        Returns:
-            dict : one key
-
-                data (dict) : with following keys:
-
-                - equivalent_balance (combined balance of all currencies)
-                - trade_balance (combined balance of all equity currencies)
-                - positions_margin
-                - positions_unrealized (net profit/loss of open positions)
-                - positions_cost basis
-                - positions_valuation
-                - equity (trade balance + unrealized net profit/loss)
-                - free_margin (equity - initial margin)
-                    (maximum margin available to open new positions)
-                - margin_level ( equity*100 / initial margin )
-
-        Note:
-            I dont't really understand what is meant by asset_class input in the API Docs
-        """
-        response = await self.get_raw_trade_balance(asset_class, asset, retries)
-        try:
-            trade_balance = TradeBalance(data=response)
-            return trade_balance.dict()
-        except ValidationError as e:
-            logging.warning("Please check that get_raw_trade_balance method returns the correct type")
-            logging.error(e)
-
-
-    async def get_trade_balance_as_pandas(self, asset_class: str = None,
-                                          asset: str = None,
-                                          retries: int = 0
-                                          ) -> pd.DataFrame:
-        """Get validated Trade Balance data as pandas df
-        """
-        validated_response = await self.get_trade_balance(asset_class, asset, retries)
-        df = pd.DataFrame.from_dict(validated_response["data"], orient="index") # ==> better to orient along index
-        return df
-
-
-
-    @abstractmethod
-    async def get_raw_open_orders(self, *args, **kwargs) -> dict:
-        """Raw open orders data (not validated against data model).
-
-        Args:
-            trades = whether or not to include trades in output
-                (optional.  default = false)
-            userref = restrict results to given user reference id
-                (optional)
-
-        Returns:
-            dict with ordertxid as key and orderinfo as value:
-                orderinfo :
-                refid = Referral order transaction id that created this order
-                userref = user reference id
-                status = status of order:
-                    pending = order pending book entry
-                    open = open order
-                    closed = closed order
-                    canceled = order canceled
-                    expired = order expired
-                opentm = unix timestamp of when order was placed
-                starttm = unix timestamp of order start time (or 0 if not set)
-                expiretm = unix timestamp of order end time (or 0 if not set)
-                descr = order description info
-                    pair = asset pair
-                    type = type of order (buy/sell)
-                    ordertype = order type (See Add standard order)
-                    price = primary price
-                    price2 = secondary price
-                    leverage = amount of leverage
-                    order = order description
-                    close = conditional close order description (if conditional close set)
-                vol = volume of order (base currency unless viqc set in oflags)
-                vol_exec = volume executed (base currency unless viqc set in oflags)
-                cost = total cost (quote currency unless unless viqc set in oflags)
-                fee = total fee (quote currency)
-                price = average price (quote currency unless viqc set in oflags)
-                stopprice = stop price (quote currency, for trailing stops)
-                limitprice = triggered limit price (quote currency, when limit based order type triggered)
-                misc = comma delimited list of miscellaneous info
-                    stopped = triggered by stop price
-                    touched = triggered by touch price
-                    liquidated = liquidation
-                    partial = partial fill
-                oflags = comma delimited list of order flags
-                    viqc = volume in quote currency
-                    fcib = prefer fee in base currency (default if selling)
-                    fciq = prefer fee in quote currency (default if buying)
-                    nompp = no market price protection
-                trades = array of trade ids related to order (if trades info requested and data available)
-        """
-        raise NotImplementedError
-
-
-    async def get_open_orders(self, userref: int = None, trades: bool = True, retries: int = 0) -> dict:
-        """Open orders data (checked against data model).
-        Args:
-            trades = whether or not to include trades in output
-                (optional.  default = false)
-            userref = restrict results to given user reference id
-                (optional)
-
-        Returns:
-            dict with ordertxid as key and orderinfo as value:
-                orderinfo :
-                refid = Referral order transaction id that created this order
-                userref = user reference id
-                status = status of order:
-                    pending = order pending book entry
-                    open = open order
-                    closed = closed order
-                    canceled = order canceled
-                    expired = order expired
-                opentm = unix timestamp of when order was placed
-                starttm = unix timestamp of order start time (or 0 if not set)
-                expiretm = unix timestamp of order end time (or 0 if not set)
-                descr = order description info
-                    pair = asset pair
-                    type = type of order (buy/sell)
-                    ordertype = order type (See Add standard order)
-                    price = primary price
-                    price2 = secondary price
-                    leverage = amount of leverage
-                    order = order description
-                    close = conditional close order description (if conditional close set)
-                vol = volume of order (base currency unless viqc set in oflags)
-                vol_exec = volume executed (base currency unless viqc set in oflags)
-                cost = total cost (quote currency unless unless viqc set in oflags)
-                fee = total fee (quote currency)
-                price = average price (quote currency unless viqc set in oflags)
-                stopprice = stop price (quote currency, for trailing stops)
-                limitprice = triggered limit price (quote currency, when limit based order type triggered)
-                misc = comma delimited list of miscellaneous info
-                    stopped = triggered by stop price
-                    touched = triggered by touch price
-                    liquidated = liquidation
-                    partial = partial fill
-                oflags = comma delimited list of order flags
-                    viqc = volume in quote currency
-                    fcib = prefer fee in base currency (default if selling)
-                    fciq = prefer fee in quote currency (default if buying)
-                    nompp = no market price protection
-                trades = array of trade ids related to order (if trades info requested and data available)
-        """
-        response = await self.get_raw_open_orders(userref, trades, retries)
-        try:
-            open_orders = OpenOrders(data=response)
-            return open_orders.dict()
-        except ValidationError as e:
-            logging.warning("Please check that get_raw_open_orders method returns the correct type")
-            logging.error(e)
-
-
-    async def get_open_orders_as_pandas(self, userref: int = None, trades: bool = True, retries: int = 0):
-        """Get Open Order data as pandas df
-        """
-        validated_response = await self.get_open_orders(userref, trades, retries)
-        df = pd.DataFrame.from_dict(validated_response["data"], orient="index") # ==> better to orient along index
-        return df
-
-
-    @abstractmethod
-    async def get_raw_closed_orders(self, *args, **kwargs) -> dict:
-        raise NotImplementedError
 
 
     async def get_closed_orders(self,
-                                offset: int = 0,
-                                trades: bool = False,
-                                userref: int = None,
-                                start: int = None,
-                                end: int = None,
-                                closetime: str = "both",
-                                retries: int = 0
-                                ) -> dict:
-        """Validated closed orders data (checked against data model).
-        """
-
-        response = await self.get_raw_closed_orders(offset, trades, userref, start, end, closetime, retries)
-        try:
-            closed_orders = ClosedOrders(data=response)
-            return closed_orders.dict()
-        except ValidationError as e:
-            logging.warning("Please check that get_raw_closed_orders method returns the correct type")
-            logging.error(e)
-
-
-    async def get_closed_orders_as_pandas(self,
-                                          offset: int = 0,
-                                          trades: bool = False,
-                                          userref: int = None,
-                                          start: int = None,
-                                          end: int = None,
-                                          closetime: str = "both",
-                                          retries: int = 0
-                                          ) -> pd.DataFrame:
-
-        validated_response = await self.get_closed_orders(offset, trades, userref, start, end, closetime, retries)
-        df = pd.DataFrame.from_dict(validated_response["data"], orient="index")
-        return df
-
-
-
-    @abstractmethod
-    async def get_raw_user_trades(self, *args, **kwargs) -> pd.DataFrame:
-        raise NotImplementedError
-
-
-    async def get_user_trades(self, trade_type: str = "all",
-                              trades: bool = False,
-                              start: int = None,
-                              end: int = None,
-                              retries: int = 0
-                              ) -> dict:
-        """Validated user trades data (checked against data model).
-        """
-        response = await self.get_raw_user_trades(trade_type, trades, start, end, retries)
-        try:
-            user_trades = UserTrades(data=response)
-            return user_trades.dict()
-        except ValidationError as e:
-            logging.warning("Please check that your raw method returns the correct type")
-            logging.error(e)
-
-
-    async def get_user_trades_as_pandas(self, trade_type: str = "all",
-                                        trades: bool = False,
-                                        start: int = None,
-                                        end: int = None,
-                                        retries: int = 0
-                                        ) -> pd.DataFrame:
-        """Get validated user trades data as pandas df
-        """
-        validated_response = await self.get_user_trades(trade_type, trades, start, end, retries)
-        df = pd.DataFrame.from_dict(validated_response["data"], orient="index")
-        return df
-
-
-
-    @abstractmethod
-    async def get_raw_open_positions(self, *args, **kwargs) -> dict:
-        raise NotImplementedError
-
-
-    async def get_open_positions(self, txid: list = None, show_pnl=True, retries: int = 0) -> dict:
-        """Validated open positions data (checked against data model).
+                                mode: Literal["to_list", "by_id"],
+                                symbol: Optional[PAIR] = None,
+                                clOrdID: Optional[int] = None,
+                                retries: int = 1
+                                ):
+        """Get closed orders.
 
         Args:
-            txid (str) : transaction ids to restrict output to
-            show_pnl (bool): whether or not to include profit/loss calculations
-            retries (int)
+            symbol (str): Instrument symbol
+            clOrdID (str): Restrict results to given ID
+            mode (str): Parse response to list or index by order id
 
         Returns:
-            dict : single key <data>
-                data (dict) : position_txid as key and pos_info dict as value
-                    pos_info:
-                    ordertxid = order responsible for execution of trade
-                    pair = asset pair
-                    time = unix timestamp of trade
-                    type = type of order used to open position (buy/sell)
-                    ordertype = order type used to open position
-                    cost = opening cost of position (quote currency unless viqc set in oflags)
-                    fee = opening fee of position (quote currency)
-                    vol = position volume (base currency unless viqc set in oflags)
-                    vol_closed = position volume closed (base currency unless viqc set in oflags)
-                    margin = initial margin (quote currency)
-                    value = current value of remaining position (if docalcs requested.  quote currency)
-                    net = unrealized profit/loss of remaining position (if docalcs requested.  quote currency, quote currency scale)
-                    misc = comma delimited list of miscellaneous info
-                    oflags = comma delimited list of order flags
-                        viqc = volume in quote currency
+            closed orders
         """
-        response = await self.get_raw_open_positions(txid, show_pnl, retries)
-        try:
-            open_positions = OpenPositions(data=response)
-            return open_positions.dict()
-        except ValidationError as e:
-            logging.warning("Please check that your raw method returns the correct type")
-            logging.error(e)
+
+        if symbol is not None:
+            symbol = symbol.upper()
+        data = self.request_parser.orders("closed", symbol=symbol, clOrdID=clOrdID)
+
+        result = await self.query_private(method="closed_orders", data=data, retries=retries)
+        # parse to order response model and validate
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.orders(response=result.value, symbol=symbol, mode=mode)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.order_validate_and_serialize(mode, {"data": parsed_response})
 
 
-    async def get_open_positions_as_pandas(self, txid: list = None, show_pnl=True, retries: int = 0) -> pd.DataFrame:
-        """Get validated open positions data as pandas df
+
+    # ================================================================================
+
+
+
+    def user_trade_validate_and_serialize(self, mode, parsed_response):
+
+        # don't let responsability of validation/serialization to user ==> force it here instead
+        mode_to_model = {
+            "by_id": TradesByID,
+            "to_list": TradesList
+        }
+
+        return self.validate_model_from_mode(parsed_response, mode, mode_to_model)
+
+
+
+    async def get_user_trades(self,
+                              mode: Literal["to_list", "by_id"],
+                              symbol: Optional[PAIR] = None,
+                              retries: int = 1
+                              ):
+        data = self.request_parser.user_trades()
+
+        result = await self.query_private(method="trades_history", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.user_trades(response=result.value, symbol=symbol, mode=mode)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.user_trade_validate_and_serialize(
+                mode, {"data": parsed_response["data"], "last": parsed_response["last"]}
+            )
+
+
+
+    async def get_user_trade_by_id(self,
+                                   mode: Literal["to_list", "by_id"],
+                                   trdMatchID: str,
+                                   symbol: Optional[PAIR] = None,
+                                   retries: int = 1
+                                   ):
+        """Get info on a single trade
         """
-        validated_response = await self.get_open_positions(txid, show_pnl, retries)
-        df = pd.DataFrame.from_dict(validated_response["data"], orient="index")
-        return df
+        data = self.request_parser.user_trades(trdMatchID=trdMatchID)
+
+        result = await self.query_private(method="trades_info", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.user_trades(response=result.value, mode=mode)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.user_trade_validate_and_serialize(mode, {"data": parsed_response})
 
 
-    async def get_raw_order_info(self, *args, **kwargs):
-        raise NotImplementedError
+
+    # ================================================================================
 
 
-    async def get_order_info(self, txid: str, trades: bool = True, userref: int = None):
+
+    def positions_validate_and_serialize(self, mode, parsed_response):
+
+        # don't let responsability of validation/serialization to user ==> force it here instead
+        mode_to_model = {
+            "by_id": OrdersByID,
+            "to_list": OrdersList
+        }
+
+        return self.validate_model_from_mode(parsed_response, mode, mode_to_model)
+
+
+
+    async def get_open_positions(self,
+                                 mode: Literal["to_list", "by_id"],
+                                 symbol: Optional[PAIR] = None,
+                                 retries: int = 1
+                                 ) -> NoobitResponse:
+        """For kraken there is no <closed positions> endpoint, but we can simulate it by querying <closed orders> and then filtering for margin orders
+        Or even better filter out <trades history> and <type==closed position>
         """
-        Get order info for a single txid
-        """
-        response = await self.get_raw_order_info(txid, trades, userref)
-        try:
-            # Order is not a pydantic model but a TypedDict
-            # We do not need to call .dict()
-            order_info = Order(**response)
-            return order_info
-        except ValidationError as e:
-            logging.warning("Please check that raw method returns the correct type")
-            logging.error(e)
+        if symbol is not None:
+            symbol = symbol.upper()
+        data = self.request_parser.open_positions(symbol)
+
+        result = await self.query_private(method="open_positions", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.open_positions(response=result.value, mode=mode)
+            # not all pydantic models have <data> as only field
+            # so we need to specify the field here to make it work for all models
+            return self.positions_validate_and_serialize(mode, {"data": parsed_response})
+
+
+
+    # for some exchanges there are not direct endpoints to get closed positions, so we need to work around it
+    async def get_closed_positions(self,
+                                   mode: Literal["to_list", "by_id"],
+                                   symbol: Optional[PAIR] = None,
+                                   retries: int = 1
+                                   ) -> NoobitResponse:
+
+        if symbol is not None:
+            symbol = symbol.upper()
+        data = self.request_parser.closed_positions(symbol)
+
+        result = await self.query_private(method="closed_positions", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.closed_positions(response=result.value, mode=mode)
+            return self.positions_validate_and_serialize(mode, {"data": parsed_response})
+
+
+    # ================================================================================
+
+
+
+    def balances_validate_and_serialize(self, parsed_response):
+        # don't let responsability of validation/serialization to user ==> force it here instead
+        mode_to_model = {
+            "balances": Balances,
+        }
+
+        return self.validate_model_from_mode(parsed_response, "balances", mode_to_model)
+
+
+    async def get_balances(self,
+                           symbol: Optional[PAIR] = None,
+                           retries: int = 1
+                           ) -> NoobitResponse:
+        if symbol is not None:
+            symbol = symbol.upper()
+        data = {}
+
+        result = await self.query_private(method="balances", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.balances(response=result.value)
+            return self.balances_validate_and_serialize({"data": parsed_response})
+
+
+
+    # ================================================================================
+
+
+    def exposure_validate_and_serialize(self, parsed_response):
+        # don't let responsability of validation/serialization to user ==> force it here instead
+        mode_to_model = {
+            "exposure": Exposure,
+        }
+
+        return self.validate_model_from_mode(parsed_response, "exposure", mode_to_model)
+
+
+
+    async def get_exposure(self,
+                           retries: int = 1):
+
+        data = {}
+        result = await self.query_private(method="exposure", data=data, retries=retries)
+
+        if not result.is_ok:
+            return ErrorResponse(status_code=result.status_code, value=result.value)
+        else:
+            parsed_response = self.response_parser.exposure(response=result.value)
+            return self.exposure_validate_and_serialize(parsed_response)
+
 
 
 
@@ -1031,15 +854,47 @@ class BaseRestAPI(ABC):
     # ================================================================================
 
 
-    @abstractmethod
-    async def place_order(self, *args, **kwargs):
-        raise NotImplementedError
+    async def place_order(self,
+                              symbol,
+                              side,
+                              ordType,
+                              execInst,
+                              clOrdID,
+                              timeInForce,
+                              effectiveTime,
+                              expireTime,
+                              orderQty,
+                              orderPercent,
+                              price,
+                              stopPx,
+                              targetStrategy,
+                              targetStrategyParameters
+                              ):
+
+        #! Do not forget to quantize decimal places to exchange supported format
+        # pair = pair[0].upper()
+
+        # try:
+        #     price_decimals = Decimal(self.exchange_pair_specs[pair]["price_decimals"])
+        #     price = Decimal(price).quantize(10**-price_decimals)
+
+        #     if price2:
+        #         price2 = Decimal(price2).quantize(10**-price_decimals)
+
+        #     volume_decimals = Decimal(self.exchange_pair_specs[pair]["volume_decimals"])
+        #     volume = Decimal(volume).quantize(10**-volume_decimals)
+
+        pass
+
+    # @abstractmethod
+    # async def place_order(self, *args, **kwargs):
+    #     raise NotImplementedError
 
 
 
-    @abstractmethod
-    async def cancel_order(self, *args, **kwargs):
-        raise NotImplementedError
+    # @abstractmethod
+    # async def cancel_order(self, *args, **kwargs):
+    #     raise NotImplementedError
 
 
 
@@ -1047,8 +902,8 @@ class BaseRestAPI(ABC):
         """Cancel all orders and return count of how many we canceled"""
         count = 0
         id_list = []
-        response = await self.get_open_orders(retries=retries)
-        open_orders = response["data"]
+        response = await self.get_open_orders(mode="by_id", retries=retries)
+        open_orders = response.value
         for order_id, _ in open_orders.items():
             await self.cancel_order(order_id, retries=retries)
             count += 1
@@ -1072,83 +927,3 @@ class BaseRestAPI(ABC):
 
 
 
-
-    # ================================================================================
-    # ==== WRITE ALL HISTORICAL OHLC TO CSV
-    # ================================================================================
-
-
-    async def write_historical_trades_to_csv(self, pair: list):
-        """
-        kraken does not provide historical ohlc data
-        ==> aggregate all historical trades into ohlc
-        """
-
-        file_path = f"data/{self.exchange.lower()}_{pair[0]}_historical_trade_data.csv"
-
-        # init
-        since = 0
-        count = 0
-
-        # verify data validity
-        try:
-            df = pd.read_csv(file_path,
-                             names=["price", "volume", "time", "side", "type", "misc"],
-                            #  header=None,
-                            #  skiprows=1
-                             )
-            # logging.info(df.head(10))
-            logging.info(df.tail(10))
-            # logging.info(df.dtypes)
-
-            # get index for row with highest timestamp
-            max_ts = df["time"].max()
-            [max_ts_index] = df.index[df["time"] == max_ts].tolist()
-
-            # drop row where index > max_ts_index
-            # (means they were wrongly appended to file)
-            df = df[(df["time"] < max_ts) & (df.index < max_ts_index)]
-
-            # overwrite
-            df.to_csv(path_or_buf=file_path,
-                      mode="w",
-                      header=False,
-                      index=False
-                      )
-
-            since = int(df["time"].iloc[-1] * 10**9)
-            # logging.info(df.head(10))
-            logging.info(df.tail(10))
-            logging.info(f"Last trade entry written to csv for date : {pd.to_datetime(since)}")
-        except FileNotFoundError as e:
-            logging.warning("CSV file does not exist")
-        except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
-
-
-        logging.info(f"since: {since} --- type: {type(since)}")
-
-        most_recent_trades = await self.get_trades(pair=pair)
-        most_recent_last = most_recent_trades["last"]
-
-        try:
-            while since < most_recent_last:
-                trades = await self.get_trades(pair=pair, since=since)
-                trades_df = pd.DataFrame(trades["data"])
-                trades_df.to_csv(path_or_buf=file_path,
-                                 mode="a",
-                                 header=False,
-                                 index=False
-                                 )
-                count += len(trades["data"])
-                since = trades["last"]
-                # otherwise we will get rate limited
-                await asyncio.sleep(2)
-                custom_logger.info(f"count : {count}")
-                custom_logger.info(pd.to_datetime(int(since)))
-        except KeyboardInterrupt:
-            pass
-        except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
-
-        return {"count": count}
