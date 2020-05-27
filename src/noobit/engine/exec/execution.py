@@ -38,7 +38,7 @@ class LimitChaseExecution():
     basic example of a limit chase execution
     """
 
-    def __init__(self, exchange, pair, ws, ws_token, strat_id, pair_decimals, order_life: float = None, sub_map: dict = None):
+    def __init__(self, exchange, pair, ws, ws_token, pair_decimals, order_life: float = None, sub_map: dict = None):
         #! map exchange to exchange parsers
         #! for that we will need to map all parsers in exchanges.mappings / or in models.data
         self.exchange = exchange
@@ -47,7 +47,7 @@ class LimitChaseExecution():
 
         self.ws = ws
         self.ws_token = ws_token
-        self.strat_id = strat_id
+        # self.strat_id = strat_id
 
         # decimal precision allowed for given pair
         # see kraken doc : https://support.kraken.com/hc/en-us/articles/360001389366-Price-and-volume-decimal-precision
@@ -236,7 +236,7 @@ class LimitChaseExecution():
                     data = {
                         "event": "addOrder",
                         "token": self.ws_token["token"],     # we need to get this from strat instance that Exec is binded to
-                        "userref": self.strat_id,    # we need to get this from strat instance that Exec is binded to
+                        # "userref": self.strat_id,    # we need to get this from strat instance that Exec is binded to
                         "ordertype": "limit",
                         "type": side,
                         "pair": pair.replace("-", "/").upper(),

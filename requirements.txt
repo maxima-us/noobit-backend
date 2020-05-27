@@ -1,6 +1,7 @@
 aiofiles
 aioredis==1.3.1
 aiosqlite==0.11.0                        # indirect dependency of tortoise-orm
+backtrader==1.9.74.123
 click==7.0
 colorama
 fastapi==0.45.0

@@ -10,23 +10,22 @@ class Strategy(BaseStrategy):
 
     def __init__(self,
                  name: str,
-                 strat_id: int,
                  description: str,
                  exchange: str,
                  pair: PAIR,
                  timeframe: TIMEFRAME,
                  volume: float
                  ):
-        super().__init__(name, strat_id, description, exchange, pair, timeframe, volume)
+        super().__init__(name, description, exchange, pair, timeframe, volume)
         #!  for now we only accept one execution
         self.execution_models = {
-            "limit_chase": LimitChaseExecution(exchange, pair, self.ws, self.ws_token, self.strat_id, 0.1)
+            "limit_chase": LimitChaseExecution(exchange, pair, self.ws, self.ws_token, 0.1)
         }
 
 
     def user_setup(self):
         #! later we might want to add the possibility to choose different timeframes too
-        self.add_indicator(func=talib.MAMA, source="close", fastlimit=0.5, slowlimit=0.05)
+        self.add_indicator(func=talib.MAMA, source="close", fastlimit=0.1, slowlimit=0.05)
         self.add_indicator(func=talib.RSI, source="close", timeperiod=14)
         self.add_crossup("MAMA0", "MAMA1")
         self.add_crossdown("MAMA0", "MAMA1")
