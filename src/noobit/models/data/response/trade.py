@@ -96,7 +96,7 @@ class Trade(BaseModel):
 
 class TradesList(BaseModel):
     data: List[Trade]
-    last: Optional[TIMESTAMP] = Field(...)
+    last: Optional[TIMESTAMP]
 
 
 class TradesByID(BaseModel):

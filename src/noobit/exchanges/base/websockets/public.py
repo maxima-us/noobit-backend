@@ -100,20 +100,6 @@ class PublicFeedReaderBase():
 
 
 
-    async def route_message(self, msg):
-        """route message to appropriate method to publish
-        one of coros :
-            - publish_heartbeat
-            - publish_system_status
-            - publish_subscription_status
-            - publish_data
-
-        To be implemented by ExchangeFeedReader
-        """
-        raise NotImplementedError
-
-
-
     async def publish_heartbeat(self, msg, redis_pool):
         """message needs to be json loaded str, make sure we have the correct keys
         """
@@ -184,7 +170,7 @@ class PublicFeedReaderBase():
         try:
             parsed = self.stream_parser.trade(msg)
             # should return dict that we validates vs Trade Model
-            validated = TradesList(data=parsed)
+            validated = TradesList(data=parsed, last=None)
             # then we want to return a response
 
             value = validated.data
@@ -282,46 +268,3 @@ class PublicFeedReaderBase():
 
     async def publish_data_spread(self, msg, redis_pool):
         pass
-
-
-
-
-    # async def publish_data(self, msg, redis_pool):
-    #     """message needs to be json loadedy str, make sure we have the correct keys
-    #     """
-
-    #     # TODO replace with parser
-    #     try:
-    #         msg = ujson.loads(msg)
-    #         feed_id = msg[0]
-    #         feed = msg[2]
-    #         data = msg[1]
-    #         pair = msg[3].replace("/", "-")
-    #         channel = f"ws:public:data:{self.exchange}:{feed}"
-    #         ws_data = DATA_MODELS_MAP[feed](channel_id=feed_id, data=data, channel_name=feed, pair=pair)
-    #     except ValidationError as e:
-    #         log_exception(logger, e)
-
-    #     try:
-    #         self.feed_counters[channel] += 1
-    #         update_chan = f"ws:public:data:update:{self.exchange}:{feed}:{pair}"
-    #         data_to_publish = ws_data.dict()
-    #         data_to_publish = data_to_publish["data"]
-    #         logger.info(f"data : {data_to_publish}")
-    #         await redis_pool.publish(update_chan, ujson.dumps(data_to_publish))
-    #     except KeyError:
-    #         self.feed_counters[channel] = 0
-    #         snapshot_chan = f"ws:public:data:snapshot:{self.exchange}:{feed}:{pair}"
-    #         data_to_publish = ws_data.dict()
-    #         data_to_publish = data_to_publish["data"]
-    #         await redis_pool.publish(snapshot_chan, ujson.dumps(data_to_publish))
-    #     except Exception as e:
-    #         log_exception(logger, e)
-    #     # try:
-    #     #     #!  how to we know which model we need to load ? should we use a mapping again ?
-    #     #     #!  we could try to look up <feed> key in a model mapping defined in data_models.websockets ?
-    #     #     ws_data = data_models_map[feed](data=data, channel_name=feed)
-    #     #     redis_pool.publish(channel, ujson.dumps(ws_data.dict()))
-
-    #     # except ValidationError as e:
-    #     #     logging.error(stackprinter.format(e, style="darkbg2"))
