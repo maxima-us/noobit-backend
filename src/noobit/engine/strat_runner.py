@@ -54,8 +54,12 @@ class StratRunner():
             try:
                 await strat.register_to_db()
                 await strat.subscribe_to_ws()
-                logger.warn(strat.ws)
-                logger.warn(strat.ws_token)
+
+                logger.debug(strat.ws)
+                logger.debug(strat.ws_token)
+                logger.info(f"Strategy : {strat.name} --- Running")
+                logger.info(f"Arguments : {strat.exchange} - {strat.symbol} - {strat.timeframe}")
+
             except Exception as e:
                 log_exception(logger, e)
 
@@ -64,8 +68,10 @@ class StratRunner():
                     try:
                         await model.setup()
                         self.tasks.extend(model.redis_tasks)
-                        logger.warn(model.ws)
-                        logger.warn(model.ws_token)
+
+                        logger.debug(model.ws)
+                        logger.debug(model.ws_token)
+
                     except Exception as e:
                         log_exception(logger, e)
 

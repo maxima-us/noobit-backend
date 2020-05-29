@@ -77,11 +77,8 @@ def run_stratrunner(strategy, exchange, symbol, timeframe, volume):
     strategy = import_module(strat_file_path)
 
     # in every strategy file the class needs to be called "Strategy"
-    strat = strategy.Strategy(name="testName",
-                            #   strat_id=10001,
-                              description="this is a test description",
-                              exchange=exchange,
-                              pair=symbol,  #! still pair arg
+    strat = strategy.Strategy(exchange=exchange,
+                              symbol=symbol,
                               timeframe=timeframe,
                               volume=volume
                               )
@@ -100,11 +97,8 @@ def run_backtester(strategy, exchange, symbol, timeframe):
     strat_dir_str = "noobit_user.strategies"
     strat_file_path = f"{strat_dir_str}.{strategy}"
     strategy = import_module(strat_file_path)
-    strat = strategy.Strategy(name="testName",
-                            #   strat_id=10001,
-                              description="this is a test description",
-                              exchange=exchange.lower(),
-                              pair=symbol.upper(),
+    strat = strategy.Strategy(exchange=exchange.lower(),
+                              symbol=symbol,
                               timeframe=timeframe,
                               volume=0
                               )

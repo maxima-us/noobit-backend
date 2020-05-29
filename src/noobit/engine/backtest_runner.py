@@ -128,18 +128,16 @@ class BackTestRunner():
 
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    strategy = "mock_strat"
-    strat_dir_path = "noobit_user.strategies"
-    strat_file_path = f"{strat_dir_path}.{strategy}"
-    strategy = import_module(strat_file_path)
-    strat = strategy.Strategy(name="testName",
-                              description="this is a test description",
-                              exchange="kraken",
-                              pair="XBT-USD",
-                              timeframe=60,
-                              volume=0
-                              )
-    runner = BackTestRunner(strats=[strat])
-    runner.run()
+#     strategy = "mock_strat"
+#     strat_dir_path = "noobit_user.strategies"
+#     strat_file_path = f"{strat_dir_path}.{strategy}"
+#     strategy = import_module(strat_file_path)
+#     strat = strategy.Strategy(exchange="kraken",
+#                               pair="XBT-USD",
+#                               timeframe=60,
+#                               volume=0
+#                               )
+#     runner = BackTestRunner(strats=[strat])
+#     runner.run()

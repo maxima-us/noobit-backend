@@ -1,4 +1,5 @@
 import talib
+import inspect
 
 from noobit.engine.base import BaseStrategy
 from noobit.engine.exec.execution import LimitChaseExecution
@@ -9,17 +10,18 @@ class Strategy(BaseStrategy):
 
 
     def __init__(self,
-                 name: str,
-                 description: str,
                  exchange: str,
-                 pair: PAIR,
+                 symbol: PAIR,
                  timeframe: TIMEFRAME,
-                 volume: float
+                 volume: float = 0
                  ):
-        super().__init__(name, description, exchange, pair, timeframe, volume)
+
+        # name = inspect.getfile(self)
+        description = "describe your strategy"
+        super().__init__(description, exchange, symbol, timeframe, volume)
         #!  for now we only accept one execution
         self.execution_models = {
-            "limit_chase": LimitChaseExecution(exchange, pair, self.ws, self.ws_token, 0.1)
+            "limit_chase": LimitChaseExecution(exchange, symbol, self.ws, self.ws_token, 0.1)
         }
 
 
