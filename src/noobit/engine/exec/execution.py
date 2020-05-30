@@ -6,7 +6,9 @@ import aioredis
 import ujson
 
 from noobit.logging.structlogger import get_logger, log_exception
-from noobit.models.data.websockets.deprecated_orders import AddOrder, CancelOrder
+from noobit.models.data.request import AddOrder, CancelOrder
+from noobit.models.data.websockets.stream.parse.kraken import KrakenStreamParser
+# from noobit.models.data.request.parse.kraken import KrakenRequestParser
 
 logger = get_logger(__name__)
 
@@ -14,16 +16,15 @@ logger = get_logger(__name__)
 
 class AsyncState():
 
-    #! should we use a pydantic model for this too ? 
-    #! ==> probably !!!
 
-    def __init__(self, pair):
+    def __init__(self, symbol):
         self.current = {
-            pair:{"side": None,
-                  "volume": {"total": 0, "executed": 0},
-                  "spread": {"best_bid": 0, "best_ask": 0},
-                  "orders": {"open": {}}
-                  }
+            symbol: {
+                "side": None,
+                "volume": {"orderQty": 0, "cumQty": 0, "leavesQty": 0},
+                "spread": {"best_bid": 0, "best_ask": 0},
+                "orders": {"open": {}}
+            }
         }
 
     def __aiter__(self):
@@ -38,11 +39,11 @@ class LimitChaseExecution():
     basic example of a limit chase execution
     """
 
-    def __init__(self, exchange, pair, ws, ws_token, pair_decimals, order_life: float = None, sub_map: dict = None):
-        #! map exchange to exchange parsers
-        #! for that we will need to map all parsers in exchanges.mappings / or in models.data
+    def __init__(self, exchange, symbol, ws, ws_token, exchange_pair_specs, order_life: float = None, sub_map: dict = None):
+        # TODO map exchange to exchange parsers ( in exchanges.mappings ?)
+
         self.exchange = exchange
-        self.pair = pair[0].lower()
+        self.symbol = symbol
         self.aioredis_pool = None
 
         self.ws = ws
@@ -51,24 +52,19 @@ class LimitChaseExecution():
 
         # decimal precision allowed for given pair
         # see kraken doc : https://support.kraken.com/hc/en-us/articles/360001389366-Price-and-volume-decimal-precision
-        #! we should get this at init of strat like for api
-        self.pair_decimals = pair_decimals
+        self.price_decimals = exchange_pair_specs["price_decimals"]
+        self.volume_decimals = exchange_pair_specs["volume_decimals"]
+        self.leverage_available = exchange_pair_specs["leverage_available"]
 
         # how long an order should be allowed to stay alive before we cancel it
         # convert from seconds to nanoseconds (kraken timestamp is in nanoseconds)
+        # 0.1 = it will stay alive for 0.1 secs max before we cancel and replaceit
         if order_life is None:
             self.order_life = 0.1 * 10**9
         else:
             self.order_life = order_life
 
-        # self.state = {self.pair:{"side": None,
-        #                          "volume": {"total": 0, "executed": 0},
-        #                          "spread": {"best_bid": 0, "best_ask": 0},
-        #                          "orders": {"open": {}}
-        #                          }
-        # }
-
-        self.state = AsyncState(self.pair)
+        self.state = AsyncState(self.symbol)
 
         # we use state as the link between all websockets
         # should contain info about all the orders we want to get filled, and update them constantly
@@ -81,24 +77,27 @@ class LimitChaseExecution():
         # TODO      for now this is OK, but later we might want to be able to have several orders
         # TODO          for the same pair simultaneously ==> maybe index by some sort of ID instead or pair
 
-
         self.should_exit = False
 
         # redis
         self.redis_tasks = []
         self.subscribed_channels = {}
+
         if sub_map is None:
-            self.sub_map = {"heartbeat": "ws:heartbeat:*",
-                            "status": "ws:status:*",
-                            "system": "ws:system:*",
-                            "user_order_updates": f"ws:private:data:update:{self.exchange}:openOrders",
-                            "user_trade_updates": f"ws:private:data:update:{self.exchange}:ownTrades",
-                            "public_trade_updates": f"ws:public:data:update:{self.exchange}:trade:{self.pair}",
-                            "public_ticker_updates": f"ws:public:data:update:{self.exchange}:ticker",
-                            "public_spread_updates": f"ws:public:data:update:{self.exchange}:spread:{self.pair}",
-                            }
+            self.sub_map = {
+                "heartbeat": "ws:heartbeat:*",
+                "status": "ws:status:*",
+                "system": "ws:system:*",
+                "user_order_updates": f"ws:private:data:update:{self.exchange}:openOrders",
+                "user_trade_updates": f"ws:private:data:update:{self.exchange}:ownTrades",
+                "public_trade_updates": f"ws:public:data:update:{self.exchange}:trade:{self.symbol}",
+                "public_ticker_updates": f"ws:public:data:update:{self.exchange}:ticker",
+                "public_spread_updates": f"ws:public:data:update:{self.exchange}:spread:{self.symbol}",
+            }
         else:
             self.sub_map = sub_map
+
+        self.streamparser = KrakenStreamParser()
 
 
 
@@ -143,22 +142,30 @@ class LimitChaseExecution():
         submit an order to the execution engine
         order info gets added to execution state
         """
-        self.state.current[self.pair] = {
+        self.state.current[self.symbol] = {
             "side": side,
-            "volume": {"total": total_vol, "executed": 0},
+            "volume": {"orderQty": total_vol, "cumQty": 0, "leavesQty": 0},
             "spread": {"best_bid": 0, "best_ask": 0},
-            "orders": {"open": {}}
+            "orders": {"open": {}},
         }
 
 
     def add_long_order(self, total_vol):
         # be careful that decimal places is within tolerance of exchange API
-        self.add_order(total_vol, side="buy")
+        try:
+            orderQty = round(total_vol, self.volume_decimals)
+        except Exception as e:
+            log_exception(logger, e)
+        self.add_order(orderQty, side="buy")
 
 
     def add_short_order(self, total_vol):
         # be careful that decimal places is within tolerance of exchange API
-        self.add_order(total_vol, side="sell")
+        try:
+            orderQty = round(total_vol, self.volume_decimals)
+        except Exception as e:
+            log_exception(logger, e)
+        self.add_order(orderQty, side="sell")
 
 
 
@@ -172,13 +179,12 @@ class LimitChaseExecution():
         """
         Just a function to test that we are able to continuously read from state
         """
-        pair = self.pair
         try:
             async for current_state in self.state:
                 if self.should_exit:
                     break
                 else:
-                    state = current_state[pair]
+                    state = current_state[self.symbol]
                     logger.info(state["spread"])
                     # prevent blocking
                     await asyncio.sleep(0)
@@ -186,25 +192,26 @@ class LimitChaseExecution():
             log_exception(logger, e)
 
 
-    async def place_order(self, testing: bool=False):
+
+    async def place_order(self, testing: bool = False):
         """
         place an order over the ws connection with exchange
         """
-        pair = self.pair
 
+        # continuously watch over state
         async for current_state in self.state:
             if self.should_exit:
                 break
 
-            info = current_state[pair]
+            info = current_state[self.symbol]
 
             # no total volume = no orders passed => skip
-            if info["volume"]["total"] == 0:
+            if info["volume"]["orderQty"] == 0:
                 # prevent blocking
                 await asyncio.sleep(0)
                 continue
 
-            remaining_vol = info["volume"]["total"] - info["volume"]["executed"]
+            remaining_vol = info["volume"]["leavesQty"]
             if remaining_vol > 0:
 
                 ask = info["spread"]["best_ask"]
@@ -215,8 +222,8 @@ class LimitChaseExecution():
                 if info["side"] == "buy":
                     side = "buy"
                     # max price precision for kraken btcusd is 0.1 usd
-                    if spread > self.pair_decimals:
-                        price = bid + self.pair_decimals
+                    if spread > self.price_decimals: #! get pair max decimals from api
+                        price = bid + self.price_decimals
                     else:
                         price = bid
                     leverage = None
@@ -224,47 +231,49 @@ class LimitChaseExecution():
                 else:
                     side = "sell"
                     # max price precision for kraken btcusd is 0.1 usd
-                    if spread > self.pair_decimals:
-                        price = ask - self.pair_decimals
+                    if spread > self.price_decimals:
+                        price = ask - self.price_decimals
                     else:
                         price = ask
                     leverage = 4
 
-
-                #! noobit format => then call exchange parser
                 try:
+
                     data = {
-                        "event": "addOrder",
-                        "token": self.ws_token["token"],     # we need to get this from strat instance that Exec is binded to
-                        # "userref": self.strat_id,    # we need to get this from strat instance that Exec is binded to
-                        "ordertype": "limit",
-                        "type": side,
-                        "pair": pair.replace("-", "/").upper(),
-                        "volume": remaining_vol,
+                        "symbol": self.symbol,
+                        "side": side,
+                        "ordType": "limit",
+                        "execInst": None,
+                        "clOrdID": None,
+                        "timeInForce": None,
+                        "effectiveTime": None,
+                        "expireTime": None,
+                        "orderQty": remaining_vol,
+                        "orderPercent": None,
+                        "marginRatio": 1/leverage,
+                        "price": price,
+                        "stopPx": None,
+                        "targetStrategy": None,
+                        "targetStrategyParameters": None
                     }
 
-
-
-                    #! will have to use the exchange parser somehow
-                    #! validate against standard Order model
                     try:
-                        validated = AddOrder(**data)
-                        validated_data = validated.dict()
+                        validated_data = AddOrder(**data)
                     except ValidationError as e:
                         log_exception(logger, e)
                     except Exception as e:
                         log_exception(logger, e)
 
-                    #! pass parsed data instead
-                    payload = ujson.dumps(validated_data)
-                    await self.ws.send(payload)
+                    payload = self.streamparser.add_order(validated_data, self.ws_token["token"])
+                    await self.ws.send(ujson.dumps(payload))
 
                 except Exception as e:
                     log_exception(logger, e)
 
+                # this is needed to not block the thread entirely
                 await asyncio.sleep(0)
 
-
+            # when testing we only want to place the trade once without updating it
             if testing:
                 break
 
@@ -276,13 +285,12 @@ class LimitChaseExecution():
         """
         # kraken returns timestamp in nanoseconds
         current_ts = time.time_ns()
-        pair = self.pair
 
         async for current_state in self.state:
             if self.should_exit:
                 break
 
-            info = current_state[pair]
+            info = current_state[self.symbol]
 
             if not info["orders"]["open"]:
                 await asyncio.sleep(0)
@@ -292,22 +300,21 @@ class LimitChaseExecution():
                 if current_ts - timestamp > self.order_life:
 
                     data = {
-                        "event": "cancelOrder",
-                        "token": self.ws_token,
-                        "txid": order_id
+                        "clOrdID": None,
+                        "orderID": [order_id]
                     }
 
-
                     try:
-                        validated = CancelOrder(**data)
-                        validated_data = validated.dict()
+                        validated_data = CancelOrder(**data)
                     except ValidationError as e:
                         log_exception(logger, e)
                     except Exception as e:
                         log_exception(logger, e)
 
-                    payload = ujson.dumps(validated_data)
-                    self.ws.send(payload)
+                    payload = self.streamparser.cancel_order(validated_data, self.ws_token["token"])
+
+                    self.ws.send(ujson.dumps(payload))
+
             await asyncio.sleep(0)
 
 
@@ -329,12 +336,12 @@ class LimitChaseExecution():
             new_order = ujson.loads(json)
             logger.info(new_order)
 
+
             for order_id, order_info in new_order.items():
-                status = order_info["status"]
-                open_time = order_info["opentm"]
-                pair = order_info["descr"]["pair"]
-                pair = pair.replace("/", "-").lower()
-                self.state.current[pair]["orders"][status][order_id] = open_time
+                status = order_info["ordStatus"]
+                open_time = order_info["effectiveTime"]
+                symbol = order_info["symbol"]
+                self.state.current[symbol]["orders"][status][order_id] = open_time
 
 
     async def on_trade_update(self):
@@ -343,16 +350,16 @@ class LimitChaseExecution():
 
         async for _chan, msg in channel.iter():
             json = msg.decode("utf-8")
-            new_trade = ujson.loads(json)
-            logger.info(new_trade)
+            new_trades = ujson.loads(json)
+            logger.info(new_trades)
 
-            for _order_id, trade_info in new_trade.items():
-                pair = trade_info["pair"]
-                pair = pair.replace("/", "-").lower()
-                executed_volume = trade_info["vol"]
-                side = trade_info["side"]
+            for trade in new_trades:
+                symbol = trade["symbol"]
+                executed_volume = trade["cumQty"]
+                side = trade["side"]
 
-                self.state.current[pair]["volume"]["executed"] += executed_volume
+                if side == self.state.current[symbol]["side"]:
+                    self.state.current[symbol]["volume"]["cumQty"] += executed_volume
 
 
     async def on_spread_update(self):
@@ -363,13 +370,9 @@ class LimitChaseExecution():
             json = msg.decode("utf-8")
             new_spread = ujson.loads(json)
 
-            bid = new_spread[0]
-            ask = new_spread[1]
-            timestamp = new_spread[2]
+            logger.info(new_spread)
 
-            pair = self.pair    #! get pair also from redis feed as confirmation ?
-
-            self.state.current[pair]["spread"]["best_ask"] = ask
-            self.state.current[pair]["spread"]["best_bid"] = bid
+            self.state.current[new_spread["symbol"]]["spread"]["best_ask"] = new_spread["bestAsk"]
+            self.state.current[new_spread["symbol"]]["spread"]["best_bid"] = new_spread["bestBid"]
 
             logger.info(self.state.current)

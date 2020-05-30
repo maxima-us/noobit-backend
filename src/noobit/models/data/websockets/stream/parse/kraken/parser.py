@@ -5,6 +5,10 @@ from .instrument import parse_instrument
 from .orderbook import parse_orderbook
 from .order import parse_order_snapshot_by_id, parse_order_update_by_id
 from .user_trade import parse_user_trade
+from .add_order import parse_add_order
+from .cancel_order import parse_cancel_order
+from .spread import parse_spread
+
 
 class KrakenStreamParser(BaseStreamParser):
 
@@ -14,6 +18,9 @@ class KrakenStreamParser(BaseStreamParser):
 
     def instrument(self, message) -> dict:
         return parse_instrument(message)
+
+    def spread(self, message) -> dict:
+        return parse_spread(message)
 
     def orderbook(self, message) -> dict:
         return parse_orderbook(message)
@@ -26,3 +33,9 @@ class KrakenStreamParser(BaseStreamParser):
 
     def user_trade(self, message) -> list:
         return parse_user_trade(message)
+
+    def add_order(self, validated_data, token) -> dict:
+        return parse_add_order(validated_data, token)
+
+    def cancel_order(self, validated_data, token) -> dict:
+        return parse_cancel_order(validated_data, token)

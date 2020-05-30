@@ -25,7 +25,7 @@ class Order(BaseModel):
     #   Uniqueness must be guaranteed within a single trading day.
     #   Firms which accept multi-day orders should consider embedding a date
     #   within the OrderID field to assure uniqueness across days.
-    orderID: str
+    orderID: Optional[str] = Field(...)
 
     # FIX Definition:
     #   Ticker symbol. Common, "human understood" representation of the security.
