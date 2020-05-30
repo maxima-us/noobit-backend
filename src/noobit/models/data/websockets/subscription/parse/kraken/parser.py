@@ -1,10 +1,13 @@
 import asyncio
 
-import stackprinter
 import httpx
 
+from noobit.logging.structlogger import get_logger, log_exception
 from noobit.exchanges.mappings import rest_api_map
 from noobit.models.data.websockets.subscription.parse.base import BaseSubParser
+
+
+logger = get_logger(__name__)
 
 class KrakenSubParser(BaseSubParser):
 
@@ -15,7 +18,8 @@ class KrakenSubParser(BaseSubParser):
             "orderbook": "book",
             "instrument": "ticker",
             "trade": "trade",
-            "ohlc": "ohlc"
+            "ohlc": "ohlc",
+            "spread": "spread"
         }
 
         try:
@@ -28,9 +32,8 @@ class KrakenSubParser(BaseSubParser):
             return data
 
         except Exception as e:
-            raise stackprinter.format(e, style="darkbg2")
-
-
+            log_exception(logger, e)
+            raise
 
     async def private(self, pairs, feed):
 
@@ -39,7 +42,6 @@ class KrakenSubParser(BaseSubParser):
             "trade": "ownTrades",
         }
         exchange_name = map_to_exchange[feed]
-        print(exchange_name, feed)
 
         try:
             api = rest_api_map["kraken"]()
@@ -49,4 +51,5 @@ class KrakenSubParser(BaseSubParser):
             return data
 
         except Exception as e:
-            raise stackprinter.format(e, style="darkbg2")
+            log_exception(logger, e)
+            raise

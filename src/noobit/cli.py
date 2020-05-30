@@ -34,15 +34,16 @@ def aggregate_historical_trades(exchange, symbol):
 
 @click.command()
 @click.option("--exchanges", "-e", multiple=True, default=["kraken"], help="List of lowercase exchanges")
-@click.option("--symbol", "-s", multiple=True, default=["XBT-USD", "ETH-USD"], help="dash-separated uppercase pairs")
+@click.option("--symbols", "-s", multiple=True, default=["XBT-USD", "ETH-USD"], help="dash-separated uppercase pairs")
 @click.option("--private_feeds", "-prf", multiple=True, default=["trade", "order"], help="Private feeds to subscribe to")
-@click.option("--public_feeds", "-puf", multiple=True, default=["instrument", "trade", "orderbook"], help="Public feeds to subscribe to")
-def run_feedhandler(exchanges, symbol, private_feeds, public_feeds):
+@click.option("--public_feeds", "-puf", multiple=True, default=["instrument", "trade", "orderbook", "spread"], help="Public feeds to subscribe to")
+def run_feedhandler(exchanges, symbols, private_feeds, public_feeds):
     try:
         fh = FeedHandler(exchanges=exchanges,
                          private_feeds=private_feeds,
                          public_feeds=public_feeds,
-                         pairs=symbol)
+                         pairs=[symbol.upper() for symbol in symbols]
+                         )
         fh.run()
     except KeyboardInterrupt:
         pass
@@ -78,7 +79,7 @@ def run_stratrunner(strategy, exchange, symbol, timeframe, volume):
 
     # in every strategy file the class needs to be called "Strategy"
     strat = strategy.Strategy(exchange=exchange,
-                              symbol=symbol,
+                              symbol=symbol.upper(),
                               timeframe=timeframe,
                               volume=volume
                               )
@@ -98,7 +99,7 @@ def run_backtester(strategy, exchange, symbol, timeframe):
     strat_file_path = f"{strat_dir_str}.{strategy}"
     strategy = import_module(strat_file_path)
     strat = strategy.Strategy(exchange=exchange.lower(),
-                              symbol=symbol,
+                              symbol=symbol.upper(),
                               timeframe=timeframe,
                               volume=0
                               )

@@ -62,6 +62,9 @@ class KrakenPublicFeedReader(BasePublicFeedReader):
             if feed == "ohlc":
                 route = "ohlc"
 
+            if feed == "spread":
+                route = "spread"
+
             if "book" in feed:
                 route = "orderbook"
 

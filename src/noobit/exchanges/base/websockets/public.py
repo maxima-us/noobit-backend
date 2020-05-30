@@ -12,9 +12,10 @@ from noobit.logging.structlogger import get_logger, log_exception
 # models
 from noobit.models.data.base.types import PAIR, WS_ROUTE
 from noobit.models.data.websockets.status import HeartBeat, SubscriptionStatus, SystemStatus
-from noobit.models.data.websockets.stream.trade import TradesList
-from noobit.models.data.websockets.stream.instrument import Instrument
-from noobit.models.data.websockets.stream.orderbook import OrderBook
+
+from noobit.models.data.websockets.stream import (
+    TradesList, Instrument, OrderBook, Spread
+)
 
 logger = get_logger(__name__)
 
@@ -267,4 +268,25 @@ class PublicFeedReaderBase():
 
 
     async def publish_data_spread(self, msg, redis_pool):
-        pass
+        try:
+            parsed = self.stream_parser.spread(msg)
+
+            validated = Spread(**parsed)
+
+            resp = OKResponse(
+                status_code=200,
+                value=validated
+            )
+            logger.info(resp.value)
+            update_chan = f"ws:public:data:spread:update:{self.exchange}:{resp.value.symbol}"
+            await redis_pool.publish(update_chan, ujson.dumps(resp.value.dict()))
+
+
+        except ValidationError as e:
+            logger.error(e)
+            return ErrorResponse(
+                status_code=404,
+                value=str(e)
+            )
+        except Exception as e:
+            log_exception(logger, e)
