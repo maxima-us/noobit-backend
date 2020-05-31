@@ -74,6 +74,20 @@ class Strategy(bt.Strategy):
             writer.writerow(col_values)
 
 
+    # def log_rejection(self, text, dt=None):
+    #     dt = dt or self.datas[0].datetime.datetime(0)
+
+    #     with open(self.file_path, 'a', newline='') as csvfile:
+    #         writer = csv.DictWriter(csvfile, fieldnames=self.fieldnames)
+    #         col_values["datetime"] = dt
+    #         col_values = {
+    #             "datetime": dt,
+    #             "close"
+
+    #         }
+    #         writer.writerow(col_values)
+
+
     def __init__(self, strategy_name):
 
         self.strategy_name = strategy_name
@@ -136,7 +150,9 @@ class Strategy(bt.Strategy):
             self.bar_executed = len(self)
 
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
-            self.log('Order Canceled/Margin/Rejected')
+            self.log(col_values={
+                "text": 'Order Canceled/Margin/Rejected'
+            })
 
         # Write down: no pending order
         self.order = None

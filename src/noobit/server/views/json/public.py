@@ -15,77 +15,45 @@ router = APIRouter()
 # ================================================================================
 
 
-@router.get('/pairs/{exchange}', response_class=UJSONResponse)
-async def get_pairs(exchange: str):
+
+@router.get('/public_trades/{exchange}', response_class=UJSONResponse)
+async def get_public_trades(exchange: str,
+                            symbol: str = Query(..., title="symbol"),
+                            ):
     api = rest_api_map[exchange]()
-    pairs = await api.get_mapping()
-    return pairs
+
+    response = await api.get_public_trades(symbol=symbol)
+    return response
 
 
-@router.get('/ticker/{exchange}', response_class=UJSONResponse)
-async def get_ticker(exchange: str,
-                     pair: List[str] = Query(..., title="Dash Separated Pair", maxlength=8)
-                     ):
+@router.get('/orderbook/{exchange}', response_class=UJSONResponse)
+async def get_orderbook(exchange: str,
+                        symbol: str = Query(..., title="symbol"),
+                        ):
     api = rest_api_map[exchange]()
-    response = await api.get_ticker(pair=pair)
-    return response["data"]
+
+    response = await api.get_orderbook(symbol=symbol)
+    return response
+
+
+@router.get('/instrument/{exchange}', response_class=UJSONResponse)
+async def get_instrument(exchange: str,
+                         symbol: str = Query(..., title="symbol")
+                         ):
+    api = rest_api_map[exchange]()
+
+    response = await api.get_instrument(symbol=symbol)
+    return response
 
 
 @router.get('/ohlc/{exchange}', response_class=UJSONResponse)
 async def get_ohlc(exchange: str,
-                   pair: str = Query(..., title="Dash Separated Pair", maxlength=8),
-                   timeframe: int = Query(..., title="OHLC Candle Interval in minutes"),
-                   since: int = Query(None, title="Return data since given timestamp"),
-                   retries: int = Query(None, title="Number of times to retry the request if it fails")
+                   symbol: str = Query(..., title="symbol"),
+                   timeframe: int = Query(..., title="candle timeframe")
                    ):
     api = rest_api_map[exchange]()
-    response = await api.get_ohlc(pair=[pair], timeframe=timeframe, since=since, retries=retries)
-    return response["data"]
 
-
-@router.get('/orderbook/{exchange}')
-async def get_orderbook(exchange: str,
-                        pair: str = Query(..., title="Dash Separated Pair", maxlength=8),
-                        count: int = Query(None, title="Maximum number of asks/bids to return"),
-                        retries: int = Query(None, title="Number of times to retry the request if it fails")
-                        ):
-    api = rest_api_map[exchange]()
-    response = await api.get_orderbook(pair=[pair], count=count, retries=retries)
-    # asks_table_json = response["asks"].to_json(orient="table")
-    # bids_table_json = response["bids"].to_json(orient="table")
-    # return {"asks": asks_table_json, "bids": bids_table_json}
-    return response
-
-
-@router.get("/trades/{exchange}")
-async def get_trades(exchange: str,
-                     pair: str = Query(..., title="Dash Separated Pair", maxlength=8),
-                     since: int = Query(None, title="Return data since given timestamp"),
-                     retries: int = Query(None, title="Number of times to retry the request if it fails")
-                     ):
-    api = rest_api_map[exchange]()
-    response = await api.get_trades(pair=[pair], since=since, retries=retries)
-    return response["data"]
-
-
-@router.get("/spread/{exchange}")
-async def get_spread(exchange: str,
-                     pair: str = Query(..., title="Dash Separated Pair", maxlength=8),
-                     since: int = Query(None, title="Return data since given timestamp"),
-                     retries: int = Query(None, title="Number of times to retry the request if it fails")
-                     ):
-    api = rest_api_map[exchange]()
-    response = await api.get_spread(pair=[pair], since=since, retries=retries)
-    return response["data"]
-
-
-
-@router.get("/aggregate_historical_trades/{exchange}")
-async def aggregate_historical_trades(exchange: str,
-                                pair: str = Query(..., title="Dash Separated Pair", maxlength=9)
-                                ):
-    api = rest_api_map[exchange]()
-    response = await api.write_historical_trades_to_csv(pair=[pair])
+    response = await api.get_ohlc(symbol=symbol, timeframe=int(timeframe))
     return response
 
 
