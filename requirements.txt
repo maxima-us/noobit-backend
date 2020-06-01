@@ -5,7 +5,7 @@ backtrader==1.9.74.123
 click==7.0
 colorama
 fastapi==0.45.0
-fastapi-users[tortoise-orm]
+# fastapi-users[tortoise-orm]
 httpx==0.10.1
 httpx-oauth
 jinja2
