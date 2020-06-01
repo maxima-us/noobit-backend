@@ -14,6 +14,11 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
+# Get exact dependencies
+with open('requirements.txt') as f:
+    required = f.read().splitlines()
+
+
 setup(
     name='noobit',  # Required
     version='0.0.0',  # Required
@@ -33,27 +38,7 @@ setup(
     package_dir={'': 'src'},  # Optional
     packages=find_packages(where='src'),  # Required
     python_requires='>=3.7, <4',
-    install_requires=[
-        'aioredis>=1, <2',
-        'backtrader>=1, <2',
-        'click>=7, <8',
-        'colorama',
-        'fastapi>=0, <1',
-        'httpx>=0, <1',
-        'pytest-asyncio>=0, <1',
-        'python-rapidjson>=0, <1',
-        'python-dotenv>=0, <1',
-        'pandas>=0, <1',
-        'redis>=3, <4',
-        'requests>=2, <3',
-        'simplejson>=3, <4',
-        'stackprinter>=0, <1',
-        'structlog>=20, <21',
-        'tortoise-orm>=0, <1',
-        'typesystem>=0, <1',
-        'ujson>=1, <2',
-        'uvicorn>=0, <1',
-    ],
+    install_requires=required,
     entry_points={  # Optional
         'console_scripts': [
             # noobit main module

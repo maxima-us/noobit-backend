@@ -1,20 +1,22 @@
-aiofiles
+aiofiles==0.4.0
 aioredis==1.3.1
 aiosqlite==0.11.0                        # indirect dependency of tortoise-orm
 backtrader==1.9.74.123
 click==7.0
-colorama
+colorama==0.4.3
 fastapi==0.45.0
 # fastapi-users[tortoise-orm]
 httpx==0.10.1
-httpx-oauth
+# httpx-oauth
+idna==2.8
 jinja2
-python-multipart
+pypika==0.37.1
+# python-multipart
 pytest-asyncio==0.10.0
 python-rapidjson==0.9.1
 python-dotenv==0.10.5
 pandas==0.25.3
-redis
+redis==3.4.1
 requests==2.22.0
 simplejson==3.17.0
 stackprinter==0.2.3
@@ -23,6 +25,9 @@ tortoise-orm==0.15.23
 typesystem==0.2.4
 ujson==1.35
 uvicorn==0.11.1
+uvloop==0.14.0
 websockets==8.1                          # direct dependecy + required by uvicorn
 snakeviz
+starlette==0.12.9
+typing_extensions==3.7.4.1
 # TA-Lib
