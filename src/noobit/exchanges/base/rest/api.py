@@ -310,8 +310,15 @@ class APIBase():
             noobit.ErrorHandlerResult
         """
 
+        # if not self.current_key() or not self.current_secret():
+        #     raise Exception('Either key or secret is not set! (Use `load_key()`.')
+
         if not self.current_key() or not self.current_secret():
-            raise Exception('Either key or secret is not set! (Use `load_key()`.')
+            logging.error('Either key or secret is not set!')
+            # settings.SERVER.should_exit = True
+            result = ErrorResult(accept=True, status_code=400, value="Either key or secret is not set")
+            return result
+
 
         # data = self._cleanup_input_data(data) ==> this is handled by request parser
         data['nonce'] = self._nonce()
@@ -420,7 +427,16 @@ class APIBase():
         """
         """
         # TODO Handle request errors (for ex if we pass invalid symbol, or pair that does not exist)
-        data = self.request_parser.ohlc(symbol=symbol.upper(), timeframe=timeframe)
+        try:
+            data = self.request_parser.ohlc(symbol=symbol.upper(), timeframe=timeframe)
+        except Exception as e:
+            msg = repr(e)
+            logging.error(msg)
+            return ErrorResponse(status_code=400, value=msg)
+
+        # data = self.request_parser.ohlc(symbol=symbol.upper(), timeframe=timeframe)
+        # if isinstance(data, BaseException):
+        #     return ErrorResponse(status_code=400, value=data)
 
         #! vvvvvvvvvvvvvvvvvvvvvvv HANDLE REQUEST PARSING ERRORS
         # make request parser return a RequestResult object

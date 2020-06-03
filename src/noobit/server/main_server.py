@@ -150,13 +150,6 @@ class Server:
         self.force_exit = False
         self.last_notified = 0
 
-        # attributes necessary for strat
-        self.target_api = None
-        self.cache = None
-        self.strat = None
-        self.strat_tf_value = None
-        self.strat_tf_unit = None
-
         # heartbeat
         self.heartbeat = None
 
@@ -351,13 +344,7 @@ class Server:
 
 
     async def setup_redis_sub(self):
-        # self.open_websockets["private"] = await connect_private_websockets(api=self.target_api)
-        # self.open_websockets["public"] = await connect_public_websockets(pairs=["XBT/USD"])
 
-        # ==> We will read websocket data from redis sub
-        # self.private_ws = KrakenPrivateFeedReader(api=self.target_api)
-        # con_status = await self.private_ws.connect_to_ws()
-        # sub_status = await self.private_ws.subscribe()
         # aioredis pool connection to use across entire server module
         settings.AIOREDIS_POOL = await aioredis.create_redis_pool(('localhost', 6379))
         self.aioredis_pool = settings.AIOREDIS_POOL
@@ -395,7 +382,6 @@ class Server:
 
 
     async def consume_public_trades(self, channel):
-        logging.info("new_trade !! ")
         async for _chan, message in channel.iter():
             if self.should_exit:
                 break

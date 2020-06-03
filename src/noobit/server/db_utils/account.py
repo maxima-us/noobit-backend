@@ -27,8 +27,16 @@ async def record_new_account_update(event: str):
 
         #! check if this returns an OKResponse
         balances = await api.get_balances()
+        if not balances.is_ok:
+            return
+
         exposure = await api.get_exposure()
+        if not exposure.is_ok:
+            return
+
         open_positions = await api.get_open_positions(mode="by_id")
+        if not open_positions.is_ok:
+            return
 
         # redis = settings.AIOREDIS_POOL
         # TODO we could make each get request send the update value to redis ?
