@@ -29,7 +29,7 @@ async def get_ohlc():
     global server
 
     try:
-        ohlc = await session.get("http://localhost:8000/json/public/ohlc/kraken?symbol=xbt-usd&timeframe=60")
+        ohlc = await session.get("http://localhost:8000/json/public/ohlc/kraken?symbol=XBT-USD&timeframe=60")
     except:
         pass
     finally:

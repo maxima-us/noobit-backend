@@ -32,7 +32,7 @@ def api():
 
 @pytest.mark.asyncio
 async def test_get_ohlc(api):
-    resp = await api.get_ohlc(symbol="xbt-usd", timeframe=15)
+    resp = await api.get_ohlc(symbol="XBT-USD", timeframe=15)
     logging.error(resp)
 
     assert isinstance(resp, NoobitResponse), resp
@@ -42,7 +42,7 @@ async def test_get_ohlc(api):
 
 @pytest.mark.asyncio
 async def test_get_public_trades(api):
-    resp = await api.get_public_trades(symbol="eth-usd")
+    resp = await api.get_public_trades(symbol="ETH-USD")
 
     assert isinstance(resp, NoobitResponse)
     assert isinstance(resp.status_code, int)
@@ -52,7 +52,7 @@ async def test_get_public_trades(api):
 
 @pytest.mark.asyncio
 async def test_get_orderbook(api):
-    resp = await api.get_orderbook(symbol="zec-usd")
+    resp = await api.get_orderbook(symbol="ZEC-USD")
     logging.error(resp)
 
     assert isinstance(resp, NoobitResponse), resp
@@ -64,7 +64,7 @@ async def test_get_orderbook(api):
 
 @pytest.mark.asyncio
 async def test_get_instrument(api):
-    resp = await api.get_instrument(symbol="eth-usd")
+    resp = await api.get_instrument(symbol="ETH-USD")
     logging.error(resp)
 
     assert isinstance(resp, NoobitResponse), resp

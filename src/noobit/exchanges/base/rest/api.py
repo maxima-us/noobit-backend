@@ -37,6 +37,12 @@ from noobit.models.data.request.parse.base import BaseRequestParser
 from noobit.models.data.response.parse.base import BaseResponseParser
 
 
+from noobit.models.data.request import (
+    OhlcRequest, TradesRequest,
+    OrderBookRequest, InstrumentRequest, OrdersRequest
+)
+
+
 custom_logger = get_logger(__name__)
 
 class APIBase():
@@ -396,12 +402,24 @@ class APIBase():
                               )
 
         except ValidationError as e:
-            logging.error(e)
+            logging.error(str(e))
             return ErrorResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                                  value=str(e)
-                                  )
+                                 value=e.errors()
+                                 )
 
 
+    def validate_params(self,
+                        model: BaseModel,
+                        **kwargs)-> ErrorHandlerResult:
+        try:
+            params = model(**kwargs)
+            return OKResult(value=params.dict())
+        except ValidationError as e:
+            logging.error(str(e))
+            return ErrorResult(value=e.errors(), accept=True)
+        except Exception as e:
+            logging.error(str(e))
+            return ErrorResult(value=e.errors(), accept=True)
 
 
     # ================================================================================
@@ -418,7 +436,6 @@ class APIBase():
         return self.validate_model_from_mode(parsed_response, mode="ohlc", mode_to_model=mode_to_model)
 
 
-
     async def get_ohlc(self,
                        symbol: PAIR,
                        timeframe: TIMEFRAME,
@@ -426,9 +443,14 @@ class APIBase():
                        ) -> NoobitResponse:
         """
         """
+        #TODO validate kwargs by passing them to OhlcParameters Pydantic Model
+        params = self.validate_params(model=OhlcRequest, symbol=symbol, timeframe=timeframe)
+        if params.is_error:
+            return ErrorResponse(status_code=400, value=params.value)
+
         # TODO Handle request errors (for ex if we pass invalid symbol, or pair that does not exist)
         try:
-            data = self.request_parser.ohlc(symbol=symbol.upper(), timeframe=timeframe)
+            data = self.request_parser.ohlc(symbol=params.value["symbol"], timeframe=params.value["timeframe"])
         except Exception as e:
             msg = repr(e)
             logging.error(msg)
@@ -494,7 +516,16 @@ class APIBase():
         """Get data on public trades. Response value is a list with each item being a dict that
         corresponds to the data for a single trade.
         """
-        data = self.request_parser.public_trades(symbol.upper(), since)
+        params = self.validate_params(model=TradesRequest, symbol=symbol, since=since)
+        if params.is_error:
+            return ErrorResponse(status_code=400, value=params.value)
+
+        try:
+            data = self.request_parser.public_trades(symbol=params.value["symbol"], since=params.value["since"])
+        except Exception as e:
+            msg = repr(e)
+            logging.error(msg)
+            return ErrorResponse(status_code=400, value=msg)
 
         result = await self.query_public(method="trades", data=data, retries=retries)
 
@@ -526,7 +557,16 @@ class APIBase():
                             ) -> NoobitResponse:
         """
         """
-        data = self.request_parser.orderbook(symbol.upper())
+        params = self.validate_params(model=OrderBookRequest, symbol=symbol)
+        if params.is_error:
+            return ErrorResponse(status_code=400, value=params.value)
+
+        try:
+            data = self.request_parser.orderbook(params.value["symbol"])
+        except Exception as e:
+            msg = repr(e)
+            logging.error(msg)
+            return ErrorResponse(status_code=400, value=msg)
 
         result = await self.query_public(method="orderbook", data=data, retries=retries)
 
@@ -555,7 +595,16 @@ class APIBase():
                              ) -> NoobitResponse:
         """Get data for instrument. Depending on exchange this will aggregate ticker, spread data
         """
-        data = self.request_parser.instrument(symbol.upper())
+        params = self.validate_params(model=InstrumentRequest, symbol=symbol)
+        if params.is_error:
+            return ErrorResponse(status_code=400, value=params.value)
+
+        try:
+            data = self.request_parser.instrument(params.value["symbol"])
+        except Exception as e:
+            msg = repr(e)
+            logging.error(msg)
+            return ErrorResponse(status_code=400, value=msg)
 
         result = await self.query_public(method="instrument", data=data, retries=retries)
 
@@ -593,6 +642,7 @@ class APIBase():
                         mode: Literal["to_list", "by_id"],
                         orderID: str,
                         clOrdID: Optional[int] = None,
+                        symbol = None,
                         retries: int = 1
                         ) -> Union[list, dict, str]:
         """Get a single order
@@ -622,6 +672,7 @@ class APIBase():
                               mode: Literal["to_list", "by_id"],
                               symbol: Optional[PAIR] = None,
                               clOrdID: Optional[int] = None,
+                              orderID = None,
                               retries: int = 1
                               ):
         """Get open orders.
@@ -657,6 +708,7 @@ class APIBase():
                                 mode: Literal["to_list", "by_id"],
                                 symbol: Optional[PAIR] = None,
                                 clOrdID: Optional[int] = None,
+                                orderID = None,
                                 retries: int = 1
                                 ):
         """Get closed orders.

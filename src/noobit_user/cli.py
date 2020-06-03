@@ -8,8 +8,8 @@ import noobit.models.templates
 import noobit_user.strategies
 
 @click.command()
-@click.option("--exchange", default="kraken", help="Lowercase exchange")
-@click.option("--ide",
+@click.option("--exchange", "-e", default="kraken", help="Lowercase exchange")
+@click.option("--ide", "-i",
               default="code",
               help='Name of IDE (only supports vim and vscode so far)',
               type=click.Choice(["vim", "code"], case_sensitive=False)
@@ -21,8 +21,8 @@ def open_env_file(exchange, ide):
 
 
 @click.command()
-@click.option("--name", help="File name of strategy to create")
-@click.option("--ide",
+@click.option("--name", "-n", help="File name of strategy to create")
+@click.option("--ide", "i",
               default="code",
               help='Name of IDE (only supports vim and vscode so far)',
               type=click.Choice(["vim", "code"], case_sensitive=False)

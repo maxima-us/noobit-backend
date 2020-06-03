@@ -72,7 +72,7 @@ class ErrorResult(ErrorHandlerResult):
     accept: bool
     sleep: Optional[float] = None
     is_ok: bool = False
-    is_error: bool = False
+    is_error: bool = True
 
     # gets passed status code from exception class
     status_code: Optional[int] = None
