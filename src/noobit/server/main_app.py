@@ -62,8 +62,8 @@ router = APIRouter()
 app.include_router(cache.account.router, prefix="/cache", tags=["cached_data"])
 app.include_router(json.public.router, prefix="/json/public", tags=["public_data", "json"])
 app.include_router(json.private.router, prefix="/json/private", tags=["private_data", "json"])
-# app.include_router(html.public.router, prefix="/html/public", tags=["public_data", "html"])
-# app.include_router(html.private.router, prefix="/html/private", tags=["private_data", "html"])
+app.include_router(html.public.router, prefix="/html/public", tags=["public_data", "html"])
+app.include_router(html.private.router, prefix="/html/private", tags=["private_data", "html"])
 
 
 # app.mount("/static", StaticFiles(directory="server/static"), name="static")

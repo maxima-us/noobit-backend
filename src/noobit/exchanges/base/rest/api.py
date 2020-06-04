@@ -538,6 +538,23 @@ class APIBase():
             return self.public_trade_validate_and_serialize({"data": parsed_response["data"], "last": parsed_response["last"]})
 
 
+    async def get_public_trades_as_pandas(self,
+                                          symbol: PAIR,
+                                          retries: int = 1,
+                                          ) -> NoobitResponse:
+        response = await self.get_public_trades(symbol, retries=retries)
+
+        if response.is_ok:
+            df = pd.DataFrame(data=response.value["data"])
+            response.value = df
+            return response
+        else:
+            # response is ErrorResponse and we return it in full
+            return response
+
+
+
+
     # ================================================================================
 
 
@@ -575,6 +592,22 @@ class APIBase():
         else:
             parsed_response = self.response_parser.orderbook(response=result.value)
             return self.orderbook_validate_and_serialize(parsed_response)
+
+
+    async def get_orderbook_as_pandas(self,
+                                      symbol: PAIR,
+                                      retries: int = 1,
+                                      ) -> NoobitResponse:
+        response = await self.get_orderbook(symbol, retries=retries)
+
+        if response.is_ok:
+            asks_df = pd.DataFrame.from_dict(response.value["asks"], orient="index")
+            bids_df = pd.DataFrame.from_dict(response.value["bids"], orient="index")
+            response.value = {"asks": asks_df, "bids": bids_df}
+            return response
+        else:
+            # response is ErrorResponse and we return it in full
+            return response
 
 
     # ================================================================================
@@ -703,6 +736,21 @@ class APIBase():
 
 
 
+    async def get_open_orders_as_pandas(self,
+                                          symbol: Optional[PAIR] = None,
+                                          retries: int = 1
+                                        ):
+        response = await self.get_open_orders("by_id", symbol, retries=retries)
+
+        if response.is_ok:
+            df = pd.DataFrame.from_dict(response.value, orient="index")
+            response.value = df
+            return response
+        else:
+            # response is ErrorResponse and we return it in full
+            return response
+
+
 
     async def get_closed_orders(self,
                                 mode: Literal["to_list", "by_id"],
@@ -735,6 +783,23 @@ class APIBase():
             # not all pydantic models have <data> as only field
             # so we need to specify the field here to make it work for all models
             return self.order_validate_and_serialize(mode, {"data": parsed_response})
+
+
+
+    async def get_closed_orders_as_pandas(self,
+                                          symbol: Optional[PAIR] = None,
+                                          retries: int = 1
+                                        ):
+        response = await self.get_closed_orders("by_id", symbol, retries=retries)
+
+        if response.is_ok:
+            df = pd.DataFrame.from_dict(response.value, orient="index")
+            response.value = df
+            return response
+        else:
+            # response is ErrorResponse and we return it in full
+            return response
+
 
 
 
@@ -772,6 +837,22 @@ class APIBase():
             return self.user_trade_validate_and_serialize(
                 mode, {"data": parsed_response["data"], "last": parsed_response["last"]}
             )
+
+
+
+    async def get_user_trades_as_pandas(self,
+                                        symbol: Optional[PAIR] = None,
+                                        retries: int = 1
+                                        ):
+        response = await self.get_user_trades("by_id", symbol, retries)
+
+        if response.is_ok:
+            df = pd.DataFrame.from_dict(response.value, orient="index")
+            response.value = df
+            return response
+        else:
+            # response is ErrorResponse and we return it in full
+            return response
 
 
 
@@ -836,6 +917,20 @@ class APIBase():
             return self.positions_validate_and_serialize(mode, {"data": parsed_response})
 
 
+    async def get_open_positions_as_pandas(self,
+                                           symbol: Optional[PAIR] = None,
+                                           retries: int = 1
+                                           ) -> NoobitResponse:
+        response = await self.get_open_positions("by_id", symbol, retries)
+
+        if response.is_ok:
+            df = pd.DataFrame.from_dict(response.value, orient="index")
+            response.value = df
+            return response
+        else:
+            # response is ErrorResponse and we return it in full
+            return response
+
 
     # for some exchanges there are not direct endpoints to get closed positions, so we need to work around it
     async def get_closed_positions(self,
@@ -856,6 +951,21 @@ class APIBase():
             parsed_response = self.response_parser.closed_positions(response=result.value, mode=mode)
             return self.positions_validate_and_serialize(mode, {"data": parsed_response})
 
+
+
+    async def get_closed_positions_as_pandas(self,
+                                             symbol: Optional[PAIR] = None,
+                                             retries: int = 1
+                                             ) -> NoobitResponse:
+        response = await self.get_closed_positions("by_id", symbol, retries)
+
+        if response.is_ok:
+            df = pd.DataFrame.from_dict(response.value, orient="index")
+            response.value = df
+            return response
+        else:
+            # response is ErrorResponse and we return it in full
+            return response
 
     # ================================================================================
 

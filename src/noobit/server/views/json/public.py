@@ -1,5 +1,3 @@
-from typing import List
-
 import stackprinter
 from starlette import status
 

@@ -5,6 +5,30 @@ import stackprinter
 from noobit.server import settings
 from noobit.models.data.response.trade import TradesList, TradesByID
 
+# parse ordertypes to noobit format
+MAP_ORDERTYPES = {
+    "market": "market",
+    "limit": "limit",
+    "stop market": "stop-loss",
+    "take-profit": "take-profit",
+    "settle-position": "settle-position",
+
+    "stop-loss-limit": "stop-loss-limit",
+    "take-profit-limit": "take-profit-limit",
+}
+
+#  market
+#     limit (price = limit price)
+#     stop-loss (price = stop loss price)
+#     take-profit (price = take profit price)
+#     stop-loss-profit (price = stop loss price, price2 = take profit price)
+#     stop-loss-profit-limit (price = stop loss price, price2 = take profit price)
+#     stop-loss-limit (price = stop loss trigger price, price2 = triggered limit price)
+#     take-profit-limit (price = take profit trigger price, price2 = triggered limit price)
+#     trailing-stop (price = trailing stop offset)
+#     trailing-stop-limit (price = trailing stop offset, price2 = triggered limit offset)
+#     stop-loss-and-limit (price = stop loss price, price2 = limit price)
+#     settle-position
 
 def parse_user_trades_to_list(response, symbol):
     if response is None:
@@ -70,7 +94,7 @@ def parse_single_trade(key, value):
             "clOrdID": None,
             "symbol": map_to_standard[info["pair"].upper()],
             "side": info["type"],
-            "ordType": info["ordertype"],
+            "ordType": MAP_ORDERTYPES[info["ordertype"]],
             "avgPx": info["price"],
             "cumQty": info["vol"],
             "grossTradeAmt": info["cost"],

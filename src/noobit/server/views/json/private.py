@@ -1,6 +1,3 @@
-from noobit.models.data.base.types import PAIR, TIMEFRAME
-from starlette.responses import JSONResponse
-from typing import List
 from typing_extensions import Literal
 
 from noobit.server.views import APIRouter, Query, UJSONResponse
