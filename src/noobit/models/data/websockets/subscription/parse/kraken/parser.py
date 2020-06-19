@@ -2,7 +2,7 @@ import asyncio
 
 import httpx
 
-from noobit.logging.structlogger import get_logger, log_exception
+from noobit.logger.structlogger import get_logger, log_exception
 from noobit.exchanges.mappings import rest_api_map
 from noobit.models.data.websockets.subscription.parse.base import BaseSubParser
 

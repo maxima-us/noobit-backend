@@ -4,7 +4,6 @@ Exchange Rest API Class must inherit from both Base Class and Abstract Base Clas
 '''
 from abc import ABC, abstractmethod
 import time
-import logging
 import asyncio
 from collections import deque
 from typing import Optional, Union, Any, Dict
@@ -18,7 +17,7 @@ from starlette import status
 
 # general
 from noobit.server import settings
-from noobit.logging.structlogger import get_logger
+from noobit.logger.structlogger import get_logger, log_exception, log_exc_to_db
 
 # models
 from noobit.models.data.base.types import PAIR, TIMEFRAME, TIMESTAMP
@@ -43,7 +42,8 @@ from noobit.models.data.request import (
 )
 
 
-custom_logger = get_logger(__name__)
+logger = get_logger(__name__)
+
 
 class APIBase():
     """Baseclass for Rest APIs.
@@ -104,15 +104,14 @@ class APIBase():
         try:
             cls.env_keys_dq.rotate(-1)
         except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
-
+            log_exception(logger, e)
 
     def current_key(self):
         """env key we are currently using"""
         try:
             return self.env_keys_dq[0][0]
         except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
+            log_exception(logger, e)
 
 
     def current_secret(self):
@@ -120,7 +119,7 @@ class APIBase():
         try:
             return self.env_keys_dq[0][1]
         except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
+            log_exception(logger, e)
 
 
     def _nonce(self):
@@ -160,7 +159,8 @@ class APIBase():
         try:
             result = self.response_parser.handle_errors(response, endpoint, data)
         except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
+            log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
         # try:
         #     logging.warning(result)
@@ -171,7 +171,7 @@ class APIBase():
         #     return ErrorResult(accept=True, value=str(e))
         if not isinstance(result, ErrorHandlerResult):
             error_msg = "Invalid Type: Result needs to be ErrorResult or OKResult"
-            logging.error(error_msg)
+            logger.error(error_msg)
             return ErrorResult(accept=True, value=error_msg)
 
 
@@ -179,7 +179,7 @@ class APIBase():
         if not result.is_ok:
             # result["value"] returns one of our custom error classes here
             # exception = result.value
-            logging.error(result.value)
+            logger.error(result.value)
 
             if result.sleep:
                 await asyncio.sleep(result.sleep)
@@ -246,7 +246,7 @@ class APIBase():
             #TODO this stops the whole server, find better way to return a server side error
             self.response.raise_for_status()
 
-        logging.debug(f"API Request URL: {self.response.url}")
+        logger.debug(f"API Request URL: {self.response.url}")
 
         # return self.response.json(**self._json_options)
 
@@ -320,7 +320,7 @@ class APIBase():
         #     raise Exception('Either key or secret is not set! (Use `load_key()`.')
 
         if not self.current_key() or not self.current_secret():
-            logging.error('Either key or secret is not set!')
+            logger.error('Either key or secret is not set!')
             # settings.SERVER.should_exit = True
             result = ErrorResult(accept=True, status_code=400, value="Either key or secret is not set")
             return result
@@ -402,7 +402,7 @@ class APIBase():
                               )
 
         except ValidationError as e:
-            logging.error(str(e))
+            logger.error(str(e))
             return ErrorResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                                  value=e.errors()
                                  )
@@ -415,10 +415,10 @@ class APIBase():
             params = model(**kwargs)
             return OKResult(value=params.dict())
         except ValidationError as e:
-            logging.error(str(e))
+            logger.error(str(e))
             return ErrorResult(value=e.errors(), accept=True)
         except Exception as e:
-            logging.error(str(e))
+            logger.error(str(e))
             return ErrorResult(value=e.errors(), accept=True)
 
 
@@ -453,7 +453,8 @@ class APIBase():
             data = self.request_parser.ohlc(symbol=params.value["symbol"], timeframe=params.value["timeframe"])
         except Exception as e:
             msg = repr(e)
-            logging.error(msg)
+            logger.error(msg)
+            await log_exc_to_db(logger, e)
             return ErrorResponse(status_code=400, value=msg)
 
         # data = self.request_parser.ohlc(symbol=symbol.upper(), timeframe=timeframe)
@@ -524,7 +525,8 @@ class APIBase():
             data = self.request_parser.public_trades(symbol=params.value["symbol"], since=params.value["since"])
         except Exception as e:
             msg = repr(e)
-            logging.error(msg)
+            logger.error(msg)
+            await log_exc_to_db(logger, e)
             return ErrorResponse(status_code=400, value=msg)
 
         result = await self.query_public(method="trades", data=data, retries=retries)
@@ -582,7 +584,8 @@ class APIBase():
             data = self.request_parser.orderbook(params.value["symbol"])
         except Exception as e:
             msg = repr(e)
-            logging.error(msg)
+            logger.error(msg)
+            await log_exc_to_db(logger, e)
             return ErrorResponse(status_code=400, value=msg)
 
         result = await self.query_public(method="orderbook", data=data, retries=retries)
@@ -636,7 +639,8 @@ class APIBase():
             data = self.request_parser.instrument(params.value["symbol"])
         except Exception as e:
             msg = repr(e)
-            logging.error(msg)
+            logger.error(msg)
+            await log_exc_to_db(logger, e)
             return ErrorResponse(status_code=400, value=msg)
 
         result = await self.query_public(method="instrument", data=data, retries=retries)
@@ -683,8 +687,13 @@ class APIBase():
             orderID: ID of the order to query (ID as assigned by broker)
             clOrdID (str): Restrict results to given ID
         """
-        data = self.request_parser.orders(mode="by_id", orderID=orderID, clOrdID=clOrdID)
-
+        try:
+            data = self.request_parser.orders(mode="by_id", orderID=orderID, clOrdID=clOrdID)
+        except Exception as e:
+            msg = repr(e)
+            logger.error(msg)
+            await log_exc_to_db(logger, e)
+            return ErrorResponse(status_code=400, value=msg)
 
         # returns ErrorHandlerResult object (OkResult or ErrorResult)
         result = await self.query_private(method="order_info", data=data, retries=retries)
@@ -720,10 +729,16 @@ class APIBase():
         """
         if symbol is not None:
             symbol = symbol.upper()
-        data = self.request_parser.orders("open", symbol=symbol, clOrdID=clOrdID)
+
+        try:
+            data = self.request_parser.orders("open", symbol=symbol, clOrdID=clOrdID)
+        except Exception as e:
+            msg = repr(e)
+            logger.error(msg)
+            await log_exc_to_db(logger, e)
+            return ErrorResponse(status_code=400, value=msg)
 
         result = await self.query_private(method="open_orders", data=data, retries=retries)
-
 
         if not result.is_ok:
             return ErrorResponse(status_code=result.status_code, value=result.value)
@@ -772,7 +787,14 @@ class APIBase():
 
         if symbol is not None:
             symbol = symbol.upper()
-        data = self.request_parser.orders("closed", symbol=symbol, clOrdID=clOrdID)
+
+        try:
+            data = self.request_parser.orders("closed", symbol=symbol, clOrdID=clOrdID)
+        except Exception as e:
+            msg = repr(e)
+            logger.error(msg)
+            await log_exc_to_db(logger, e)
+            return ErrorResponse(status_code=400, value=msg)
 
         result = await self.query_private(method="closed_orders", data=data, retries=retries)
         # parse to order response model and validate
@@ -824,7 +846,14 @@ class APIBase():
                               symbol: Optional[PAIR] = None,
                               retries: int = 1
                               ):
-        data = self.request_parser.user_trades()
+
+        try:
+            data = self.request_parser.user_trades()
+        except Exception as e:
+            msg = repr(e)
+            logger.error(msg)
+            await log_exc_to_db(logger, e)
+            return ErrorResponse(status_code=400, value=msg)
 
         result = await self.query_private(method="trades_history", data=data, retries=retries)
 
@@ -864,7 +893,13 @@ class APIBase():
                                    ):
         """Get info on a single trade
         """
-        data = self.request_parser.user_trades(trdMatchID=trdMatchID)
+        try:
+            data = self.request_parser.user_trades(trdMatchID=trdMatchID)
+        except Exception as e:
+            msg = repr(e)
+            logger.error(msg)
+            await log_exc_to_db(logger, e)
+            return ErrorResponse(status_code=400, value=msg)
 
         result = await self.query_private(method="trades_info", data=data, retries=retries)
 
@@ -904,7 +939,14 @@ class APIBase():
         """
         if symbol is not None:
             symbol = symbol.upper()
-        data = self.request_parser.open_positions(symbol)
+
+        try:
+            data = self.request_parser.open_positions(symbol)
+        except Exception as e:
+            msg = repr(e)
+            logger.error(msg)
+            await log_exc_to_db(logger, e)
+            return ErrorResponse(status_code=400, value=msg)
 
         result = await self.query_private(method="open_positions", data=data, retries=retries)
 
@@ -941,7 +983,14 @@ class APIBase():
 
         if symbol is not None:
             symbol = symbol.upper()
-        data = self.request_parser.closed_positions(symbol)
+
+        try:
+            data = self.request_parser.closed_positions(symbol)
+        except Exception as e:
+            msg = repr(e)
+            logger.error(msg)
+            await log_exc_to_db(logger, e)
+            return ErrorResponse(status_code=400, value=msg)
 
         result = await self.query_private(method="closed_positions", data=data, retries=retries)
 

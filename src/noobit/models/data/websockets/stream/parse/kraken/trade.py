@@ -1,5 +1,8 @@
 from decimal import Decimal
-import logging
+
+from noobit.logger.structlogger import get_logger, log_exception
+
+logger = get_logger(__name__)
 
 
 def parse_trades_to_list(message):
@@ -11,7 +14,7 @@ def parse_trades_to_list(message):
             parse_single_trade(info, pair) for info in message[1]
         ]
     except Exception as e:
-        logging.error(e)
+        log_exception(logger, e)
 
     if parsed_trades:
         return parsed_trades
@@ -35,7 +38,7 @@ def parse_single_trade(info, pair):
         }
 
     except Exception as e:
-        logging.error(e)
+        log_exception(logger, e)
 
     return parsed_trade
 

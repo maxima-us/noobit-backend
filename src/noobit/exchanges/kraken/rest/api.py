@@ -10,9 +10,7 @@ import hmac
 import os
 import asyncio
 from collections import deque
-import logging
 
-import stackprinter
 import requests
 from dotenv import load_dotenv
 from starlette import status
@@ -21,7 +19,7 @@ import pandas as pd
 from noobit_user import get_abs_path
 
 # logger
-from noobit.logging.structlogger import get_logger, log_exception
+from noobit.logger.structlogger import (get_logger, log_exc_to_db, log_exception)
 
 # base classes
 from noobit.exchanges.base.rest import BaseRestAPI
@@ -39,7 +37,7 @@ from .endpoints_map import mapping
 
 load_dotenv()
 
-structlogger = get_logger(__name__)
+logger = get_logger(__name__)
 # derived from krakenex https://github.com/veox/python3-krakenex/blob/master/krakenex/api.py
 
 
@@ -104,7 +102,7 @@ class KrakenRestAPI(BaseRestAPI):
             self._set_class_var(deque(env_list_of_tuples, maxlen=len(env_list_of_tuples)))
 
         except Exception as e:
-            logging.error(stackprinter.format(e, style="darkbg2"))
+            log_exception(logger, e)
 
 
 
@@ -305,14 +303,14 @@ class KrakenRestAPI(BaseRestAPI):
                             #  header=None,
                             #  skiprows=1
                              )
-            structlogger.info(df.tail(10))
+            logger.info(df.tail(10))
 
             # get index for row with highest timestamp
             max_ts = df["transactTime"].max()
-            structlogger.info(f"most recent timestamp:  {max_ts}")
+            logger.info(f"most recent timestamp:  {max_ts}")
 
             [max_ts_index] = df.index[df["transactTime"] == max_ts].tolist()
-            structlogger.info(f"corresponding index: {max_ts_index}")
+            logger.info(f"corresponding index: {max_ts_index}")
             # drop row where index > max_ts_index
             # (means they were wrongly appended to file)
             df = df[(df["transactTime"] <= max_ts) & (df.index <= max_ts_index)]
@@ -325,12 +323,12 @@ class KrakenRestAPI(BaseRestAPI):
                       )
 
             since = df["transactTime"].iloc[-1]
-            structlogger.info(df.tail(10))
-            structlogger.info(f"Datetime of last Trade entry: {pd.to_datetime(since)}")
+            logger.info(df.tail(10))
+            logger.info(f"Datetime of last Trade entry: {pd.to_datetime(since)}")
 
         except FileNotFoundError as e:
-            structlogger.warning("CSV file does not exist")
-            structlogger.warning("Creating file and populating with latest trades data")
+            logger.warning("CSV file does not exist")
+            logger.warning("Creating file and populating with latest trades data")
             since_0_trades = await self.get_public_trades(symbol, since=0)
             trades_df = pd.DataFrame(since_0_trades.value["data"])
             trades_df = trades_df.drop(
@@ -351,7 +349,8 @@ class KrakenRestAPI(BaseRestAPI):
                              )
 
         except Exception as e:
-            log_exception(structlogger, e)
+            log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
 
 
@@ -381,11 +380,12 @@ class KrakenRestAPI(BaseRestAPI):
                 since = trades.value["last"]
                 # otherwise we will get rate limited
                 await asyncio.sleep(2)
-                structlogger.info(f"count : {count}")
-                structlogger.info(pd.to_datetime(int(since)))
+                logger.info(f"count : {count}")
+                logger.info(pd.to_datetime(int(since)))
         except KeyboardInterrupt:
             pass
         except Exception as e:
-            log_exception(structlogger, e)
+            log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
         return {"count": count}

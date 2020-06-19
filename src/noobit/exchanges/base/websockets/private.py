@@ -5,7 +5,7 @@ from typing import List
 import ujson
 from pydantic import ValidationError
 
-from noobit.logging.structlogger import get_logger, log_exception
+from noobit.logger.structlogger import get_logger, log_exception, log_exc_to_db
 
 # models
 from noobit.models.data.base.response import ErrorResponse, OKResponse
@@ -66,6 +66,7 @@ class PrivateFeedReaderBase():
 
             except Exception as e:
                 log_exception(logger, e)
+                await log_exc_to_db(logger, e)
 
 
     async def close(self):
@@ -74,7 +75,7 @@ class PrivateFeedReaderBase():
             await self.ws.close()
         except Exception as e:
             log_exception(logger, e)
-
+            await log_exc_to_db(logger, e)
 
     async def msg_handler(self, msg, redis_pool):
         """feedhandler will async iterate over message
@@ -89,8 +90,11 @@ class PrivateFeedReaderBase():
             return # some error message
 
         logger.debug(f"msg handler routing to {route}")
-        await self.route_to_method[route](ujson.loads(msg), redis_pool)
-
+        try:
+            await self.route_to_method[route](ujson.loads(msg), redis_pool)
+        except Exception as e:
+            log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
 
     async def route_message(self, msg):
@@ -121,8 +125,10 @@ class PrivateFeedReaderBase():
 
         except ValidationError as e:
             logger.error(e)
+            await log_exc_to_db(logger, e)
         except Exception as e:
             log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
 
 
@@ -142,8 +148,10 @@ class PrivateFeedReaderBase():
 
         except ValidationError as e:
             logger.error(e)
+            await log_exc_to_db(logger, e)
         except Exception as e:
             log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
 
 
@@ -162,8 +170,10 @@ class PrivateFeedReaderBase():
 
         except ValidationError as e:
             logger.error(e)
+            await log_exc_to_db(logger, e)
         except Exception as e:
             log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
 
 
@@ -203,12 +213,14 @@ class PrivateFeedReaderBase():
 
         except ValidationError as e:
             logger.error(e)
+            await log_exc_to_db(logger, e)
             return ErrorResponse(
                 status_code=404,
                 value=str(e)
             )
         except Exception as e:
             log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
 
 
@@ -257,9 +269,11 @@ class PrivateFeedReaderBase():
 
         except ValidationError as e:
             logger.error(e)
+            await log_exc_to_db(logger, e)
             return ErrorResponse(
                 status_code=404,
                 value=str(e)
             )
         except Exception as e:
             log_exception(logger, e)
+            await log_exc_to_db(logger, e)

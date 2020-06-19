@@ -6,7 +6,7 @@ import httpx
 
 from noobit.engine.strat_runner import StratRunner
 from noobit.engine.backtest_runner import BackTestRunner
-from noobit.logging.structlogger import get_logger, log_exception
+from noobit.logger.structlogger import get_logger, log_exception
 from noobit.exchanges.mappings import rest_api_map
 from noobit.processor.feed_handler import FeedHandler
 from noobit.server import main_server

@@ -1,6 +1,6 @@
 import os
+import logging
 
-import uvicorn
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 
@@ -8,7 +8,9 @@ from noobit.server import settings
 from noobit.server.app_startup.register_client import register_session
 from noobit.server.app_startup.register_orm import register_tortoise
 from noobit.server.views import cache, html, json
+from noobit.server.main_server import run
 import noobit_user
+from noobit.logger.config import LOGGING_CONFIG
 
 
 # TODO      copy paste code from minigryph: at startup should initialize all exchange classes
@@ -78,8 +80,8 @@ app.include_router(html.private.router, prefix="/html/private", tags=["private_d
 
 @app.on_event('startup')
 async def signal_startup():
-    settings.UVICORN_RUNNING = True
-
+    logger = logging.getLogger("fastapi")
+    logger.handlers.clear()
 
 @app.on_event('shutdown')
 async def signal_shutdown():
@@ -87,7 +89,7 @@ async def signal_shutdown():
 
 
 async def run_uvicorn():
-    uvicorn.run(app, host='localhost', port=8000)
+    run(app, host='localhost', port=8000, log_config=LOGGING_CONFIG)
 
 
 # def run_server():

@@ -7,7 +7,7 @@ from importlib import import_module
 import uvloop
 from tortoise import Tortoise
 
-from noobit.logging.structlogger import get_logger, log_exception
+from noobit.logger.structlogger import get_logger, log_exception
 from noobit.engine.base import BaseStrategy
 import noobit_user
 

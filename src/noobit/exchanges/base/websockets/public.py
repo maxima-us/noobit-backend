@@ -7,7 +7,7 @@ from collections import Counter
 import ujson
 from pydantic import ValidationError
 
-from noobit.logging.structlogger import get_logger, log_exception
+from noobit.logger.structlogger import get_logger, log_exc_to_db, log_exception
 
 # models
 from noobit.models.data.base.types import PAIR, WS_ROUTE
@@ -74,6 +74,7 @@ class PublicFeedReaderBase():
 
             except Exception as e:
                 log_exception(logger, e)
+                await log_exc_to_db(logger, e)
 
 
     async def close(self):
@@ -82,6 +83,7 @@ class PublicFeedReaderBase():
             await self.ws.close()
         except Exception as e:
             log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
 
     async def msg_handler(self, msg, redis_pool):
@@ -97,8 +99,11 @@ class PublicFeedReaderBase():
             return # some error message
 
         logger.debug(f"msg handler routing to {route}")
-        await self.route_to_method[route](ujson.loads(msg), redis_pool)
-
+        try:
+            await self.route_to_method[route](ujson.loads(msg), redis_pool)
+        except Exception as e:
+            log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
 
     async def publish_heartbeat(self, msg, redis_pool):
@@ -115,8 +120,10 @@ class PublicFeedReaderBase():
 
         except ValidationError as e:
             logger.error(e)
+            await log_exc_to_db(logger, e)
         except Exception as e:
             log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
 
 
@@ -136,8 +143,10 @@ class PublicFeedReaderBase():
 
         except ValidationError as e:
             logger.error(e)
+            await log_exc_to_db(logger, e)
         except Exception as e:
             log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
 
 
@@ -156,8 +165,10 @@ class PublicFeedReaderBase():
 
         except ValidationError as e:
             logger.error(e)
+            await log_exc_to_db(logger, e)
         except Exception as e:
             log_exception(logger, e)
+            await log_exc_to_db(logger, e)
 
 
 

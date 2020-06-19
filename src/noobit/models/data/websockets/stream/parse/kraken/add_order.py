@@ -1,7 +1,6 @@
+from noobit.logger.structlogger import get_logger, log_exception
 
-import logging
-
-import stackprinter
+logger = get_logger(__name__)
 
 
 def parse_add_order(validated_data, token):
@@ -26,7 +25,7 @@ def parse_add_order(validated_data, token):
         }
 
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
+        log_exception(logger, e)
 
     return parsed_add_order
 

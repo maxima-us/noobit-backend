@@ -1,7 +1,6 @@
-import logging
+from noobit.logger.structlogger import get_logger, log_exception
 
-import stackprinter
-
+logger = get_logger(__name__)
 
 
 def parse_orderbook(message):
@@ -36,7 +35,7 @@ def parse_snapshot(info, pair):
         }
 
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
+        log_exception(logger, e)
 
     return parsed_snapshot
 
@@ -62,7 +61,7 @@ def parse_update(info, pair):
         }
 
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
+        log_exception(logger, e)
 
     return parsed_update
 

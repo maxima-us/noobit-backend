@@ -1,7 +1,6 @@
-import logging
+from noobit.logger.structlogger import get_logger, log_exception
 
-import stackprinter
-
+logger = get_logger(__name__)
 
 def parse_instrument(msg):
 
@@ -31,8 +30,7 @@ def parse_instrument(msg):
         }
 
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
-
+        log_exception(logger, e)
 
     return parsed_instrument
 

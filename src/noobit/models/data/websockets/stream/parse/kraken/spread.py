@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from noobit.logging.structlogger import get_logger, log_exception
+from noobit.logger.structlogger import get_logger, log_exception
 
 
 logger = get_logger(__name__)

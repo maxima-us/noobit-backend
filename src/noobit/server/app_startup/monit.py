@@ -1,16 +1,20 @@
 import os
 import subprocess
-import logging
 import shutil
+import logging
+
+# from noobit.logger.structlogger import get_logger
+
+logger = logging.getLogger("uvicorn.error")
 
 
 def startup_monit():
 
     # Check if we have a file at path: /etc/monit/monitrc
     if not os.path.isfile("/etc/monit/monitrc"):
-        logging.warning("File missing at path: /etc/monit/monitrc. Copying template to path")
+        logger.warning("File missing at path: /etc/monit/monitrc. Copying template to path")
         shutil.copy("monitrc", "/etc/monit/monitrc")
-        logging.warning("Please refer to the following guide for configuration: https://guides.wp-bullet.com/configure-monit-send-email-alerts-mailgun/")
+        logger.warning("Please refer to the following guide for configuration: https://guides.wp-bullet.com/configure-monit-send-email-alerts-mailgun/")
 
     # Validate syntax from monit control file ==> check again later, this doesnt seem to work
     # as check_output raises an error whenever stdout returns sthg (not empty)

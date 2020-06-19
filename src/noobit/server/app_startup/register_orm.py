@@ -4,8 +4,11 @@ from typing import Dict, List, Optional
 from fastapi import FastAPI
 from tortoise import Tortoise
 
+from noobit.server import settings
+# from noobit.logger.structlogger import get_logger
 
 # from https://github.com/tortoise/tortoise-orm/blob/develop/tortoise/contrib/starlette/__init__.py
+logger = logging.getLogger("uvicorn.error")
 
 
 def register_tortoise(app=FastAPI,
@@ -21,16 +24,15 @@ def register_tortoise(app=FastAPI,
         try:
             await Tortoise.init(config=config, config_file=config_file, db_url=db_url, modules=modules)
         except Exception as e:
-            logging.warning(e)
             raise e
         # logging.info("Tortoise-ORM started, %s, %s", Tortoise._connections, Tortoise.apps)
         if generate_schemas:
             try:
-                logging.info("Tortoise-ORM generating schema")
+                logger.info("Tortoise-ORM generating schema")
                 await Tortoise.generate_schemas()
             except Exception as e:
-                logging.warning(e)
                 raise e
+
 
     @app.on_event('shutdown')
     async def close_orm():

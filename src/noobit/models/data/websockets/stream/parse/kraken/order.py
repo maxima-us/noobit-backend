@@ -1,7 +1,10 @@
-import logging
 from decimal import Decimal
 
-import stackprinter
+
+from noobit.logger.structlogger import get_logger, log_exception
+
+
+logger = get_logger(__name__)
 
 
 MAP_ORDER_STATUS = {
@@ -30,8 +33,7 @@ def parse_order_snapshot_by_id(message):
         }
         return parsed_orders
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
-
+        log_exception(logger, e)
 
 #! this is trickier, we need to specify for EACH message if its a status change or a new order
 def parse_order_update_by_id(message):
@@ -56,8 +58,7 @@ def parse_order_update_by_id(message):
         }
 
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
-
+        log_exception(logger, e)
 
 
 def parse_single_order(key, value):
@@ -114,7 +115,7 @@ def parse_single_order(key, value):
 
         }
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
+        log_exception(logger, e)
 
     return parsed_info
 

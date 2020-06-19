@@ -2,8 +2,8 @@
 Hack uvicorn main file to launch our own service on top of it
 '''
 import asyncio
+import copy
 import functools
-import logging
 import os
 import platform
 import signal
@@ -11,52 +11,45 @@ import socket
 import sys
 import time
 from email.utils import formatdate
+import logging
 
+import aioredis
 import click
-
+from blessings import Terminal
 import uvicorn
-from uvicorn.config import (
-    HTTP_PROTOCOLS,
-    INTERFACES,
-    LIFESPAN,
-    LOG_LEVELS,
-    LOGGING_CONFIG,
-    LOOP_SETUPS,
-    SSL_PROTOCOL_VERSION,
-    WS_PROTOCOLS,
-    Config,
-)
 from uvicorn.supervisors import Multiprocess, StatReload
 
-LEVEL_CHOICES = click.Choice(LOG_LEVELS.keys())
-HTTP_CHOICES = click.Choice(HTTP_PROTOCOLS.keys())
-WS_CHOICES = click.Choice(WS_PROTOCOLS.keys())
-LIFESPAN_CHOICES = click.Choice(LIFESPAN.keys())
-LOOP_CHOICES = click.Choice([key for key in LOOP_SETUPS.keys() if key != "none"])
-INTERFACE_CHOICES = click.Choice(INTERFACES)
+#!! not sure V
+from uvicorn import Config
+
+from noobit.server import settings
+from noobit.server.db_utils.account import record_new_account_update
+from noobit.server.db_utils.exchange import startup_exchange_table
+from noobit.server.db_utils.strategy import startup_strategy_table
+from noobit.server.db_utils.update_from_ws import (
+    update_user_trades,
+    update_user_orders,
+    update_public_trades,
+    update_public_spread,
+    update_public_orderbook,
+    update_public_instrument
+)
+from noobit.server.app_startup.monit import startup_monit
+from noobit.server.monitor.heartbeat import Heartbeat
+
 
 HANDLED_SIGNALS = (
     signal.SIGINT,  # Unix signal 2. Sent by Ctrl+C.
     signal.SIGTERM,  # Unix signal 15. Sent by `kill <pid>`.
 )
 
-
-# =====================================================================================
-# =====================================================================================
-# from structlogger import get_logger
-# logger = get_logger(__name__)
-
-
-
-# =================== Setup Stackprinter ======================= #
-import stackprinter
-stackprinter.set_excepthook(style='darkbg2')
-
-
-# =================== Set logger ======================= #
-
-# configure_logger("uvicorn.error")
+# from noobit.logger.structlogger import get_logger
+# logger = logging.getLogger('uvicorn.error')
 logger = logging.getLogger("uvicorn.error")
+t = Terminal()
+
+
+
 
 # =====================================================================================
 # =====================================================================================
@@ -76,40 +69,20 @@ def print_version(ctx, param, value):
     ctx.exit()
 
 
-
-
 # =========================================================================================
 # =========================================================================================
-# added import necessary for bot
-
-
-import aioredis
-
-from noobit.server import settings
-from noobit.server.db_utils.account import record_new_account_update
-from noobit.server.db_utils.exchange import startup_exchange_table
-from noobit.server.db_utils.strategy import startup_strategy_table
-from noobit.server.db_utils.update_from_ws import (
-    update_user_trades,
-    update_user_orders,
-    update_public_trades,
-    update_public_spread,
-    update_public_orderbook,
-    update_public_instrument
-)
-from noobit.server.app_startup.monit import startup_monit
-from noobit.server.monitor.heartbeat import Heartbeat
-
 
 
 def run(app, **kwargs):
-
+    # Config.configure_logging = functools.partial(override_configure_logging, Config) #overwrite uvicorn method
+    # kwargs["log_config"] = LOGGING_CONFIG #! overwrite
     config = Config(app, **kwargs)
     config.backlog = 2048           #! for some reason we need to specify this
+    # config.log_config = LOGGING_CONFIG  #! overwrite write our own
     server = Server(config=config)
 
+
     if (config.reload or config.workers > 1) and not isinstance(app, str):
-        logger = logging.getLogger("uvicorn.error")
         logger.warn(
             "You must pass the application as an import string to enable 'reload' or 'workers'."
         )
@@ -208,11 +181,17 @@ class Server:
 
         self.lifespan = config.lifespan_class(config)
 
+        # self.lifespan.logger.handlers.clear()
+        # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        # for lgr in copy.copy(loggers):
+        #     if "uvicorn" in lgr.name:
+        #         loggers.remove(lgr)
+        #         print("deleting", lgr)
+
         self.install_signal_handlers()
 
-        message = "Started server process [%d]"
-        color_message = "Started server process [" + click.style("%d", fg="cyan") + "]"
-        logger.info(message, process_id, extra={"color_message": color_message})
+        colored_message = f"Started server process [{t.cyan(str(process_id))}]"
+        logger.info(colored_message)
 
         await self.startup_monitoring()
         await self.startup_server(sockets=sockets)
@@ -227,15 +206,8 @@ class Server:
         await self.shutdown_feed_connection()
         await self.shutdown_server(sockets=sockets)
 
-
-        message = "Finished server process [%d]"
-        color_message = "Finished server process [" + click.style("%d", fg="cyan") + "]"
-        logger.info(
-            "Finished server process [%d]",
-            process_id,
-            extra={"color_message": color_message},
-        )
-
+        color_message = f"Finished server process [{t.cyan(str(process_id))}]"
+        logger.info(color_message)
 
 
     async def startup_server(self, sockets=None):
@@ -309,19 +281,11 @@ class Server:
             if port == 0:
                 port = server.sockets[0].getsockname()[1]
             protocol_name = "https" if config.ssl else "http"
-            message = "Uvicorn running on %s://%s:%d (Press CTRL+C to quit)"
-            color_message = (
-                "Uvicorn running on "
-                + click.style("%s://%s:%d", bold=True)
-                + " (Press CTRL+C to quit)"
-            )
-            logger.info(
-                message,
-                protocol_name,
-                config.host,
-                port,
-                extra={"color_message": color_message},
-            )
+
+            protoc = t.cyan(f"{protocol_name}://{config.host}:{port!r}")
+            color_message = f"Uvicorn running on {protoc} (Press CTRL+C to quit)"
+            logger.info(color_message)
+
             self.servers = [server]
 
         self.started = True
@@ -510,19 +474,8 @@ class Server:
 
 
     async def shutdown_feed_connection(self):
-
-        #   ! no ws anymore
-        # logger.info("Closing Websockets")
-        # for _, ws in self.open_websockets.items():
-        #     await ws.close()
-
         self.aioredis_pool.close()
         await self.aioredis_pool.wait_closed()
-
-        #! Check balances at shutdown
-        # logger.info("Updating Balances")
-        # await shutdown_balances()
-
 
 
 

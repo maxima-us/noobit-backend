@@ -8,6 +8,8 @@ import redis
 from dotenv import load_dotenv
 load_dotenv()
 
+# Connection to DB
+DB_CONNECTION = None
 
 # Server
 SERVER = None

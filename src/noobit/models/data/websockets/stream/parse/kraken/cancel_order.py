@@ -1,4 +1,4 @@
-from noobit.logging.structlogger import get_logger, log_exception
+from noobit.logger.structlogger import get_logger, log_exception
 from noobit.models.data.request.cancel_order import CancelOrder
 
 

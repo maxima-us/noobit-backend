@@ -12,8 +12,8 @@ class Account(models.Model):
     event = fields.CharField(max_length=40)
 
     balances = fields.JSONField()
-    exposure = fields.JSONField()
-    open_positions = fields.JSONField()
+    exposure = fields.JSONField(null=True)
+    open_positions = fields.JSONField(null=True)
 
     # foreign key relationships (must contain suffix "_id" when referenced)
     exchange = fields.ForeignKeyField("models.Exchange")

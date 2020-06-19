@@ -7,12 +7,23 @@ from socket import error as socket_error
 import uvloop
 import aioredis
 from websockets import ConnectionClosed
+from tortoise import Tortoise
 
-from noobit.logging.structlogger import get_logger, log_exception
+from noobit.logger.structlogger import get_logger, log_exception, log_exc_to_db
 from noobit.exchanges.mappings.websockets import private_ws_map, public_ws_map
+
+from noobit.server import settings
+from noobit_user import get_abs_path
 
 
 logger = get_logger(__name__)
+
+user_dir = get_abs_path()
+config = None
+config_file = None
+db_url=f"sqlite://{user_dir}/data/fastapi.db"
+modules={"models": ["noobit.models.orm"]}
+generate_schemas=True
 
 
 class FeedHandler(object):
@@ -50,10 +61,23 @@ class FeedHandler(object):
         self.public_feed_readers = {}
         self.pairs = pairs
 
+        self.redis_pool = None
+        self.db_connection = None
+
         self.tasks = []
         self.retries = retries
 
+        # if settings.TORTOISE_CONNECTION:
+        #     logger.info(settings.TORTOISE_CONNECTION)
+        # else:
+        #     logger.info(f"connection is : {settings.TORTOISE_CONNECTION}")
+        #     logger.info(f"server is : {settings.SERVER}")
 
+        # if runtime_config.TORTOISE_CONNECTION is not None:
+        #     logger.info(settings.TORTOISE_CONNECTION)
+        # else:
+        #     logger.info("no connection in config")
+        print("inited")
 
 
     async def connect_private(self, exchange, ping_interval: int = 60, ping_timeout: int = 30):
@@ -137,6 +161,7 @@ class FeedHandler(object):
 
             except Exception as e:
                 log_exception(logger, e)
+                await log_exc_to_db(logger, e)
                 await asyncio.sleep(delay)
                 retries += 1
                 delay *= 2
@@ -151,6 +176,16 @@ class FeedHandler(object):
     async def setup(self):
 
         self.redis_pool = await aioredis.create_redis_pool(('localhost', 6379))
+        await Tortoise.init(config=config, config_file=config_file, db_url=db_url, modules=modules)
+        if generate_schemas:
+            try:
+                logger.info("Tortoise-ORM generating schema")
+                await Tortoise.generate_schemas()
+            except Exception as e:
+                logger.warning(e)
+                raise e
+        self.db_connection = Tortoise._connections
+        settings.DB_CONNECTION = self.db_connection
 
         for exchange in self.exchanges:
             await self.connect_private(exchange)
@@ -177,10 +212,12 @@ class FeedHandler(object):
         asyncio.set_event_loop(loop)
 
         loop.run_until_complete(self.setup())
+        logger.info(self.db_connection)
+
         try:
             loop.run_until_complete(self.main())
-        except KeyboardInterrupt:
-            self.terminate=True
+        except KeyboardInterrupt as e:
+            self.terminate = True
             logger.info("Keyboard Interrupt")
         finally:
             loop = asyncio.get_event_loop()
@@ -197,6 +234,10 @@ class FeedHandler(object):
 
 
     async def shutdown(self):
+
+
+        await Tortoise.close_connections()
+
         for exchange in self.exchanges:
             await self.close_private(exchange)
             await self.close_public(exchange)

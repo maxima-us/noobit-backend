@@ -1,8 +1,9 @@
 import logging
 
-import stackprinter
-
 from noobit.models.orm import Strategy
+from noobit.logger.structlogger import log_exception, log_exc_to_db
+
+logger = logging.getLogger("uvicorn.error")
 
 
 async def startup_strategy_table():
@@ -13,7 +14,7 @@ async def startup_strategy_table():
 
         # if Balance table is empty:
         if not strategies:
-            logging.warning(f"Strategy : db table is empty")
+            logger.warning(f"Strategy : db table is empty")
 
             try:
                 await Strategy.create(
@@ -23,7 +24,9 @@ async def startup_strategy_table():
                 )
 
             except Exception as e:
-                logging.error(stackprinter.format(e, style="darkbg2"))
+                log_exception(logger, e)
+                await log_exc_to_db(logger, e)
 
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
+        log_exception(logger, e)
+        await log_exc_to_db(logger, e)

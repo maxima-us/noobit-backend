@@ -9,7 +9,7 @@ import websockets
 import pandas as pd
 
 
-from noobit.logging.structlogger import get_logger, log_exception
+from noobit.logger.structlogger import get_logger, log_exception
 from noobit.exchanges.mappings import rest_api_map
 
 from noobit_user import get_abs_path

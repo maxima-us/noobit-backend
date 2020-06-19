@@ -7,3 +7,4 @@ from .trades import Trade
 from .strategy import Strategy
 from .account import Account
 from .backtest import Backtest
+from .errors import ErrorLog

@@ -1,15 +1,14 @@
 """
 define what happens for each message received by redis sub
 """
-
 import logging
-
 import ujson
-import stackprinter
 
 from noobit.server import settings
 from noobit.models.orm import Order, Trade
+from noobit.logger.structlogger import log_exception, log_exc_to_db
 
+logger = logging.getLogger("uvicorn.error")
 
 
 async def update_user_orders(exchange, message):
@@ -39,7 +38,7 @@ async def update_user_orders(exchange, message):
 
         # .values() returns a list of dicts
         orderID_queryset = await Order.filter(orderID=new_order["orderID"]).values()
-        logging.info(orderID_queryset)
+        logger.info(orderID_queryset)
 
         if new_order["ordStatus"] == "new":
             #check if there is an entry for this orderID
@@ -47,14 +46,14 @@ async def update_user_orders(exchange, message):
             # update dict to suffix foreign keys with _id
                 await Order.create(**new_order, exchange_id=exchange_id)
             else:
-                logging.info(f"Already an entry for {new_order['orderID']} in database")
+                logger.info(f"Already an entry for {new_order['orderID']} in database")
         else:
             await Order.filter(orderID=new_order["orderID"]).update(**new_order, exchange_id=exchange_id)
 
 
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
-
+        log_exception(logger, e)
+        await log_exc_to_db(logger, e)
 
 
 async def update_user_trades(exchange, message):
@@ -80,15 +79,15 @@ async def update_user_trades(exchange, message):
 
         # check that orderID we pass already exists in order table
         orderID_queryset = await Order.filter(orderID=new_trade["orderID_id"]).values()
-        logging.info(orderID_queryset)
+        logger.info(orderID_queryset)
         if orderID_queryset:
             await Trade.create(**new_trade, exchange_id=exchange_id)
         else:
-            logging.info(f"No entry for trade {new_trade['trdMatchID']} - order {new_trade['orderID_id']}")
+            logger.info(f"No entry for trade {new_trade['trdMatchID']} - order {new_trade['orderID_id']}")
 
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
-
+        log_exception(logger, e)
+        await log_exc_to_db(logger, e)
 
 
 async def update_public_trades(exchange, message):
@@ -98,11 +97,11 @@ async def update_public_trades(exchange, message):
 
         msg = message.decode("utf-8")
         new_trade = ujson.loads(msg)
-        logging.info(new_trade)
+        logger.info(new_trade)
 
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
-
+        log_exception(logger, e)
+        await log_exc_to_db(logger, e)
 
 
 async def update_public_spread(exchange, message):
@@ -115,7 +114,8 @@ async def update_public_spread(exchange, message):
         # logging.info(new_spread)
 
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
+        log_exception(logger, e)
+        await log_exc_to_db(logger, e)
 
 
 async def update_public_instrument(exchange, message):
@@ -128,8 +128,8 @@ async def update_public_instrument(exchange, message):
         # logging.info(new_instrument)
 
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
-
+        log_exception(logger, e)
+        await log_exc_to_db(logger, e)
 
 
 async def update_public_orderbook(exchange, message):
@@ -142,5 +142,5 @@ async def update_public_orderbook(exchange, message):
         # logging.info(new_book)
 
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
-
+        log_exception(logger, e)
+        await log_exc_to_db(logger, e)

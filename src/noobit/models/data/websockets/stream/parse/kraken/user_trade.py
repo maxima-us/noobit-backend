@@ -1,7 +1,8 @@
-import logging
 from decimal import Decimal
 
-import stackprinter
+from noobit.logger.structlogger import get_logger, log_exception
+
+logger = get_logger(__name__)
 
 
 def parse_user_trade(message):
@@ -12,8 +13,7 @@ def parse_user_trade(message):
         ]
         return parsed_trades
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
-
+        log_exception(logger, e)
 
 
 def parse_single_trade(key, value):
@@ -36,8 +36,7 @@ def parse_single_trade(key, value):
 
         return parsed_trade
     except Exception as e:
-        logging.error(stackprinter.format(e, style="darkbg2"))
-
+        log_exception(logger, e)
 
 # EXAMPLE MESSAGE FROM KRAKEN DOC
 # [

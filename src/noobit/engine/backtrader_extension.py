@@ -5,7 +5,7 @@ import uuid
 import backtrader as bt
 from backtrader.feeds import PandasData
 
-from noobit.logging.structlogger import get_logger
+from noobit.logger.structlogger import get_logger
 from noobit_user import get_abs_path
 
 
