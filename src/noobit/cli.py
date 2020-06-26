@@ -70,7 +70,7 @@ def run_server(host, port, auto_reload):
 @click.option("--strategy", help="Name of Strategy", required=True)
 @click.option("--exchange", "-e", default="kraken", help="Lowercase exchange")
 @click.option("--symbol", "-s", default="xbt-usd", help="Dash-separated lowercase pairs")
-@click.option("--timeframe", "-tf", help="TimeFrame in minutes", required=True)
+@click.option("--timeframe", "-tf", type=int, help="TimeFrame in minutes", required=True)
 @click.option("--volume", "-v", default=0, help="Volume in lots")
 def run_stratrunner(strategy, exchange, symbol, timeframe, volume):
     strat_dir_str = "noobit_user.strategies"

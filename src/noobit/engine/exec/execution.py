@@ -5,7 +5,7 @@ import asyncio
 import aioredis
 import ujson
 
-from noobit.logging.structlogger import get_logger, log_exception
+from noobit.logger.structlogger import get_logger, log_exception
 from noobit.models.data.request import AddOrder, CancelOrder
 from noobit.models.data.websockets.stream.parse.kraken import KrakenStreamParser
 # from noobit.models.data.request.parse.kraken import KrakenRequestParser

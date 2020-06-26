@@ -192,7 +192,7 @@ class StratBase():
         ==> that was a stupid comment, we prob wont be running multiple strats on same exch/pair
         """
 
-        response = await self.api.get_ohlc_as_pandas(self.symbol, self.timeframe)
+        response = await self.api.get_ohlc_as_pandas(self.symbol, int(self.timeframe))
         if response.is_ok:
             return response.value
 
