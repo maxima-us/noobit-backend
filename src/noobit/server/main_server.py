@@ -385,6 +385,29 @@ class Server:
             await update_user_orders(exchange="kraken", message=message)
 
 
+    async def watcher(self):
+        # if item gets appended to list of tasks, we create task and await it
+        # when task is done, notify caller function
+        # while True:
+        #     if self.should_exit:
+        #         break
+
+        try:
+            coro, kwargs = settings.SCHEDULED.popleft()
+            print(coro, kwargs)
+            if coro:
+                print("watcher launching retrieved coro")
+                task = asyncio.ensure_future(coro(**kwargs))
+                # await coro(**kwargs)
+        except IndexError:
+            # continue
+            pass
+        except Exception as e:
+            raise e
+
+
+
+
 
     async def main_loop(self, tick_interval=settings.TICK_INTERVAL):
         counter = 0
@@ -415,6 +438,9 @@ class Server:
 
             # heartbeat once per second
             self.heartbeat.beat()
+
+            # check if we have scheduled tasks once per second
+            await self.watcher() #!
 
         # Write balance to db every minute
         if counter % (60/tick_interval) == 0:

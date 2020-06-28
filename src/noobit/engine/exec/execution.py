@@ -332,6 +332,9 @@ class LimitChaseExecution():
         channel = self.subscribed_channels["user_order_updates"]
 
         async for _chan, msg in channel.iter():
+            if self.should_exit:
+                break
+
             json = msg.decode("utf-8")
             new_order = ujson.loads(json)
             logger.info(new_order)
@@ -349,6 +352,9 @@ class LimitChaseExecution():
         channel = self.subscribed_channels["user_trade_updates"]
 
         async for _chan, msg in channel.iter():
+            if self.should_exit:
+                break
+
             json = msg.decode("utf-8")
             new_trades = ujson.loads(json)
             logger.info(new_trades)
@@ -367,6 +373,9 @@ class LimitChaseExecution():
         channel = self.subscribed_channels["public_spread_updates"]
 
         async for _chan, msg in channel.iter():
+            if self.should_exit:
+                break
+
             json = msg.decode("utf-8")
             new_spread = ujson.loads(json)
 

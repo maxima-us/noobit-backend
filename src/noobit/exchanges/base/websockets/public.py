@@ -65,6 +65,7 @@ class PublicFeedReaderBase():
         for feed in self.feeds:
             try:
 
+                #! implement way of checking which feeds we have already subd to
                 data = await self.subscription_parser.public(self.pairs, self.timeframe, self.depth, feed)
 
 

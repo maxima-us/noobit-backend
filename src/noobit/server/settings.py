@@ -3,10 +3,16 @@ global config file, needs to be imported in each module of the app for us to
 be able to instantiate the global variables at startup
 '''
 import os
+from collections import deque
+
 import redis
 
 from dotenv import load_dotenv
 load_dotenv()
+
+
+# Tasks scheduled to run (received from views and dispatched to watcher)
+SCHEDULED = deque()
 
 # Connection to DB
 DB_CONNECTION = None

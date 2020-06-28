@@ -1,6 +1,10 @@
+import sys
 import asyncio
 from importlib import import_module
+import cProfile
 
+
+import yappi
 import click
 import httpx
 
@@ -72,7 +76,8 @@ def run_server(host, port, auto_reload):
 @click.option("--symbol", "-s", default="xbt-usd", help="Dash-separated lowercase pairs")
 @click.option("--timeframe", "-tf", type=int, help="TimeFrame in minutes", required=True)
 @click.option("--volume", "-v", default=0, help="Volume in lots")
-def run_stratrunner(strategy, exchange, symbol, timeframe, volume):
+@click.option("--profile", "-p", default=False, help='Profile the code')
+def run_stratrunner(strategy, exchange, symbol, timeframe, volume, profile):
     strat_dir_str = "noobit_user.strategies"
     strat_file_path = f"{strat_dir_str}.{strategy}"
     strategy = import_module(strat_file_path)
@@ -85,7 +90,19 @@ def run_stratrunner(strategy, exchange, symbol, timeframe, volume):
                               )
 
     runner = StratRunner(strats=[strat])
-    runner.run()
+
+    if profile:
+        print("Profiling code with Yappi")
+        yappi.set_clock_type("WALL")
+        with yappi.run():
+            runner.run()
+        # yappi.get_func_stats().print_all()
+        stats = yappi.get_func_stats.sort(
+        sort_type='totaltime', sort_order='desc')
+        # returns all stats with sorting applied
+        yappi.print_all(stats, sys.stdout, limit=10)
+    else:
+        runner.run()
 
 
 @click.command()

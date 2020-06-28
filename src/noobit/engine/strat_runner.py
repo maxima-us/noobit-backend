@@ -4,6 +4,9 @@ import os
 
 import uvloop
 from tortoise import Tortoise
+import stackprinter
+stackprinter.set_excepthook(style="darkbg2")
+
 
 from noobit.logger.structlogger import get_logger, log_exception
 from noobit.engine.base import BaseStrategy
@@ -85,6 +88,21 @@ class StratRunner():
                 model.should_exit = True
 
 
+    async def close_connections(self):
+        try:
+            for strat in self.strats:
+                await strat.close_ws()
+                logger.info(f"Closed WS for {strat}")
+                for _key, model in strat.execution_models.items():
+                    # await model.aioredis_pool.wait_closed()
+                    model.aioredis_pool.close()
+                    logger.info(f"Closed Redis Pool for {_key}")
+        except Exception as e:
+            logger.error(e)
+
+        logger.info("close all connections")
+
+
     async def main(self):
         results = await asyncio.gather(*self.tasks)
         return results
@@ -112,21 +130,25 @@ class StratRunner():
             print("Keyboard Interrupt")
 
         finally:
+            logger.info("In finally clause")
             loop = asyncio.get_event_loop()
+            logger.info("test 1")
+            loop.run_until_complete(self.close_connections())
+            logger.info("test2")
             tasks = asyncio.all_tasks(loop)
 
             logger.info("Initiating shutdown")
             for task in tasks:
                 task.cancel()
-                try:
-                    loop.run_until_complete(task)
-                except asyncio.CancelledError:
-                    logger.info(f'{task} is now cancelled')
+            #     # try:
+            #     #     loop.run_until_complete(task)
+            #     # except asyncio.CancelledError:
+            #     #     logger.info(f'{task} is now cancelled')
 
             logger.info("Closing Db connections")
             loop.run_until_complete(self.shutdown_tortoise())
 
             logger.info("Stopping Event Loop")
-            loop.stop()
+            # loop.stop()
             logger.info("Closing Event Loop")
-            loop.close()
+            # loop.close()

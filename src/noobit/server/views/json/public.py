@@ -124,6 +124,7 @@ async def get_ohlc(exchange: str,
 
 #! COME BACK TO THIS, WEBSOCKET BELOW DOESNT WORK AS INTENDED YET
 
+from starlette.responses import JSONResponse
 import ujson
 
 @router.websocket("/ws/trades/{exchange}")
@@ -169,3 +170,51 @@ async def receive_trades_from_ws():
         </body>
     """
     return HTMLResponse(html)
+
+
+
+# ================================================================================
+# ================================================================================
+# ================================================================================
+# ================================================================================
+# ================================================================================
+
+# Try to start a new coro thru a view
+import asyncio
+
+async def coro_to_fire(start: int, end: int, step: int):
+    # for i in range(start, end, step):
+    #     print(i)
+    #     await asyncio.sleep(1)
+    i = start
+    while True:
+        if i >= end:
+            break
+        else:
+            print(i)
+            i += step
+            await asyncio.sleep(1)
+
+@router.get("/fire_coro")
+async def fire_new_coro(start: int = Query(..., title="start"),
+                        end: int = Query(..., title="end"),
+                        step: int = Query(..., title="step")
+    ):
+    # <scheduled> is a Queue that we append coros to (on right side)
+    # and pop them from the left when we want to start them from the watcher
+    print("appending coro to deque")
+    settings.SCHEDULED.append((coro_to_fire, locals()))
+
+
+
+# Try to run a background task (as defined in fastapi/starlette)
+from starlette.background import BackgroundTask
+
+@router.get("/add_bg_task")
+async def fire_new_coro(start: int = Query(..., title="start"),
+                        end: int = Query(..., title="end"),
+                        step: int = Query(..., title="step"),
+    ):
+    task = BackgroundTask(coro_to_fire, **locals())
+    msg = {"status": "Background Task started"}
+    return JSONResponse(msg, background=task)

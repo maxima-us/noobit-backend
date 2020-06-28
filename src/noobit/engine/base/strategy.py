@@ -136,7 +136,7 @@ class StratBase():
 
 
 
-    async def close(self):
+    async def close_ws(self):
         """Close websocket connection
         """
         try:
