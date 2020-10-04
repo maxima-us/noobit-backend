@@ -4,6 +4,7 @@ to appropriate redis channel
 """
 from typing import List
 from typing_extensions import Literal
+import websockets
 
 import ujson
 
@@ -17,23 +18,22 @@ from noobit.models.data.base.types import PAIR, WS_ROUTE
 # parser
 from noobit.models.data.websockets.stream.parse.kraken import KrakenStreamParser
 from noobit.models.data.websockets.subscription.parse.kraken import KrakenSubParser
+from noobit.models.data.websockets.unsubscription.parse.kraken import KrakenUnsubParser
 
 
 class KrakenPrivateFeedReader(BasePrivateFeedReader):
 
 
-    def __init__(self,
-                 pairs: List[PAIR],
-                 feeds: List[str] = ["trade", "order"]
-                 ):
+    def __init__(self, ws: websockets.WebSocketClientProtocol = None):
 
         self.exchange = "kraken"
         self.ws_uri = "wss://ws-auth.kraken.com"
 
         self.subscription_parser = KrakenSubParser()
+        self.unsubscription_parser = KrakenUnsubParser()
         self.stream_parser = KrakenStreamParser()
 
-        super().__init__(pairs=pairs, feeds=feeds)
+        super().__init__(ws)
 
 
 
@@ -44,7 +44,7 @@ class KrakenPrivateFeedReader(BasePrivateFeedReader):
         """
 
         if "systemStatus" in msg:
-            route = "system_status"
+            route = "connection_status"
             return route
 
         elif "subscription" in msg:

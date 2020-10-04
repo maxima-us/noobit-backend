@@ -8,6 +8,8 @@ from .user_trade import parse_user_trade
 from .add_order import parse_add_order
 from .cancel_order import parse_cancel_order
 from .spread import parse_spread
+from .status import parse_connection_status, parse_subscription_status
+from .ohlc import parse_ohlc
 
 
 class KrakenStreamParser(BaseStreamParser):
@@ -21,6 +23,9 @@ class KrakenStreamParser(BaseStreamParser):
 
     def spread(self, message) -> dict:
         return parse_spread(message)
+
+    def ohlc(self, message) -> dict:
+        return parse_ohlc(message)
 
     def orderbook(self, message) -> dict:
         return parse_orderbook(message)
@@ -39,3 +44,9 @@ class KrakenStreamParser(BaseStreamParser):
 
     def cancel_order(self, validated_data, token) -> dict:
         return parse_cancel_order(validated_data, token)
+
+    def connection_status(self, message) -> dict:
+        return parse_connection_status(message)
+
+    def subscription_status(self, message) -> dict:
+        return parse_subscription_status(message)

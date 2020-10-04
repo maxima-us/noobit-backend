@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 import time
 import asyncio
 from collections import deque
+import typing
 from typing import Optional, Union, Any, Dict
 from typing_extensions import Literal
 
@@ -14,6 +15,7 @@ import stackprinter
 from pydantic import BaseModel, ValidationError
 import pandas as pd
 from starlette import status
+import httpx
 
 # general
 from noobit.server import settings
@@ -49,16 +51,20 @@ class APIBase():
     """Baseclass for Rest APIs.
     """
 
+    # FIXME this will probably be shared among all classes that inherit APIBase ?? ==> not good
     env_keys_dq = deque()
 
 
-    def __init__(self):
+    def __init__(self, app: typing.Callable = None, parent: typing.Callable = None):
+        self.app = app
+        self.parent = parent
 
         self._load_all_env_keys()
         self.to_standard_format = self._load_normalize_map()
         self.to_exchange_format = {v:k for k, v in self.to_standard_format.items()}
         self.exchange_pair_specs = self._load_pair_specs_map()
-        self.session = settings.SESSION
+        # self.session = app.session if app.session else httpx.AsyncClient()
+        self.session = httpx.AsyncClient()
         self.response = None
         self._json_options = {}
         settings.SYMBOL_MAP_TO_EXCHANGE[self.exchange.upper()] = self.to_exchange_format
@@ -67,6 +73,10 @@ class APIBase():
         # must be defined by user
         # self.request_parser = BaseRequestParser
         # self.response_parser = BaseResponseParser
+
+        # FIXME we need to keep track of nonces so we dont run into errors because of async
+        # verify that current  last, similar to Hummingbot
+        self.last_nonce = None
 
 
     def json_options(self, **kwargs):

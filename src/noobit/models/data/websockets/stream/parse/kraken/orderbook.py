@@ -6,7 +6,7 @@ logger = get_logger(__name__)
 def parse_orderbook(message):
 
     info = message[1]
-    pair = message[3].replace("/", "-")
+    pair = message[-1].replace("/", "-")
 
     #! we could possibly be a lot more efficient if we count the messages we have received from each channel
     #! so we dont need to do an if check every time

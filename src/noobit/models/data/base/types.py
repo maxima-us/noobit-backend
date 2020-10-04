@@ -184,7 +184,7 @@ TRANSACTIONTYPE = Literal[
 
 WS_ROUTE = [
     "heartbeat",
-    "system_status",
+    "connection_status",
     "subscription_status",
 
     "trade",
@@ -192,6 +192,22 @@ WS_ROUTE = [
     "orderbook",
     "spread",
     "order",
+    "ohlc",
 
     "data"
+]
+
+WS = Literal [
+    "heartbeat",
+    "connection_status",
+    "subscription_status",
+
+    "trade",
+    "instrument",
+    "orderbook",
+    "spread",
+    "ohlc",
+
+    "order",
+    "trade",
 ]

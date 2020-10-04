@@ -10,6 +10,7 @@ import hmac
 import os
 import asyncio
 from collections import deque
+import typing
 
 import requests
 from dotenv import load_dotenv
@@ -56,7 +57,7 @@ class KrakenRestAPI(BaseRestAPI):
 
     # env_keys_dq = deque()
 
-    def __init__(self):
+    def __init__(self, app: typing.Callable, parent: typing.Callable):
 
         #! SETTLE FOR A FORMAT FOR ALL PAIRS AND EXCHANGE NAMES
         #! Maybe it is better to capitalize everything  since most exchanges seem to want capital pairs
@@ -71,7 +72,7 @@ class KrakenRestAPI(BaseRestAPI):
         self.response_parser = KrakenResponseParser()
         self.request_parser = KrakenRequestParser()
 
-        super().__init__()
+        super().__init__(app, parent)
 
 
 

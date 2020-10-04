@@ -12,6 +12,7 @@ import sys
 import time
 from email.utils import formatdate
 import logging
+import inspect
 
 import aioredis
 import click
@@ -37,6 +38,10 @@ from noobit.server.db_utils.update_from_ws import (
 from noobit.server.app_startup.monit import startup_monit
 from noobit.server.monitor.heartbeat import Heartbeat
 
+#! new imports
+from noobit import runtime
+from noobit.server.server_startup import connect_ws, consume_ws
+from noobit.server.server_shutdown import disconnect_ws
 
 HANDLED_SIGNALS = (
     signal.SIGINT,  # Unix signal 2. Sent by Ctrl+C.
@@ -126,10 +131,10 @@ class Server:
         # heartbeat
         self.heartbeat = None
 
-        # websockets
-        # self.open_websockets = {}
-        # self.private_ws = None
-        # self.public_ws = None
+        # consumer tasks
+        self.consumer_tasks = []
+
+        # redis pools and subs
         self.redis_sub = None
         self.aioredis_pool = None
 
@@ -138,6 +143,7 @@ class Server:
         self.subscribed_channels = {}
         if sub_map is None:
             # redis channels are case sensitive
+            #! this needs to be defined in a settings files or sthg
             self.sub_map = {"public_heartbeat": "ws:public:heartbeat:*",
                             "public_status": "ws:public:status:*",
                             "public_system": "ws:public:system:*",
@@ -165,9 +171,12 @@ class Server:
 
     async def main(self, sockets):
         # await self.subscribe_redis_channel()
+        await self.setup_ws()
         await self.setup_redis_sub()
-
-        results = await asyncio.gather(*self.redis_tasks, self.serve(sockets=sockets))
+        await self.setup_feedreaders()
+        # at this stage app_startup modules have not yet executed
+        # se we can not simply call consume public
+        results = await asyncio.gather(*self.redis_tasks, *self.consumer_tasks, self.serve(sockets=sockets))
         return results
 
 
@@ -201,6 +210,13 @@ class Server:
             return
 
         await self.main_loop()
+
+        # sending terminate signal to runtime config
+        runtime.Config.terminate = True
+
+        logger.info("Closing all WS connections")
+        await disconnect_ws.private()
+        await disconnect_ws.public()
 
         logger.info("Initiating application shutdown")
         await self.shutdown_feed_connection()
@@ -306,12 +322,11 @@ class Server:
         await startup_strategy_table()
 
 
-
     async def setup_redis_sub(self):
 
         # aioredis pool connection to use across entire server module
-        settings.AIOREDIS_POOL = await aioredis.create_redis_pool(('localhost', 6379))
-        self.aioredis_pool = settings.AIOREDIS_POOL
+        self.aioredis_pool = await aioredis.create_redis_pool(('localhost', 6379))
+        runtime.Config.redis_pool = self.aioredis_pool
 
         for key, channel_name in self.sub_map.items():
             subd_chan = await self.aioredis_pool.psubscribe(channel_name)
@@ -335,6 +350,22 @@ class Server:
         logger.debug(f"subscribed channels : {self.subscribed_channels}")
 
 
+    async def setup_ws(self):
+        await connect_ws.public()
+        await connect_ws.private()
+
+    async def setup_feedreaders(self):
+
+        # open_ws = runtime.Config.open_websockets
+        for _exchange_name, fr_dict in runtime.Config.available_feedreaders.items():
+            public_fr = fr_dict["public"]
+            self.consumer_tasks.append(consume_ws.public(public_fr))
+
+            private_fr = fr_dict["private"]
+            self.consumer_tasks.append(consume_ws.private(private_fr))
+
+
+    # ================================================================================
 
 
     async def consume_public_orderbook(self, channel):
@@ -393,12 +424,14 @@ class Server:
         #         break
 
         try:
-            coro, kwargs = settings.SCHEDULED.popleft()
-            print(coro, kwargs)
-            if coro:
+            elem = runtime.Config.scheduled.popleft()
+            if elem:
                 print("watcher launching retrieved coro")
-                task = asyncio.ensure_future(coro(**kwargs))
-                # await coro(**kwargs)
+                if inspect.iscoroutine(elem):
+                    task = asyncio.ensure_future(elem)
+                if isinstance(elem, tuple):
+                    coro, kwargs = elem
+                    task = asyncio.ensure_future(coro, **kwargs)
         except IndexError:
             # continue
             pass

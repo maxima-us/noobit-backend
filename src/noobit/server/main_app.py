@@ -5,9 +5,15 @@ from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 
 from noobit.server import settings
-from noobit.server.app_startup.register_client import register_session
-from noobit.server.app_startup.register_orm import register_tortoise
-from noobit.server.views import cache, html, json
+from noobit.server.app_startup import (
+    register_session,
+    register_tortoise,
+    connect_ws,
+    load_strats,
+    load_feedreaders,
+    load_exec_models
+)
+from noobit.server.views import cache, html, json, services, websockets, db
 from noobit.server.main_server import run
 import noobit_user
 from noobit.logger.config import LOGGING_CONFIG
@@ -24,7 +30,7 @@ from noobit.logger.config import LOGGING_CONFIG
 
 app = FastAPI()
 
-
+# allow local connections to vuejs
 origins = [
     "http://localhost:8080",
 ]
@@ -46,9 +52,12 @@ register_tortoise(
     generate_schemas=True,
     )
 
-register_session(
-    app=app
-    )
+register_session(app=app)
+load_strats(app=app)
+load_exec_models(app=app)
+
+# connect_ws(app=app)
+# load_feedreaders(app=app)
 
 # register_kafka(
 #     app=app,
@@ -58,16 +67,21 @@ register_session(
 
 router = APIRouter()
 
-
-
 # Routers we want to actually use in production
 app.include_router(cache.account.router, prefix="/cache", tags=["cached_data"])
+app.include_router(cache.config.router, prefix="/cache", tags=["cached_data", "config"])
 app.include_router(json.public.router, prefix="/json/public", tags=["public_data", "json"])
 app.include_router(json.private.router, prefix="/json/private", tags=["private_data", "json"])
 app.include_router(html.public.router, prefix="/html/public", tags=["public_data", "html"])
 app.include_router(html.private.router, prefix="/html/private", tags=["private_data", "html"])
-
-
+app.include_router(services.feedhandler.router, prefix='/feeds', tags=["services"])
+app.include_router(services.config.router, prefix='/config', tags=["services"])
+app.include_router(websockets.stream.router, tags=["websockets"])
+app.include_router(websockets.market_data.router, tags=["websockets"])
+app.include_router(websockets.runtime.router, tags=["websockets"])
+app.include_router(websockets.notifications.router, tags=["websockets"])
+app.include_router(websockets.account.router, tags=["websockets"])
+app.include_router(db.account.router, tags=["db"])
 # app.mount("/static", StaticFiles(directory="server/static"), name="static")
 # we don't need static files anymore
 

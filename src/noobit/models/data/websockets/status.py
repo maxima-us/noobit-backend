@@ -1,14 +1,19 @@
-from typing import List, Any, Dict, Tuple, Optional
-from decimal import Decimal
+from typing import Optional
+from typing_extensions import Literal
+from pydantic import BaseModel, PositiveInt, validator
 
-from typing_extensions import Literal, TypedDict
-from pydantic import BaseModel
+from noobit.models.data.base.types import WS, PAIR
 
 
+class ConnectionStatus(BaseModel):
+    """
+    kraken : https://docs.kraken.com/websockets/#message-systemStatus
+    """
 
-# ================================================================================
-# ==== PRIVATE WS STATUS
-# ================================================================================
+    exchange: str
+    connection_id: PositiveInt
+    status: Literal["online", "offline"]
+    version: str
 
 
 class SubscriptionStatus(BaseModel):
@@ -16,39 +21,14 @@ class SubscriptionStatus(BaseModel):
     kraken : https://docs.kraken.com/websockets/#message-subscriptionStatus
     """
 
-    channel_id: Optional[int] = None
-    error_msg: Optional[str] = None
-    channel_name: str
-    event: str
-    req_id: Optional[str] = None
-    pair: Optional[str] = None
-    status: str
-    subscription: dict
-
-
-class SystemStatus(BaseModel):
-    """
-    kraken : https://docs.kraken.com/websockets/#message-systemStatus
-    """
-    connection_id: int
-    event: str
-    status: str
-    version: str
-
-
-
-
-# ================================================================================
-# ==== PRIVATE WS HEARTBEAT
-# ================================================================================
+    exchange: str
+    feed: WS
+    symbol: PAIR
+    status: Literal["subscribed", "unsubscribed", "error"]
+    args: dict
+    msg: str
 
 
 class HeartBeat(BaseModel):
-    """
-    kraken : https://docs.kraken.com/websockets/#message-heartbeat
-    """
 
-    event: Literal["heartbeat"]
-
-
-
+    exchange: str

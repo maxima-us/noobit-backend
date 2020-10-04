@@ -18,14 +18,16 @@ class Strategy(BaseStrategy):
 
         # name = inspect.getfile(self)
         description = "describe your strategy"
-        super().__init__(description, exchange, symbol, timeframe, volume)
+        # super().__init__(description, exchange, symbol, timeframe, volume)
 
         # for now we only accept one execution model
         # we can access the minimum tick for volume and price through api
         # how to we pass the name of the strategy to the execution model
         self.execution_models = {
-            "limit_chase": LimitChaseExecution(exchange, symbol, self.ws, self.ws_token, self.api.exchange_pair_specs[symbol])
+            # "limit_chase": LimitChaseExecution(exchange, symbol, self.ws, self.ws_token, self.api.exchange_pair_specs[symbol])
+            "limit_chase": LimitChaseExecution,
         }
+        super().__init__(description, exchange, symbol, timeframe, volume, self.execution_models)
 
 
     def user_setup(self):

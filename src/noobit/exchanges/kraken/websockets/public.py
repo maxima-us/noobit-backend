@@ -1,5 +1,6 @@
 from typing import List
 from typing_extensions import Literal
+import websockets
 
 import ujson
 
@@ -8,40 +9,37 @@ import ujson
 from noobit.exchanges.base.websockets import BasePublicFeedReader
 
 # models
-from noobit.models.data.base.types import TIMEFRAME, PAIR, WS_ROUTE
+from noobit.models.data.base.types import TIMEFRAME, PAIR, WS
 
 # parser
 from noobit.models.data.websockets.stream.parse.kraken import KrakenStreamParser
 from noobit.models.data.websockets.subscription.parse.kraken import KrakenSubParser
+from noobit.models.data.websockets.unsubscription.parse.kraken import KrakenUnsubParser
 
 
 class KrakenPublicFeedReader(BasePublicFeedReader):
 
 
-    def __init__(self,
-                 pairs: List[PAIR],
-                 timeframe: TIMEFRAME = 1,
-                 depth: int = 10,
-                 feeds: List[str] = ["instrument", "trade", "orderbook"]
-                 ):
+    def __init__(self, ws: websockets.WebSocketClientProtocol = None):
 
         self.exchange = "kraken"
         self.ws_uri = "wss://ws.kraken.com"
 
         self.subscription_parser = KrakenSubParser()
+        self.unsubscription_parser = KrakenUnsubParser()
         self.stream_parser = KrakenStreamParser()
 
-        super().__init__(pairs=pairs, timeframe=timeframe, depth=depth, feeds=feeds)
+        super().__init__(ws)
 
 
 
-    async def route_message(self, msg) -> Literal[WS_ROUTE]:
+    async def route_message(self, msg) -> WS:
         """
         forward to appropriate parser ==> redis channel
         """
 
         if "systemStatus" in msg:
-            route = "system_status"
+            route = "connection_status"
             return route
 
         elif "subscription" in msg:
@@ -54,18 +52,18 @@ class KrakenPublicFeedReader(BasePublicFeedReader):
 
         else:
             msg = ujson.loads(msg)
-            feed = msg[2]
+            feed = msg[-2]
 
             if feed == "ticker":
                 route = "instrument"
 
-            if feed == "ohlc":
+            if feed.startswith("ohlc"):
                 route = "ohlc"
 
             if feed == "spread":
                 route = "spread"
 
-            if "book" in feed:
+            if feed.startswith("book"):
                 route = "orderbook"
 
             if feed == "trade":

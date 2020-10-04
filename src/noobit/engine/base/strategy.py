@@ -11,6 +11,8 @@ import pandas as pd
 
 from noobit.logger.structlogger import get_logger, log_exception
 from noobit.exchanges.mappings import rest_api_map
+# from noobit.central_objects.app import App
+# app = App()
 
 from noobit_user import get_abs_path
 from noobit.engine import backtrader_extension
@@ -18,8 +20,6 @@ from noobit.engine import backtrader_extension
 # models
 from noobit.models.data.base.types import PAIR
 from noobit.models.orm import Strategy, Backtest
-
-
 
 logger = get_logger(__name__)
 
@@ -56,7 +56,7 @@ class StratBase():
     where self.execution is an instance subclassing BaseExecution
     """
 
-    def __init__(self, description: str, exchange: str, symbol: PAIR, timeframe: int, volume: int):
+    def __init__(self, description: str, exchange: str, symbol: PAIR, timeframe: int, volume: int, execution_models):
 
         self.name = os.path.basename(inspect.getmodule(self).__file__).split(".")[0]
         self.description = description
@@ -71,6 +71,7 @@ class StratBase():
         self.volume = volume
 
         self.api = rest_api_map[exchange]()
+        # self.api = getattr(app.api.rest, exchange)()
         self.api.session = httpx.AsyncClient()   # or settings.SESSION if not None
 
         self.df = None
@@ -93,7 +94,9 @@ class StratBase():
         self.ws = None
         self.ws_token = None
 
-        self.execution_models = {}
+        self.execution_models = {
+            name : model(exchange, symbol, self.ws, self.ws_token, self.api.exchange_pair_specs[symbol]) for name, model in execution_models.items()
+        }
 
 
 

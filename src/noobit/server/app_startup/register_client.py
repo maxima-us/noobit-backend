@@ -4,6 +4,7 @@ from fastapi import FastAPI
 import httpx
 
 from noobit.server import settings
+from noobit import runtime
 # from noobit.logger.structlogger import get_logger
 
 logger = logging.getLogger("uvicorn.error")
@@ -19,6 +20,7 @@ def register_session(
     async def init_session():
         client = httpx.AsyncClient()
         settings.SESSION = client
+        runtime.Config.session = client
         logger.info(f"Started HTTPX Session : {client}")
 
 

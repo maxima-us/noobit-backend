@@ -1,6 +1,7 @@
 import simplejson as ujson
 import logging
 
+from noobit import runtime
 from noobit.server import settings
 from noobit.models.orm import Exchange, Account
 from noobit.exchanges.mappings import rest_api_map
@@ -38,9 +39,9 @@ async def record_new_account_update(event: str):
         if not open_positions.is_ok:
             return
 
-        # redis = settings.AIOREDIS_POOL
         # TODO we could make each get request send the update value to redis ?
-        # await redis.set(f"db:balance:holdings:{exchange_name}", ujson.dumps(holdings))
+        redis_pool = runtime.Config.redis_pool
+        await redis_pool.set(f"db:balance:holdings:{exchange_name}", ujson.dumps(balances.value))
         # await redis.set(f"db:balance:positions:{exchange_name}", ujson.dumps(positions_vol))
         # await redis.set(f"db:balance:account_value:{exchange_name}", ujson.dumps(account_value))
         # await redis.set(f"db:balance:margin_level:{exchange_name}", ujson.dumps(margin_level))

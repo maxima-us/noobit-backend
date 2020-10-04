@@ -127,6 +127,7 @@ async def get_ohlc(exchange: str,
 from starlette.responses import JSONResponse
 import ujson
 
+
 @router.websocket("/ws/trades/{exchange}")
 async def get_trades_from_ws(websocket: WebSocket,
                              exchange: str,

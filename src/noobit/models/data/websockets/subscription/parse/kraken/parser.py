@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 class KrakenSubParser(BaseSubParser):
 
 
-    async def public(self, pairs, timeframe, depth, feed):
+    async def public(self, symbol, timeframe, depth, feed):
 
         map_to_exchange = {
             "orderbook": "book",
@@ -23,7 +23,7 @@ class KrakenSubParser(BaseSubParser):
         }
 
         try:
-            data = {"event": "subscribe", "pair": [pair.replace("-", "/") for pair in pairs], "subscription": {"name": map_to_exchange[feed]}}
+            data = {"event": "subscribe", "pair": [symbol.replace("-", "/")], "subscription": {"name": map_to_exchange[feed]}}
             if feed == "ohlc":
                 data["subscription"]["interval"] = timeframe
             if feed == "book":
@@ -35,13 +35,13 @@ class KrakenSubParser(BaseSubParser):
             log_exception(logger, e)
             raise
 
-    async def private(self, pairs, feed):
+
+    async def private(self, feed):
 
         map_to_exchange = {
             "order": "openOrders",
             "trade": "ownTrades",
         }
-        exchange_name = map_to_exchange[feed]
 
         try:
             api = rest_api_map["kraken"]()

@@ -129,8 +129,9 @@ class FeedHandler(object):
 
 
     async def connect_public(self, exchange, ping_interval: int = 60, ping_timeout: int = 30):
-        exchange_public_ws = public_ws_map[exchange](pairs=self.pairs, feeds=self.public_feeds)
-        await exchange_public_ws.subscribe(ping_interval, ping_timeout)
+        exchange_public_ws = public_ws_map[exchange]()
+        await exchange_public_ws.connect(ping_interval, ping_timeout)
+        await exchange_public_ws.subscribe(pairs=self.pairs, feeds=self.public_feeds)
         if exchange_public_ws is not None:
             self.public_feed_readers[exchange] = exchange_public_ws
 
